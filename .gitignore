@@ -1,0 +1,41 @@
+# node_modules
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Vite
+*.log
+*.log.*
+.vite/
+
+# TypeScript
+*.tsbuildinfo
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Prisma / Database
+prisma/*.db
+prisma/*.db-journal
+/dev.db
+/dev.db-journal
+
+# Build output
+build/
+
+# Project documentation & status
+phases/
+prd.md
+implementation_plan.md
