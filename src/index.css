@@ -69,9 +69,15 @@
   transition-duration: 200ms;
 }
 
-@layer base {
-  /* Print styles are now managed dynamically within the PrintLabelsModal component 
-     via React Portals to ensure the dashboard background is hidden correctly. */
+@layer utilities {
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+  .animate-shake {
+    animation: shake 0.2s ease-in-out 0s 2;
+  }
 }
 
 

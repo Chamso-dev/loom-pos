@@ -78,6 +78,83 @@ app.delete('/api/products/:id', async (req, res) => {
   }
 });
 
+const orderSchema = z.object({
+  totalAmount: z.number().positive(),
+  gstAmount: z.number().min(0),
+  paymentMethod: z.string().min(1),
+  items: z.array(z.object({
+    productId: z.string().min(1),
+    quantity: z.number().int().positive(),
+    price: z.number().positive(),
+  })),
+});
+
+// Create Order & Update Stock
+app.post('/api/orders', async (req, res) => {
+  try {
+    const validatedData = orderSchema.parse(req.body);
+    const { totalAmount, gstAmount, paymentMethod, items } = validatedData;
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Create the order
+      const order = await tx.order.create({
+        data: {
+          totalAmount,
+          gstAmount,
+          paymentMethod,
+        },
+      });
+
+      // 2. Process each item
+      for (const item of items) {
+        // Fetch current stock to check availability
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+        });
+
+        if (!product) {
+          throw new Error(`Product ${item.productId} not found`);
+        }
+
+        if (product.stock < item.quantity) {
+          throw new Error(`Insufficient stock for ${product.name}`);
+        }
+
+        // Create order item
+        await tx.orderItem.create({
+          data: {
+            orderId: order.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.price,
+          },
+        });
+
+        // Decrement stock
+        await tx.product.update({
+          where: { id: item.productId },
+          data: {
+            stock: {
+              decrement: item.quantity,
+            },
+          },
+        });
+      }
+
+      return order;
+    });
+
+    res.status(201).json(result);
+  } catch (error: any) {
+    console.error('Order creation error:', error);
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: error.issues });
+    } else {
+      res.status(500).json({ error: error.message || 'Failed to process order' });
+    }
+  }
+});
+
 const PORT = 3001;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

@@ -28,9 +28,12 @@ export interface CartItem {
   id: string
   productId: string
   name: string
+  sku: string
+  size?: string | null
   price: number
   quantity: number
   gst: number
+  stock: number // To prevent over-selling
 }
 
 interface AppState {
@@ -46,7 +49,8 @@ interface AppState {
 
   // Cart State
   cart: CartItem[]
-  addToCart: (item: CartItem) => void
+  addToCart: (product: Product) => void
+  addByBarcode: (barcode: string) => boolean // Returns true if found
   removeFromCart: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
   clearCart: () => void
@@ -75,25 +79,44 @@ export const useStore = create<AppState>()(
 
       // Cart
       cart: [],
-      addToCart: (item) => set((state) => {
-        const existingItem = state.cart.find((i) => i.productId === item.productId)
+      addToCart: (product) => set((state) => {
+        const existingItem = state.cart.find((i) => i.productId === product.id)
         if (existingItem) {
           return {
             cart: state.cart.map((i) =>
-              i.productId === item.productId
-                ? { ...i, quantity: i.quantity + item.quantity }
+              i.productId === product.id
+                ? { ...i, quantity: Math.min(i.stock, i.quantity + 1) }
                 : i
             ),
           }
         }
-        return { cart: [...state.cart, item] }
+        const newItem: CartItem = {
+          id: Math.random().toString(36).substr(2, 9),
+          productId: product.id,
+          name: product.name,
+          sku: product.sku,
+          size: product.size,
+          price: product.sellingPrice,
+          quantity: 1,
+          gst: product.gst,
+          stock: product.stock
+        }
+        return { cart: [...state.cart, newItem] }
       }),
+      addByBarcode: (barcode) => {
+        const product = get().products.find(p => p.barcode === barcode)
+        if (product) {
+          get().addToCart(product)
+          return true
+        }
+        return false
+      },
       removeFromCart: (productId) => set((state) => ({
         cart: state.cart.filter((i) => i.productId !== productId),
       })),
       updateQuantity: (productId, quantity) => set((state) => ({
         cart: state.cart.map((i) =>
-          i.productId === productId ? { ...i, quantity } : i
+          i.productId === productId ? { ...i, quantity: Math.min(i.stock, Math.max(1, quantity)) } : i
         ),
       })),
       clearCart: () => set({ cart: [] }),
