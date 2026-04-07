@@ -31,8 +31,8 @@
   --color-destructive: oklch(50% 0.2 25);
   --color-destructive-foreground: oklch(98% 0 0);
 
-  --color-border: oklch(12% 0.01 264);
-  --color-input: oklch(12% 0.01 264);
+  --color-border: oklch(25% 0.01 264);
+  --color-input: oklch(25% 0.01 264);
   --color-ring: oklch(48.8% 0.243 264.376);
 
   --animate-accordion-down: accordion-down 0.2s ease-out;
@@ -68,3 +68,12 @@
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 200ms;
 }
+
+@layer base {
+  /* Print styles are now managed dynamically within the PrintLabelsModal component 
+     via React Portals to ensure the dashboard background is hidden correctly. */
+}
+
+
+
+
