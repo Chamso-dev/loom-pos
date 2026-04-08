@@ -55,6 +55,10 @@ interface AppState {
   updateQuantity: (productId: string, quantity: number) => void
   clearCart: () => void
 
+  // Appearance State
+  theme: 'dark' | 'light'
+  toggleTheme: () => void
+
   // Inventory State
   products: Product[]
   isLoadingProducts: boolean
@@ -121,6 +125,12 @@ export const useStore = create<AppState>()(
       })),
       clearCart: () => set({ cart: [] }),
 
+      // Appearance
+      theme: 'dark',
+      toggleTheme: () => set((state) => ({ 
+        theme: state.theme === 'dark' ? 'light' : 'dark' 
+      })),
+
       // Inventory
       products: [],
       isLoadingProducts: false,
@@ -176,7 +186,7 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'cloth-store-storage',
-      partialize: (state) => ({ user: state.user, cart: state.cart }),
+      partialize: (state) => ({ user: state.user, cart: state.cart, theme: state.theme }),
     }
   )
 )

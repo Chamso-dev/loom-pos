@@ -11,9 +11,18 @@ interface ShellProps {
 
 export default function Shell({ children }: ShellProps) {
   const location = useLocation()
-  const { isSidebarOpen, setSidebarOpen } = useStore()
+  const { isSidebarOpen, setSidebarOpen, theme } = useStore()
   
   const isBillingScreen = location.pathname === '/billing'
+
+  // Apply theme
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }, [theme])
 
   // Auto-hide sidebar on billing screen
   useEffect(() => {

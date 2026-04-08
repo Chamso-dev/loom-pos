@@ -1,7 +1,10 @@
-import { Bell, Search, User } from 'lucide-react'
+import { Bell, Search, User, Sun, Moon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useStore } from '@/store/useStore'
 
 export default function Header() {
+  const { theme, toggleTheme } = useStore()
+
   return (
     <header className="h-16 flex items-center justify-between px-8 bg-background/40 backdrop-blur-md border-b border-white/5 sticky top-0 z-40 transition-all duration-300">
       <div className="flex-1 flex items-center max-w-md">
@@ -16,6 +19,14 @@ export default function Header() {
       </div>
 
       <div className="flex items-center gap-4">
+        <button 
+          onClick={toggleTheme}
+          className="p-2 hover:bg-accent rounded-xl text-muted-foreground hover:text-foreground transition-all border border-transparent hover:border-border"
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+        >
+          {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
+
         <button className="p-2 hover:bg-accent rounded-xl text-muted-foreground hover:text-foreground relative transition-all border border-transparent hover:border-border">
           <Bell size={20} />
           <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-background shadow-lg shadow-primary/30"></span>
