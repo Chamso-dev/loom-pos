@@ -1,5 +1,20 @@
 import { formatCurrency, cn } from '@/lib/utils'
 import { format } from 'date-fns'
+import { QRCodeSVG } from 'qrcode.react'
+
+const upiId = 'store@api' // Replace with your actual UPI ID
+
+const PaymentQR = ({ amount, size = 60 }: { amount: number, size?: number }) => {
+  const upiLink = `upi://pay?pa=${upiId}&pn=THECLOTHSTORE&am=${amount}&cu=INR`
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="p-1 bg-white border border-gray-100 rounded shadow-sm">
+        <QRCodeSVG value={upiLink} size={size} level="M" />
+      </div>
+      <span className="text-[7px] uppercase font-bold text-gray-400">Scan to Pay</span>
+    </div>
+  )
+}
 
 interface ReceiptProps {
   order: any // Type from Prisma Order with items and products
@@ -94,11 +109,14 @@ export const A4Invoice = ({ order }: ReceiptProps) => {
         </div>
         
         <div className="mt-20 flex justify-between items-end">
-          <div className="text-[10px] opacity-40 leading-tight">
-            <p>TERMS & CONDITIONS</p>
-            <p>1. Goods once sold will not be taken back.</p>
-            <p>2. No exchange without receipt.</p>
-            <p>3. Subject to local jurisdiction.</p>
+          <div className="flex gap-8 items-end">
+            <div className="text-[10px] opacity-40 leading-tight">
+              <p>TERMS & CONDITIONS</p>
+              <p>1. Goods once sold will not be taken back.</p>
+              <p>2. No exchange without receipt.</p>
+              <p>3. Subject to local jurisdiction.</p>
+            </div>
+            <PaymentQR amount={order.totalAmount} size={70} />
           </div>
           <div className="text-center border-t border-black w-48 pt-2">
             <p className="text-xs font-bold uppercase">Authorized Signatory</p>
@@ -154,9 +172,14 @@ export const ThermalReceipt = ({ order }: ReceiptProps) => {
          </div>
       </div>
 
-      <div className="mt-4 text-center border-t border-dashed border-black pt-2 space-y-1">
-         <p className="uppercase tracking-widest font-bold">Thank You!</p>
-         <p className="text-[9px]">Visit again for more trends</p>
+      <div className="mt-4 text-center border-t border-dashed border-black pt-4 space-y-4">
+         <div className="flex justify-center">
+            <PaymentQR amount={order.totalAmount} size={100} />
+         </div>
+         <div className="space-y-1">
+            <p className="uppercase tracking-widest font-bold text-[10px]">Thank You!</p>
+            <p className="text-[9px]">Visit again for more trends</p>
+         </div>
       </div>
     </div>
   )

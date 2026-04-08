@@ -5,16 +5,21 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { useStore } from '@/store/useStore'
 import { formatCurrency, cn } from '@/lib/utils'
 import PrintReceiptPortal from './PrintReceiptPortal'
+import PaymentModal from './PaymentModal'
 
 export default function BillingSummary() {
+  // ... existing logic ...
   const { cart, clearCart } = useStore()
   const [receiptType, setReceiptType] = useState<'A4' | 'Thermal'>('Thermal')
   const [lastOrder, setLastOrder] = useState<any>(null)
   const [customerName, setCustomerName] = useState('')
   const [customerMobile, setCustomerMobile] = useState('')
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState<string>('CASH')
 
   const { subtotal, gstGroups, total } = useMemo(() => {
-    // ... existing logic ...
+    // ... logic for subtotal/total remains same ...
     let sub = 0
     const groups: Record<number, number> = {}
     
@@ -38,9 +43,17 @@ export default function BillingSummary() {
     }
   }, [cart])
 
-  const handleCheckout = async () => {
+  const handleCheckout = () => {
     if (cart.length === 0) return
-    
+    if (paymentMethod === 'UPI') {
+      setShowPaymentModal(true)
+    } else {
+      completeOrder(paymentMethod)
+    }
+  }
+
+  const completeOrder = async (method: string) => {
+    setIsProcessing(true)
     try {
       const response = await fetch('/api/orders', {
         method: 'POST',
@@ -48,7 +61,7 @@ export default function BillingSummary() {
         body: JSON.stringify({
           totalAmount: total,
           gstAmount: total - subtotal,
-          paymentMethod: 'CASH', 
+          paymentMethod: method, 
           customerName: customerName || null,
           customerMobile: customerMobile || null,
           items: cart.map(item => ({
@@ -68,10 +81,14 @@ export default function BillingSummary() {
       setLastOrder(orderData)
       setCustomerName('')
       setCustomerMobile('')
+      setShowPaymentModal(false)
+      setPaymentMethod('CASH')
       clearCart()
     } catch (error: any) {
       console.error('Checkout error:', error)
       alert(`Error: ${error.message}`)
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -162,19 +179,40 @@ export default function BillingSummary() {
            </div>
         </div>
 
-        {/* Payment Modes Selection (Visual only for now) */}
+        {/* Payment Modes Selection */}
         <div className="space-y-3 pt-4">
            <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Select Payment Method</span>
            <div className="grid grid-cols-3 gap-2">
-             <Button variant="outline" className="flex-col h-16 gap-2 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all">
+             <Button 
+               variant="outline" 
+               onClick={() => setPaymentMethod('CASH')}
+               className={cn(
+                 "flex-col h-16 gap-2 border-primary/20 transition-all",
+                 paymentMethod === 'CASH' ? "bg-primary/10 border-primary text-primary shadow-sm" : "hover:bg-primary/5 hover:text-primary transition-all"
+               )}
+             >
                 <Wallet size={18} />
                 <span className="text-[10px] uppercase font-bold">Cash</span>
              </Button>
-             <Button variant="outline" className="flex-col h-16 gap-2 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all shadow-sm shadow-primary/10">
+             <Button 
+               variant="outline" 
+               onClick={() => setPaymentMethod('UPI')}
+               className={cn(
+                 "flex-col h-16 gap-2 border-primary/20 transition-all",
+                 paymentMethod === 'UPI' ? "bg-primary/10 border-primary text-primary shadow-sm" : "hover:bg-primary/5 hover:text-primary transition-all shadow-sm shadow-primary/10"
+               )}
+             >
                 <QrCode size={18} />
                 <span className="text-[10px] uppercase font-bold">UPI</span>
              </Button>
-             <Button variant="outline" className="flex-col h-16 gap-2 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all">
+             <Button 
+               variant="outline" 
+               onClick={() => setPaymentMethod('CARD')}
+               className={cn(
+                 "flex-col h-16 gap-2 border-primary/20 transition-all",
+                 paymentMethod === 'CARD' ? "bg-primary/10 border-primary text-primary shadow-sm" : "hover:bg-primary/5 hover:text-primary transition-all"
+               )}
+             >
                 <CreditCard size={18} />
                 <span className="text-[10px] uppercase font-bold">Card</span>
              </Button>
@@ -205,6 +243,17 @@ export default function BillingSummary() {
           order={lastOrder} 
           type={receiptType} 
           onClose={() => setLastOrder(null)} 
+        />
+      )}
+
+      {/* Payment Selection Modal */}
+      {showPaymentModal && (
+        <PaymentModal
+          amount={total}
+          method={paymentMethod}
+          onConfirm={() => completeOrder(paymentMethod)}
+          onCancel={() => setShowPaymentModal(false)}
+          isProcessing={isProcessing}
         />
       )}
     </>

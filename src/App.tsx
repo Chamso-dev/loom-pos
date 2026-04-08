@@ -3,13 +3,14 @@ import Shell from './components/layout/Shell'
 
 import InventoryPage from './components/inventory/InventoryPage'
 import BillingPage from './components/billing/BillingPage'
+import Dashboard from './components/dashboard/Dashboard'
 
 function App() {
   return (
     <BrowserRouter>
       <Shell>
         <Routes>
-          <Route path="/" element={<div className="p-8 font-primary">Dashboard Overview</div>} />
+          <Route path="/" element={<Dashboard />} />
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/billing" element={<BillingPage />} />
           <Route path="/orders" element={<div className="p-8">Order History</div>} />

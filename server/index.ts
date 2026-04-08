@@ -171,6 +171,66 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
+// Analytics: Today's Summary
+app.get('/api/analytics/summary', async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const stats = await prisma.order.aggregate({
+      where: { date: { gte: today } },
+      _sum: { totalAmount: true, gstAmount: true },
+      _count: { id: true }
+    });
+
+    const paymentModes = await prisma.order.groupBy({
+      by: ['paymentMethod'],
+      where: { date: { gte: today } },
+      _sum: { totalAmount: true }
+    });
+
+    res.json({
+      revenue: stats._sum.totalAmount || 0,
+      gst: stats._sum.gstAmount || 0,
+      orders: stats._count.id || 0,
+      paymentBreakdown: paymentModes
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch summary' });
+  }
+});
+
+// Analytics: Last 7 Days Sales
+app.get('/api/analytics/sales', async (req, res) => {
+  try {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    const orders = await prisma.order.findMany({
+      where: { date: { gte: sevenDaysAgo } },
+      select: { date: true, totalAmount: true },
+      orderBy: { date: 'asc' }
+    });
+
+    // Grouping by date
+    const dailyData: Record<string, number> = {};
+    orders.forEach(o => {
+      const dateStr = o.date.toISOString().split('T')[0];
+      dailyData[dateStr] = (dailyData[dateStr] || 0) + o.totalAmount;
+    });
+
+    const result = Object.entries(dailyData).map(([date, amount]) => ({
+      date,
+      amount
+    })).sort((a, b) => a.date.localeCompare(b.date));
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch sales data' });
+  }
+});
+
 const PORT = 3001;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
