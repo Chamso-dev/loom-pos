@@ -30,10 +30,13 @@ model Product {
 
 model Order {
   id            String   @id @default(cuid())
+  invoiceNo     String   @unique
   date          DateTime @default(now())
   totalAmount   Float
   gstAmount     Float
   paymentMethod String
+  customerName   String?
+  customerMobile String?
   items         OrderItem[]
 }
 

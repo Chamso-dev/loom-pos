@@ -1,14 +1,20 @@
-import { useMemo } from 'react'
-import { Printer, Receipt, Wallet, CreditCard, QrCode } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Printer, Receipt, Wallet, CreditCard, QrCode, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { useStore } from '@/store/useStore'
 import { formatCurrency, cn } from '@/lib/utils'
+import PrintReceiptPortal from './PrintReceiptPortal'
 
 export default function BillingSummary() {
   const { cart, clearCart } = useStore()
+  const [receiptType, setReceiptType] = useState<'A4' | 'Thermal'>('Thermal')
+  const [lastOrder, setLastOrder] = useState<any>(null)
+  const [customerName, setCustomerName] = useState('')
+  const [customerMobile, setCustomerMobile] = useState('')
 
   const { subtotal, gstGroups, total } = useMemo(() => {
+    // ... existing logic ...
     let sub = 0
     const groups: Record<number, number> = {}
     
@@ -42,7 +48,9 @@ export default function BillingSummary() {
         body: JSON.stringify({
           totalAmount: total,
           gstAmount: total - subtotal,
-          paymentMethod: 'CASH', // Default for now
+          paymentMethod: 'CASH', 
+          customerName: customerName || null,
+          customerMobile: customerMobile || null,
           items: cart.map(item => ({
             productId: item.productId,
             quantity: item.quantity,
@@ -56,7 +64,10 @@ export default function BillingSummary() {
         throw new Error(error.error || 'Checkout failed')
       }
 
-      alert('Order placed successfully! Stock updated.')
+      const orderData = await response.json()
+      setLastOrder(orderData)
+      setCustomerName('')
+      setCustomerMobile('')
       clearCart()
     } catch (error: any) {
       console.error('Checkout error:', error)
@@ -65,17 +76,62 @@ export default function BillingSummary() {
   }
 
   return (
-    <Card className="h-full flex flex-col border-border/60 shadow-2xl shadow-primary/5 bg-card/60 backdrop-blur-md overflow-hidden">
-      <CardHeader className="border-b border-border/40 pb-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-lg text-primary">
-            <Receipt size={20} />
+    <>
+      <Card className="h-full flex flex-col border-border/60 shadow-2xl shadow-primary/5 bg-card/60 backdrop-blur-md overflow-hidden">
+        {/* ... CardHeader ... */}
+        <CardHeader className="border-b border-border/40 pb-4 shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                <Receipt size={20} />
+              </div>
+              <CardTitle className="text-xl font-bold tracking-tight">Order Summary</CardTitle>
+            </div>
+            
+            <div className="flex bg-accent/30 p-1 rounded-xl border border-border/40 scale-90">
+               <button 
+                 onClick={() => setReceiptType('A4')}
+                 className={cn(
+                   "flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                   receiptType === 'A4' ? "bg-white text-black shadow-sm" : "text-muted-foreground opacity-50"
+                 )}
+               >
+                 <FileText size={12} /> A4
+               </button>
+               <button 
+                 onClick={() => setReceiptType('Thermal')}
+                 className={cn(
+                   "flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                   receiptType === 'Thermal' ? "bg-white text-black shadow-sm" : "text-muted-foreground opacity-50"
+                 )}
+               >
+                 <Receipt size={12} /> 80mm
+               </button>
+            </div>
           </div>
-          <CardTitle className="text-xl font-bold tracking-tight">Order Summary</CardTitle>
-        </div>
-      </CardHeader>
+        </CardHeader>
       
       <CardContent className="flex-1 overflow-y-auto p-6 space-y-6 shrink-0 custom-scrollbar">
+        {/* Customer Info Inputs */}
+        <div className="space-y-3 pb-2">
+           <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Customer Information</span>
+           <div className="grid grid-cols-1 gap-2">
+             <input 
+               type="text" 
+               placeholder="Customer Name"
+               value={customerName}
+               onChange={(e) => setCustomerName(e.target.value)}
+               className="w-full bg-accent/20 border border-border/40 px-3 py-2 rounded-lg text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/40 transition-all"
+             />
+             <input 
+               type="text" 
+               placeholder="Mobile Number"
+               value={customerMobile}
+               onChange={(e) => setCustomerMobile(e.target.value)}
+               className="w-full bg-accent/20 border border-border/40 px-3 py-2 rounded-lg text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/40 transition-all"
+             />
+           </div>
+        </div>
         <div className="space-y-3">
           <div className="flex justify-between text-sm text-muted-foreground uppercase tracking-widest font-semibold">
             <span>Subtotal</span>
@@ -141,6 +197,16 @@ export default function BillingSummary() {
           Complete Sale
         </Button>
       </CardFooter>
-    </Card>
+      </Card>
+
+      {/* Actual Print Portal */}
+      {lastOrder && (
+        <PrintReceiptPortal 
+          order={lastOrder} 
+          type={receiptType} 
+          onClose={() => setLastOrder(null)} 
+        />
+      )}
+    </>
   )
 }

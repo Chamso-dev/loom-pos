@@ -82,6 +82,8 @@ const orderSchema = z.object({
   totalAmount: z.number().positive(),
   gstAmount: z.number().min(0),
   paymentMethod: z.string().min(1),
+  customerName: z.string().optional().nullable(),
+  customerMobile: z.string().optional().nullable(),
   items: z.array(z.object({
     productId: z.string().min(1),
     quantity: z.number().int().positive(),
@@ -93,19 +95,33 @@ const orderSchema = z.object({
 app.post('/api/orders', async (req, res) => {
   try {
     const validatedData = orderSchema.parse(req.body);
-    const { totalAmount, gstAmount, paymentMethod, items } = validatedData;
+    const { totalAmount, gstAmount, paymentMethod, customerName, customerMobile, items } = validatedData;
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Create the order
+      // 1. Generate sequential invoice number
+      const orderCount = await tx.order.count();
+      const invoiceNo = `INV-${(orderCount + 1).toString().padStart(4, '0')}`;
+
+      // 2. Create the order
       const order = await tx.order.create({
         data: {
+          invoiceNo,
           totalAmount,
           gstAmount,
           paymentMethod,
+          customerName,
+          customerMobile,
         },
+        include: {
+          items: {
+            include: {
+              product: true
+            }
+          }
+        }
       });
 
-      // 2. Process each item
+      // 3. Process each item
       for (const item of items) {
         // Fetch current stock to check availability
         const product = await tx.product.findUnique({
