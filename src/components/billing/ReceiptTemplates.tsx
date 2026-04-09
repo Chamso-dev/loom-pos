@@ -5,7 +5,7 @@ import { QRCodeSVG } from 'qrcode.react'
 const upiId = 'store@api' // Replace with your actual UPI ID
 
 const PaymentQR = ({ amount, size = 60 }: { amount: number, size?: number }) => {
-  const upiLink = `upi://pay?pa=${upiId}&pn=THECLOTHSTORE&am=${amount}&cu=INR`
+  const upiLink = `upi://pay?pa=${upiId}&pn=LOOMPOS&am=${amount}&cu=INR`
   return (
     <div className="flex flex-col items-center gap-1">
       <div className="p-1 bg-white border border-gray-100 rounded shadow-sm">
@@ -28,7 +28,7 @@ export const A4Invoice = ({ order }: ReceiptProps) => {
         <div>
           <h1 className="text-4xl font-black tracking-tighter uppercase mb-2">TAX INVOICE</h1>
           <div className="text-sm space-y-1">
-            <p className="font-bold text-lg">THE CLOTH STORE</p>
+            <p className="font-bold text-lg">LOOMPOS</p>
             <p>123 Trend Avenue, Fashion District</p>
             <p>Mumbai, Maharashtra, 400001</p>
             <p>GSTIN: 27AAAAA0000A1Z5</p>
@@ -131,7 +131,7 @@ export const ThermalReceipt = ({ order }: ReceiptProps) => {
   return (
     <div className="bg-white text-black p-4 w-[80mm] mx-auto font-mono text-xs leading-tight">
       <div className="text-center mb-4 space-y-1">
-        <h2 className="text-lg font-bold uppercase tracking-tighter">THE CLOTH STORE</h2>
+        <h2 className="text-lg font-bold uppercase tracking-tighter">LOOMPOS</h2>
         <p>123 Trend Avenue, Fashion District</p>
         <p>GSTIN: 27AAAAA0000A1Z5</p>
         <p>Ph: +91 98765 43210</p>

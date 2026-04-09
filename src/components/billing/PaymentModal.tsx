@@ -15,7 +15,7 @@ interface PaymentModalProps {
 export default function PaymentModal({ amount, method, onConfirm, onCancel, isProcessing }: PaymentModalProps) {
   // Replace with your actual UPI ID
   const upiId = 'store@upi'
-  const upiLink = `upi://pay?pa=${upiId}&pn=THECLOTHSTORE&am=${amount}&cu=INR`
+  const upiLink = `upi://pay?pa=${upiId}&pn=LOOMPOS&am=${amount}&cu=INR`
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">

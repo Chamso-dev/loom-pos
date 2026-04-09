@@ -199,7 +199,7 @@ export const useStore = create<AppState>()(
       },
     }),
     {
-      name: 'cloth-store-storage',
+      name: 'loom-pos-storage',
       partialize: (state) => ({ user: state.user, cart: state.cart, theme: state.theme }),
     }
   )

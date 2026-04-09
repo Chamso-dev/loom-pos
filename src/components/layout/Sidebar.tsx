@@ -35,7 +35,7 @@ export default function Sidebar() {
         {/* Logo Section */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-border">
           {isSidebarOpen && (
-            <span className="font-bold text-xl tracking-tight text-primary">CLOTH<span className="text-foreground">POS</span></span>
+            <span className="font-bold text-xl tracking-tight text-primary">LOOM<span className="text-foreground">POS</span></span>
           )}
           <button 
             onClick={toggleSidebar}
