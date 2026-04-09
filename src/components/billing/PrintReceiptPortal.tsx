@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom'
 import { A4Invoice, ThermalReceipt } from './ReceiptTemplates'
 import { useEffect, useState } from 'react'
+import { hardware } from '@/lib/hardware'
 
 interface PrintReceiptPortalProps {
   order: any
@@ -53,9 +54,7 @@ export default function PrintReceiptPortal({ order, type, onClose, autoPrint = t
     const timer = setTimeout(() => {
       setIsReady(true)
       if (autoPrint) {
-        window.print()
-        // Close after print dialog is closed (note: this might be too fast in some browsers)
-        // Alternative: let the user click "Done" in the UI
+        hardware.print()
       }
     }, 300)
 
@@ -70,7 +69,7 @@ export default function PrintReceiptPortal({ order, type, onClose, autoPrint = t
       {/* Screen View (Preview/Buttons) */}
       <div className="print:hidden fixed bottom-8 left-1/2 -translate-x-1/2 z-[10000] flex gap-4 bg-black/80 backdrop-blur-xl p-4 rounded-3xl border border-white/10 shadow-2xl">
          <button 
-           onClick={() => window.print()}
+           onClick={() => hardware.print()}
            className="px-6 py-2 bg-primary text-primary-foreground font-black rounded-xl hover:scale-105 transition-transform"
          >
            Print Again

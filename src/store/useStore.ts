@@ -56,13 +56,15 @@ interface AppState {
   clearCart: () => void
 
   // Appearance State
-  theme: 'dark' | 'light'
-  toggleTheme: () => void
+  theme: 'dark' | 'light' | 'system'
+  setTheme: (theme: 'dark' | 'light' | 'system') => void
 
   // Inventory State
   products: Product[]
   isLoadingProducts: boolean
-  fetchProducts: () => Promise<void>
+  hasMoreProducts: boolean
+  totalProducts: number
+  fetchProducts: (params?: { page?: number, search?: string }) => Promise<void>
   addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
   updateProduct: (id: string, product: Partial<Product>) => Promise<void>
   deleteProduct: (id: string) => Promise<void>
@@ -126,20 +128,32 @@ export const useStore = create<AppState>()(
       clearCart: () => set({ cart: [] }),
 
       // Appearance
-      theme: 'dark',
-      toggleTheme: () => set((state) => ({ 
-        theme: state.theme === 'dark' ? 'light' : 'dark' 
-      })),
+      theme: 'system',
+      setTheme: (theme) => set({ theme }),
 
       // Inventory
       products: [],
       isLoadingProducts: false,
-      fetchProducts: async () => {
+      hasMoreProducts: false,
+      totalProducts: 0,
+      fetchProducts: async (params = {}) => {
+        const { page = 1, search = '' } = params
         set({ isLoadingProducts: true })
         try {
-          const response = await fetch('/api/products')
+          const query = new URLSearchParams()
+          query.set('page', page.toString())
+          query.set('limit', '50')
+          if (search) query.set('search', search)
+
+          const response = await fetch(`/api/products?${query.toString()}`)
           const data = await response.json()
-          set({ products: data, isLoadingProducts: false })
+          
+          set((state) => ({ 
+            products: page === 1 ? data.products : [...state.products, ...data.products],
+            totalProducts: data.total,
+            hasMoreProducts: data.hasMore,
+            isLoadingProducts: false 
+          }))
         } catch (error) {
           console.error('Failed to fetch products:', error)
           set({ isLoadingProducts: false })

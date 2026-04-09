@@ -23,14 +23,40 @@ const productSchema = z.object({
   supplier: z.string().optional().nullable(),
 });
 
-// Get all products
+// Get products with pagination
 app.get('/api/products', async (req, res) => {
   try {
+    const { page = '1', limit = '50', search = '' } = req.query;
+    const p = parseInt(String(page));
+    const l = parseInt(String(limit));
+    const skip = (p - 1) * l;
+
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { name: { contains: String(search) } },
+        { sku: { contains: String(search) } },
+        { barcode: { contains: String(search) } },
+      ];
+    }
+
+    const total = await prisma.product.count({ where });
     const products = await prisma.product.findMany({
+      where,
+      skip,
+      take: l,
       orderBy: { createdAt: 'desc' },
     });
-    res.json(products);
+
+    res.json({
+      products,
+      total,
+      page: p,
+      limit: l,
+      hasMore: skip + products.length < total
+    });
   } catch (error) {
+    console.error('Fetch products error:', error);
     res.status(500).json({ error: 'Failed to fetch products' });
   }
 });

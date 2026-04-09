@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store/useStore'
+import ThemeToggle from './ThemeToggle'
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
@@ -74,7 +75,9 @@ export default function Sidebar() {
         </nav>
 
         {/* Bottom Section */}
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-border space-y-4">
+          {isSidebarOpen && <ThemeToggle />}
+          
           <div className={cn(
             "flex items-center gap-3 bg-accent/40 p-2 rounded-xl border border-border/40",
             !isSidebarOpen && "justify-center"

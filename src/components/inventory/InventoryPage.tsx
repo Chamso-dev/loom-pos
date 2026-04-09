@@ -9,16 +9,29 @@ import { useStore, type Product } from '@/store/useStore'
 import { cn } from '@/lib/utils'
 
 export default function InventoryPage() {
-  const { fetchProducts, products } = useStore()
+  const { fetchProducts, products, hasMoreProducts, totalProducts, isLoadingProducts } = useStore()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [page, setPage] = useState(1)
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([])
 
   useEffect(() => {
-    fetchProducts()
-  }, [fetchProducts])
+    // Reset page and fetch on search change
+    setPage(1)
+    const delayDebounceFn = setTimeout(() => {
+      fetchProducts({ page: 1, search: searchQuery })
+    }, 300)
+
+    return () => clearTimeout(delayDebounceFn)
+  }, [searchQuery, fetchProducts])
+
+  const handleLoadMore = () => {
+    const nextPage = page + 1
+    setPage(nextPage)
+    fetchProducts({ page: nextPage, search: searchQuery })
+  }
 
   const handleEdit = (product: Product) => {
     setEditingProduct(product)
@@ -30,14 +43,6 @@ export default function InventoryPage() {
     setIsModalOpen(true)
   }
 
-  const filteredProducts = useMemo(() => 
-    products.filter(product => 
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.barcode.toLowerCase().includes(searchQuery.toLowerCase())
-    ),
-    [products, searchQuery]
-  )
 
   const selectedProducts = useMemo(() => 
     products.filter(p => selectedProductIds.includes(p.id)),
@@ -51,7 +56,7 @@ export default function InventoryPage() {
   }
 
   const handleSelectAll = (selected: boolean) => {
-    setSelectedProductIds(selected ? filteredProducts.map(p => p.id) : [])
+    setSelectedProductIds(selected ? products.map(p => p.id) : [])
   }
 
   return (
@@ -101,12 +106,28 @@ export default function InventoryPage() {
       </div>
 
       <InventoryTable 
-        products={filteredProducts}
+        products={products}
         onEdit={handleEdit} 
         selectedIds={selectedProductIds}
         onSelectionToggle={handleSelectionToggle}
         onSelectAll={handleSelectAll}
       />
+
+      {hasMoreProducts && (
+        <div className="flex flex-col items-center gap-4 py-8">
+           <Button 
+            variant="outline" 
+            onClick={handleLoadMore} 
+            disabled={isLoadingProducts}
+            className="h-12 px-10 rounded-xl border-primary/20 hover:bg-primary/5 text-primary font-bold uppercase tracking-widest text-[10px]"
+           >
+              {isLoadingProducts ? 'Loading...' : 'Load Next 50 Products'}
+           </Button>
+           <p className="text-[10px] uppercase font-bold text-muted-foreground opacity-50 tracking-[0.2em]">
+             Showing {products.length} of {totalProducts} Products
+           </p>
+        </div>
+      )}
 
       <ProductModal 
         isOpen={isModalOpen} 
