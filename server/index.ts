@@ -171,6 +171,98 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
+// Get all orders (with advanced filtering & pagination)
+app.get('/api/orders', async (req, res) => {
+  try {
+    const { search, startDate, endDate, methods, page = '1', limit = '50' } = req.query;
+    console.log('Incoming Filters:', { search, startDate, endDate, methods, page, limit });
+    
+    const p = parseInt(String(page));
+    const l = parseInt(String(limit));
+    const skip = (p - 1) * l;
+
+    const where: any = {};
+
+    // 1. Text Search
+    if (search) {
+      where.OR = [
+        { invoiceNo: { contains: String(search) } },
+        { customerMobile: { contains: String(search) } },
+        { customerName: { contains: String(search) } },
+      ];
+    }
+
+    // 2. Date Range
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) {
+        where.date.gte = new Date(String(startDate));
+      }
+      if (endDate) {
+        const end = new Date(String(endDate));
+        end.setHours(23, 59, 59, 999);
+        where.date.lte = end;
+      }
+    }
+
+    // 3. Payment Methods
+    if (methods) {
+      const methodsArray = Array.isArray(methods) ? (methods as string[]) : [String(methods)];
+      const cleanMethods = methodsArray.filter(m => m && m.trim() !== '');
+      if (cleanMethods.length > 0) {
+        where.paymentMethod = { in: cleanMethods };
+      }
+    }
+
+    // Get total count for pagination metadata
+    const totalCount = await prisma.order.count({ where });
+
+    const orders = await prisma.order.findMany({
+      where,
+      skip,
+      take: l,
+      orderBy: { date: 'desc' },
+      include: {
+        _count: {
+          select: { items: true }
+        }
+      }
+    });
+
+    res.json({
+      orders,
+      total: totalCount,
+      page: p,
+      limit: l,
+      hasMore: skip + orders.length < totalCount
+    });
+  } catch (error) {
+    console.error('Pagination API error:', error);
+    res.status(500).json({ error: 'Failed to fetch partitioned orders' });
+  }
+});
+
+// Get single order with full details
+app.get('/api/orders/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        items: {
+          include: {
+            product: true
+          }
+        }
+      }
+    });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch order details' });
+  }
+});
+
 // Analytics: Today's Summary
 app.get('/api/analytics/summary', async (req, res) => {
   try {

@@ -4,6 +4,7 @@ import Shell from './components/layout/Shell'
 import InventoryPage from './components/inventory/InventoryPage'
 import BillingPage from './components/billing/BillingPage'
 import Dashboard from './components/dashboard/Dashboard'
+import OrderHistoryPage from './components/orders/OrderHistoryPage'
 
 function App() {
   return (
@@ -13,7 +14,7 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/billing" element={<BillingPage />} />
-          <Route path="/orders" element={<div className="p-8">Order History</div>} />
+          <Route path="/orders" element={<OrderHistoryPage />} />
           <Route path="/settings" element={<div className="p-8">Settings</div>} />
         </Routes>
       </Shell>
