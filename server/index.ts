@@ -113,6 +113,23 @@ app.delete('/api/products/:id', async (req, res) => {
   }
 });
 
+// Low Stock Alerts API
+app.get('/api/inventory/low-stock', async (req, res) => {
+  try {
+    const products = await prisma.product.findMany({
+      where: {
+        stock: { lte: 10 }
+      },
+      orderBy: { stock: 'asc' },
+      take: 10 // Show top 10 most urgent
+    });
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch alert products' });
+  }
+});
+
+
 const orderSchema = z.object({
   totalAmount: z.number().positive(),
   gstAmount: z.number().min(0),
@@ -210,7 +227,7 @@ app.post('/api/orders', async (req, res) => {
 app.get('/api/orders', async (req, res) => {
   try {
     const { search, startDate, endDate, methods, page = '1', limit = '50' } = req.query;
-    console.log('Incoming Filters:', { search, startDate, endDate, methods, page, limit });
+    // console.log('Incoming Filters:', { search, startDate, endDate, methods, page, limit });
     
     const p = parseInt(String(page));
     const l = parseInt(String(limit));

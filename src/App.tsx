@@ -15,10 +15,11 @@ import { useStore } from './store/useStore'
 
 function AppContent() {
   const location = useLocation()
-  const { fetchSettings } = useStore()
+  const { fetchSettings, fetchLowStockAlerts } = useStore()
 
   useEffect(() => {
     fetchSettings()
+    fetchLowStockAlerts()
   }, [])
 
   return (

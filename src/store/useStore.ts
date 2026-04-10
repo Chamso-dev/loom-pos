@@ -83,7 +83,12 @@ interface AppState {
   settings: StoreSettings | null
   fetchSettings: () => Promise<void>
   updateSettings: (settings: Partial<StoreSettings>) => Promise<void>
+
+  // Notification State
+  lowStockProducts: Product[]
+  fetchLowStockAlerts: () => Promise<void>
 }
+
 
 
 export const useStore = create<AppState>()(
@@ -242,7 +247,21 @@ export const useStore = create<AppState>()(
           console.error('Failed to update settings:', error)
         }
       },
+
+      // Notifications
+      lowStockProducts: [],
+      fetchLowStockAlerts: async () => {
+        try {
+          const response = await fetch('/api/inventory/low-stock')
+          if (!response.ok) throw new Error('Failed to fetch alerts')
+          const products = await response.json()
+          set({ lowStockProducts: products })
+        } catch (error) {
+          console.error('Failed to fetch low stock alerts:', error)
+        }
+      },
     }),
+
 
     {
       name: 'loom-pos-storage',

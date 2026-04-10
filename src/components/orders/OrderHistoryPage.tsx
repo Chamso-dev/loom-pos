@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { 
   Search, Calendar, Filter, Eye, Printer, ChevronRight, 
   CreditCard, Wallet, QrCode, ArrowLeft, RotateCw, X, Check,
@@ -10,6 +11,9 @@ import { format, startOfDay, subDays, formatISO } from 'date-fns'
 import PrintReceiptPortal from '../billing/PrintReceiptPortal'
 
 export default function OrderHistoryPage() {
+  const [searchParams] = useSearchParams()
+  const orderIdFromUrl = searchParams.get('orderId')
+
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -29,7 +33,23 @@ export default function OrderHistoryPage() {
 
   useEffect(() => {
     fetchOrders()
-  }, [])
+    if (orderIdFromUrl) {
+      handleAutoOpen(orderIdFromUrl)
+    }
+  }, [orderIdFromUrl])
+
+  const handleAutoOpen = async (id: string) => {
+    try {
+      const res = await fetch(`/api/orders/${id}`)
+      if (res.ok) {
+        const data = await res.json()
+        setSelectedOrder(data)
+        setFullOrderData(data)
+      }
+    } catch (error) {
+      console.error('Failed to auto-open order', error)
+    }
+  }
 
   const fetchOrders = async (overrideParams?: any) => {
     setLoading(true)

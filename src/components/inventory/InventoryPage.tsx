@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, Package, Search, LayoutGrid, List as ListIcon, Printer } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import InventoryTable from './InventoryTable'
@@ -9,11 +11,14 @@ import { useStore, type Product } from '@/store/useStore'
 import { cn } from '@/lib/utils'
 
 export default function InventoryPage() {
+  const [searchParams] = useSearchParams()
+  const initialSearch = searchParams.get('search') || ''
+  
   const { fetchProducts, products, hasMoreProducts, totalProducts, isLoadingProducts } = useStore()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(initialSearch)
   const [page, setPage] = useState(1)
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([])
 
