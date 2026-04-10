@@ -3,9 +3,14 @@ import { persist } from 'zustand/middleware'
 
 export interface User {
   id: string
+  employeeId: string
   name: string
   role: 'ADMIN' | 'CASHIER'
+  phone?: string | null
+  isActive: boolean
+  createdAt: string
 }
+
 
 export interface StoreSettings {
   id: string
@@ -54,8 +59,9 @@ interface AppState {
 
   // Auth State
   user: User | null
-  setUser: (user: User | null) => void
+  login: (employeeId: string, password: string) => Promise<{ success: boolean, error?: string }>
   logout: () => void
+
 
   // Cart State
   cart: CartItem[]
@@ -87,7 +93,15 @@ interface AppState {
   // Notification State
   lowStockProducts: Product[]
   fetchLowStockAlerts: () => Promise<void>
+
+  // Users State (Admin)
+  users: User[]
+  fetchUsers: () => Promise<void>
+  addUser: (userData: any) => Promise<void>
+  updateUser: (id: string, userData: any) => Promise<void>
+  revealStaffPassword: (staffId: string, adminPassword: string) => Promise<{ success: boolean, password?: string, error?: string }>
 }
+
 
 
 
@@ -101,8 +115,26 @@ export const useStore = create<AppState>()(
 
       // Auth
       user: null,
-      setUser: (user) => set({ user }),
+      login: async (employeeId, password) => {
+        try {
+          const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ employeeId, password }),
+          })
+          if (!response.ok) {
+            const data = await response.json()
+            return { success: false, error: data.error || 'Login failed' }
+          }
+          const user = await response.json()
+          set({ user })
+          return { success: true }
+        } catch (error) {
+          return { success: false, error: 'Connection error' }
+        }
+      },
       logout: () => set({ user: null }),
+
 
       // Cart
       cart: [],
@@ -260,7 +292,96 @@ export const useStore = create<AppState>()(
           console.error('Failed to fetch low stock alerts:', error)
         }
       },
+
+      // Users (Admin)
+      users: [],
+      fetchUsers: async () => {
+        try {
+          const response = await fetch('/api/users')
+          if (!response.ok) throw new Error('Failed to fetch users')
+          const users = await response.json()
+          set({ users })
+        } catch (error) {
+          console.error('Failed to fetch users:', error)
+        }
+      },
+      addUser: async (userData) => {
+        try {
+          const response = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData),
+          })
+          if (!response.ok) throw new Error('Failed to add user')
+          const newUser = await response.json()
+          set((state) => ({ users: [newUser, ...state.users] }))
+        } catch (error) {
+          console.error('Failed to add user:', error)
+        }
+      },
+      updateUser: async (id, userData) => {
+        try {
+          const response = await fetch(`/api/users/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData),
+          })
+          if (!response.ok) throw new Error('Failed to update user')
+          const updatedUser = await response.json()
+          set((state) => ({
+            users: state.users.map((u) => (u.id === id ? updatedUser : u)),
+          }))
+        } catch (error) {
+          console.error('Failed to update user:', error)
+        }
+      },
+      revealStaffPassword: async (staffId, adminPassword) => {
+        const adminUser = get().user;
+        if (!adminUser || adminUser.role !== 'ADMIN') {
+          return { success: false, error: 'Unauthorized: Admin access required' };
+        }
+
+        try {
+          const response = await fetch(`/api/users/${staffId}/reveal-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              adminEmployeeId: adminUser.employeeId, 
+              adminPassword 
+            }),
+          });
+          
+          if (!response.ok) {
+            const data = await response.json();
+            return { success: false, error: data.error || 'Verification failed' };
+          }
+          
+          const { password } = await response.json();
+          return { success: true, password };
+        } catch (error) {
+          return { success: false, error: 'Connection failure' };
+        }
+      },
+      changePassword: async (employeeId, currentPassword, newPassword) => {
+        try {
+          const response = await fetch('/api/auth/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ employeeId, currentPassword, newPassword }),
+          })
+          if (!response.ok) {
+            const error = await response.json()
+            throw new Error(error.error || 'Failed to change password')
+          }
+          return { success: true }
+        } catch (error: any) {
+          console.error('Change password error:', error)
+          return { success: false, error: error.message }
+        }
+      },
+
     }),
+
 
 
     {

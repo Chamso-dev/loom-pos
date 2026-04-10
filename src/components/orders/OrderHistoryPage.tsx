@@ -74,15 +74,17 @@ export default function OrderHistoryPage() {
       const res = await fetch(`/api/orders?${params.toString()}`)
       const data = await res.json()
       
+      const newOrders = data.orders || []
       if (p === 1) {
-        setOrders(data.orders)
+        setOrders(newOrders)
       } else {
-        setOrders(prev => [...prev, ...data.orders])
+        setOrders(prev => [...(prev || []), ...newOrders])
       }
       
-      setHasMore(data.hasMore)
-      setTotalCount(data.total)
+      setHasMore(data.hasMore || false)
+      setTotalCount(data.total || 0)
     } catch (error) {
+
       console.error('Failed to fetch orders', error)
     } finally {
       setLoading(false)
@@ -322,6 +324,7 @@ export default function OrderHistoryPage() {
                  <th className="px-8 py-6 text-[10px] uppercase font-black tracking-[0.2em] opacity-60">Date & Time</th>
                  <th className="px-8 py-6 text-[10px] uppercase font-black tracking-[0.2em] opacity-60">Customer</th>
                  <th className="px-8 py-6 text-[10px] uppercase font-black tracking-[0.2em] opacity-60">Amount</th>
+                 <th className="px-8 py-6 text-[10px] uppercase font-black tracking-[0.2em] opacity-60">Staff</th>
                  <th className="px-8 py-6 text-[10px] uppercase font-black tracking-[0.2em] opacity-60">Method</th>
                  <th className="px-8 py-6 text-[10px] uppercase font-black tracking-[0.2em] opacity-60 text-right">Actions</th>
               </tr>
@@ -333,13 +336,15 @@ export default function OrderHistoryPage() {
                       Retrieving Archives...
                    </td>
                 </tr>
-              ) : orders.length === 0 ? (
+              ) : orders?.length === 0 ? (
                 <tr>
-                   <td colSpan={6} className="px-8 py-20 text-center text-muted-foreground uppercase font-black tracking-widest">
+                   <td colSpan={7} className="px-8 py-20 text-center text-muted-foreground uppercase font-black tracking-widest">
+
                       No matching records found.
                    </td>
                 </tr>
-              ) : orders.map((order) => (
+              ) : orders?.map((order) => (
+
                 <tr key={order.id} className="hover:bg-primary/5 transition-colors group">
                    <td className="px-8 py-6">
                       <span className="font-black font-mono text-primary">{order.invoiceNo}</span>
@@ -357,7 +362,15 @@ export default function OrderHistoryPage() {
                       </div>
                    </td>
                    <td className="px-8 py-6">
-                      <span className="font-black tabular-nums">{formatCurrency(order.totalAmount)}</span>
+                      <div className="flex flex-col">
+                         <span className="font-bold text-xs">
+                            {order.processedBy?.name || 'System'}
+                            {order.processedBy && !order.processedBy.isActive && (
+                              <span className="ml-1 text-[8px] opacity-40 italic">(Ex-Staff)</span>
+                            )}
+                         </span>
+                         <span className="text-[9px] uppercase tracking-widest opacity-40">{order.processedBy?.role || 'Admin'}</span>
+                      </div>
                    </td>
                    <td className="px-8 py-6">
                       <div className="flex items-center gap-2 px-3 py-1 bg-background border border-border/40 rounded-full w-fit">
@@ -365,6 +378,7 @@ export default function OrderHistoryPage() {
                          <span className="text-[10px] font-black uppercase tracking-widest">{order.paymentMethod}</span>
                       </div>
                    </td>
+
                    <td className="px-8 py-6 text-right">
                       <Button 
                         variant="ghost" 
@@ -380,7 +394,8 @@ export default function OrderHistoryPage() {
         </table>
 
         {/* Load More Button */}
-        {hasMore && (
+        {hasMore && orders && orders.length > 0 && (
+
            <div className="p-8 border-t border-border/20 flex flex-col items-center gap-4 bg-accent/5">
               <Button 
                 onClick={handleLoadMore} 
@@ -392,8 +407,9 @@ export default function OrderHistoryPage() {
                  Load Next 50 Records
               </Button>
               <p className="text-[9px] uppercase font-black text-muted-foreground opacity-40 tracking-widest">
-                 Showing {orders.length} of {totalCount} Historical Transactions
+                 Showing {orders?.length || 0} of {totalCount} Historical Transactions
               </p>
+
            </div>
         )}
       </div>

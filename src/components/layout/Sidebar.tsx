@@ -1,29 +1,41 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { 
   LayoutDashboard, 
   Package, 
   ShoppingCart, 
   History, 
   Settings,
+  Users,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  LogOut
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store/useStore'
 import ThemeToggle from './ThemeToggle'
 
-const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
-  { icon: Package, label: 'Inventory', href: '/inventory' },
-  { icon: ShoppingCart, label: 'Billing', href: '/billing' },
-  { icon: History, label: 'Orders', href: '/orders' },
-  { icon: Settings, label: 'Settings', href: '/settings' },
-]
 
 export default function Sidebar() {
   const location = useLocation()
-  const { isSidebarOpen, toggleSidebar, settings } = useStore()
+  const { isSidebarOpen, toggleSidebar, settings, user, logout } = useStore()
   const storeName = settings?.name || 'LOOMPOS'
+  const navigate = useNavigate()
+
+  const navItems = [
+    { icon: LayoutDashboard, label: 'Dashboard', href: '/', roles: ['ADMIN'] },
+    { icon: Package, label: 'Inventory', href: '/inventory', roles: ['ADMIN', 'CASHIER'] },
+    { icon: ShoppingCart, label: 'Billing', href: '/billing', roles: ['ADMIN', 'CASHIER'] },
+    { icon: History, label: 'Orders', href: '/orders', roles: ['ADMIN', 'CASHIER'] },
+    { icon: Users, label: 'Staff', href: '/staff', roles: ['ADMIN'] },
+    { icon: Settings, label: 'Settings', href: '/settings', roles: ['ADMIN'] },
+  ].filter(item => {
+    if (!user) return false;
+    // Admins see everything, Cashiers only see their allowed routes
+    if (user.role === 'ADMIN') return true;
+    return item.roles.includes(user.role);
+  });
+
+
 
   return (
     <aside 
@@ -85,15 +97,25 @@ export default function Sidebar() {
             "flex items-center gap-3 bg-accent/40 p-2 rounded-xl border border-border/40",
             !isSidebarOpen && "justify-center"
           )}>
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden border border-primary/30">
-              M
+            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden border border-primary/30 uppercase">
+              {user?.name?.charAt(0) || '?'}
             </div>
             {isSidebarOpen && (
               <div className="flex flex-col overflow-hidden">
-                <span className="text-sm font-semibold truncate">The Merlin</span>
-                <span className="text-[10px] text-muted-foreground truncate uppercase tracking-widest">Admin</span>
+                <span className="text-sm font-semibold truncate hover:text-primary transition-colors">{user?.name}</span>
+                <span className="text-[10px] text-muted-foreground truncate uppercase tracking-widest">{user?.role}</span>
               </div>
             )}
+            {isSidebarOpen && (
+               <button 
+                onClick={() => { logout(); navigate('/login'); }}
+                className="ml-auto p-1.5 hover:bg-red-500/10 text-muted-foreground hover:text-red-500 rounded-lg transition-all"
+                title="Logout"
+               >
+                  <LogOut size={16} />
+               </button>
+            )}
+
           </div>
         </div>
       </div>

@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,51 +7,81 @@ datasource db {
   url      = "file:./dev.db"
 }
 
-model Product {
-  id          String   @id @default(cuid())
-  name        String
-  sku         String   @unique
-  barcode     String   @unique
-  category    String
-  size        String?
-  color       String?
-  costPrice   Float
-  sellingPrice Float
-  gst         Float    @default(0)
-  stock       Int      @default(0)
-  supplier    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  orderItems  OrderItem[]
-}
-
 model Order {
-  id            String   @id @default(cuid())
-  invoiceNo     String   @unique
-  date          DateTime @default(now())
-  totalAmount   Float
-  gstAmount     Float
-  paymentMethod String
+  id             String      @id @default(cuid())
+
+  invoiceNo      String      @unique
+  date           DateTime    @default(now())
+  totalAmount    Float
+  gstAmount      Float
+  paymentMethod  String
   customerName   String?
   customerMobile String?
-  items         OrderItem[]
+  userId         String?
+  processedBy    User?       @relation(fields: [userId], references: [id])
+  items          OrderItem[]
+
 }
 
 model OrderItem {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
+
   orderId   String
   productId String
   quantity  Int
   price     Float
-  order     Order    @relation(fields: [orderId], references: [id])
-  product   Product  @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+  order     Order   @relation(fields: [orderId], references: [id])
 }
+
+
+
+
+model Product {
+  id           String      @id @default(cuid())
+
+  name         String
+  sku          String      @unique
+  barcode      String      @unique
+  category     String
+  size         String?
+  color        String?
+  costPrice    Float
+  sellingPrice Float
+  gst          Float       @default(0)
+  stock        Int         @default(0)
+  supplier     String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @default(now()) @updatedAt
+  items        OrderItem[]
+
+}
+
+
 model StoreSettings {
-  id        String   @id @default(cuid())
-  name      String   @default("LOOMPOS")
-  address   String   @default("123 Trend Avenue, Mumbai")
-  gstin     String   @default("27AAAAA0000A1Z5")
-  upiId     String   @default("store@upi")
-  phone     String   @default("+91 98765 43210")
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+
+  name            String   @default("LOOMPOS")
+  address         String   @default("123 Trend Avenue, Mumbai")
+  gstin           String   @default("27AAAAA0000A1Z5")
+  upiId           String   @default("store@upi")
+  phone           String   @default("+91 98765 43210")
+  cashierPassword String?
+  updatedAt       DateTime @default(now()) @updatedAt
 }
+
+model User {
+  id         String   @id @default(cuid())
+
+  employeeId String   @unique
+  name       String
+  role       String   @default("CASHIER")
+  phone      String?
+  password   String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+  orders     Order[]
+}
+
+

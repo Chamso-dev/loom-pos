@@ -300,9 +300,10 @@ export default function Header() {
                   <div className="h-px bg-border/40 mx-2 my-1"></div>
 
                   <button 
-                    onClick={() => { logout(); navigate('/'); }}
+                    onClick={() => { logout(); navigate('/login'); }}
                     className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-red-500/10 transition-all group text-left"
                   >
+
                     <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500 group-hover:bg-red-500 group-hover:text-white transition-colors">
                        <X size={16} />
                     </div>

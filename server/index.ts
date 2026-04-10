@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
+import crypto from 'crypto';
+
 
 const prisma = new PrismaClient();
 const app = express();
@@ -23,13 +25,220 @@ const productSchema = z.object({
   supplier: z.string().optional().nullable(),
 });
 
+const userSchema = z.object({
+  employeeId: z.string().min(1),
+  name: z.string().min(1),
+  role: z.enum(['ADMIN', 'CASHIER']),
+  phone: z.string().optional().nullable(),
+  password: z.string().min(6),
+  isActive: z.boolean().optional(),
+});
+
+const loginSchema = z.object({
+  employeeId: z.string().min(1),
+  password: z.string().min(1),
+});
+
+
 const settingsSchema = z.object({
   name: z.string().min(1),
   address: z.string().min(1),
   gstin: z.string().min(1),
   upiId: z.string().min(1),
   phone: z.string().min(1),
+  cashierPassword: z.string().optional().nullable(),
 });
+
+
+// Auth & Users API
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { employeeId, password } = loginSchema.parse(req.body);
+    
+    // 1. Try individual password
+    let user = await prisma.user.findFirst({
+      where: { employeeId, password, isActive: true }
+    });
+
+    // 2. If not found, try global cashier password (only for cashiers)
+    if (!user) {
+      const settings = await prisma.storeSettings.findFirst();
+      if (settings?.cashierPassword && password === settings.cashierPassword) {
+        user = await prisma.user.findFirst({
+          where: { employeeId, isActive: true, role: 'CASHIER' }
+        });
+      }
+    }
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials or account deactivated' });
+    }
+
+    const { password: _, ...safeUser } = user;
+    res.json(safeUser);
+  } catch (error) {
+    res.status(400).json({ error: 'Login failed' });
+  }
+});
+
+app.post('/api/auth/change-password', async (req, res) => {
+  try {
+    const { employeeId, currentPassword, newPassword } = z.object({
+      employeeId: z.string(),
+      currentPassword: z.string(),
+      newPassword: z.string().min(4)
+    }).parse(req.body);
+
+    const user = await prisma.user.findFirst({
+      where: { employeeId, password: currentPassword }
+    });
+
+    if (!user) {
+      return res.status(401).json({ error: 'Current password verification failed' });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: newPassword }
+    });
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to change password' });
+  }
+});
+
+
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(users.map(({ password, ...u }) => u));
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+app.put('/api/settings', async (req, res) => {
+  try {
+    const validatedData = settingsSchema.parse(req.body);
+    const existing = await prisma.storeSettings.findFirst();
+    
+    if (existing) {
+      const updated = await prisma.storeSettings.update({
+        where: { id: existing.id },
+        data: validatedData
+      });
+      res.json(updated);
+    } else {
+      const created = await prisma.storeSettings.create({
+        data: { 
+          ...validatedData, 
+          id: '1',
+          updatedAt: new Date()
+        }
+      });
+
+      res.json(created);
+    }
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to update settings' });
+  }
+});
+
+
+app.post('/api/users', async (req, res) => {
+  try {
+    const validatedData = userSchema.parse(req.body);
+    const user = await prisma.user.create({
+      data: {
+        ...validatedData,
+        id: crypto.randomUUID(),
+        updatedAt: new Date()
+      }
+    });
+
+    res.status(201).json(user);
+
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to create user' });
+  }
+});
+
+app.put('/api/users/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const validatedData = userSchema.partial().parse(req.body);
+    const user = await prisma.user.update({
+      where: { id },
+      data: validatedData
+    });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+app.post('/api/users/:id/reveal-password', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { adminEmployeeId, adminPassword } = z.object({
+      adminEmployeeId: z.string(),
+      adminPassword: z.string()
+    }).parse(req.body);
+
+    // 1. Authenticate the admin
+    const admin = await prisma.user.findFirst({
+      where: { 
+        employeeId: adminEmployeeId, 
+        password: adminPassword,
+        role: 'ADMIN',
+        isActive: true
+      }
+    });
+
+    if (!admin) {
+      return res.status(401).json({ error: 'Admin verification failed or unauthorized' });
+    }
+
+    // 2. Fetch the target user's password
+    const targetUser = await prisma.user.findUnique({
+      where: { id },
+      select: { password: true }
+    });
+
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ password: targetUser.password });
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to reveal password' });
+  }
+});
+
+const initializeAdmin = async () => {
+  const admin = await prisma.user.findUnique({ where: { employeeId: 'admin' } });
+  if (!admin) {
+    await prisma.user.create({
+      data: {
+        id: crypto.randomUUID(),
+        employeeId: 'admin',
+        name: 'System Admin',
+        role: 'ADMIN',
+        password: 'admin123',
+        isActive: true,
+        updatedAt: new Date()
+      }
+
+    });
+    console.log('Default admin created: admin / admin123');
+  }
+
+};
+initializeAdmin();
+
 
 
 // Get products with pagination
@@ -75,8 +284,12 @@ app.post('/api/products', async (req, res) => {
   try {
     const validatedData = productSchema.parse(req.body);
     const product = await prisma.product.create({
-      data: validatedData as any,
+      data: {
+        ...validatedData as any,
+        id: crypto.randomUUID()
+      },
     });
+
     res.status(201).json(product);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -136,6 +349,7 @@ const orderSchema = z.object({
   paymentMethod: z.string().min(1),
   customerName: z.string().optional().nullable(),
   customerMobile: z.string().optional().nullable(),
+  userId: z.string().optional().nullable(),
   items: z.array(z.object({
     productId: z.string().min(1),
     quantity: z.number().int().positive(),
@@ -143,11 +357,13 @@ const orderSchema = z.object({
   })),
 });
 
+
 // Create Order & Update Stock
 app.post('/api/orders', async (req, res) => {
   try {
     const validatedData = orderSchema.parse(req.body);
-    const { totalAmount, gstAmount, paymentMethod, customerName, customerMobile, items } = validatedData;
+    const { totalAmount, gstAmount, paymentMethod, customerName, customerMobile, items, userId } = validatedData;
+
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Generate sequential invoice number
@@ -157,14 +373,18 @@ app.post('/api/orders', async (req, res) => {
       // 2. Create the order
       const order = await tx.order.create({
         data: {
+          id: crypto.randomUUID(),
           invoiceNo,
           totalAmount,
           gstAmount,
           paymentMethod,
           customerName,
           customerMobile,
+          userId,
         },
+
         include: {
+
           items: {
             include: {
               product: true
@@ -191,12 +411,14 @@ app.post('/api/orders', async (req, res) => {
         // Create order item
         await tx.orderItem.create({
           data: {
+            id: crypto.randomUUID(),
             orderId: order.id,
             productId: item.productId,
             quantity: item.quantity,
             price: item.price,
           },
         });
+
 
         // Decrement stock
         await tx.product.update({
@@ -275,11 +497,15 @@ app.get('/api/orders', async (req, res) => {
       take: l,
       orderBy: { date: 'desc' },
       include: {
+        processedBy: {
+          select: { name: true, employeeId: true, isActive: true }
+        },
         _count: {
           select: { items: true }
         }
       }
     });
+
 
     res.json({
       orders,
@@ -301,6 +527,9 @@ app.get('/api/orders/:id', async (req, res) => {
     const order = await prisma.order.findUnique({
       where: { id },
       include: {
+        processedBy: {
+          select: { name: true, employeeId: true, isActive: true }
+        },
         items: {
           include: {
             product: true
@@ -308,6 +537,7 @@ app.get('/api/orders/:id', async (req, res) => {
         }
       }
     });
+
     if (!order) return res.status(404).json({ error: 'Order not found' });
     res.json(order);
   } catch (error) {
@@ -322,6 +552,7 @@ app.get('/api/settings', async (req, res) => {
     if (!settings) {
       settings = await prisma.storeSettings.create({
         data: {
+          id: '1',
           name: 'LOOMPOS',
           address: '123 Trend Avenue, Mumbai',
           gstin: '27AAAAA0000A1Z5',
@@ -329,6 +560,7 @@ app.get('/api/settings', async (req, res) => {
           phone: '+91 98765 43210',
         }
       });
+
     }
     res.json(settings);
   } catch (error) {
@@ -349,8 +581,13 @@ app.put('/api/settings', async (req, res) => {
       });
     } else {
       updated = await prisma.storeSettings.create({
-        data: validatedData,
+        data: { 
+          ...validatedData, 
+          id: '1',
+          updatedAt: new Date()
+        },
       });
+
     }
     res.json(updated);
   } catch (error) {
