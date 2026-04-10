@@ -7,6 +7,16 @@ export interface User {
   role: 'ADMIN' | 'CASHIER'
 }
 
+export interface StoreSettings {
+  id: string
+  name: string
+  address: string
+  gstin: string
+  upiId: string
+  phone: string
+}
+
+
 export interface Product {
   id: string
   name: string
@@ -68,7 +78,13 @@ interface AppState {
   addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
   updateProduct: (id: string, product: Partial<Product>) => Promise<void>
   deleteProduct: (id: string) => Promise<void>
+
+  // Settings State
+  settings: StoreSettings | null
+  fetchSettings: () => Promise<void>
+  updateSettings: (settings: Partial<StoreSettings>) => Promise<void>
 }
+
 
 export const useStore = create<AppState>()(
   persist(
@@ -197,7 +213,37 @@ export const useStore = create<AppState>()(
           console.error('Failed to delete product:', error)
         }
       },
+
+      // Settings
+      settings: null,
+      fetchSettings: async () => {
+        try {
+          const response = await fetch('/api/settings')
+          if (!response.ok) throw new Error('Failed to fetch settings')
+          const settings = await response.json()
+          set({ settings })
+        } catch (error) {
+          console.error('Failed to fetch settings:', error)
+        }
+      },
+      updateSettings: async (settingsData) => {
+        try {
+          const current = get().settings;
+          const payload = { ...current, ...settingsData };
+          const response = await fetch('/api/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          })
+          if (!response.ok) throw new Error('Failed to update settings')
+          const updated = await response.json()
+          set({ settings: updated })
+        } catch (error) {
+          console.error('Failed to update settings:', error)
+        }
+      },
     }),
+
     {
       name: 'loom-pos-storage',
       partialize: (state) => ({ user: state.user, cart: state.cart, theme: state.theme }),

@@ -22,7 +22,8 @@ const navItems = [
 
 export default function Sidebar() {
   const location = useLocation()
-  const { isSidebarOpen, toggleSidebar } = useStore()
+  const { isSidebarOpen, toggleSidebar, settings } = useStore()
+  const storeName = settings?.name || 'LOOMPOS'
 
   return (
     <aside 
@@ -35,7 +36,9 @@ export default function Sidebar() {
         {/* Logo Section */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-border">
           {isSidebarOpen && (
-            <span className="font-bold text-xl tracking-tight text-primary">LOOM<span className="text-foreground">POS</span></span>
+            <span className="font-bold text-xl tracking-tight text-primary">
+              {storeName.slice(0, 4)}<span className="text-foreground">{storeName.slice(4)}</span>
+            </span>
           )}
           <button 
             onClick={toggleSidebar}

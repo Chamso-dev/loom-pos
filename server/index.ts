@@ -23,6 +23,15 @@ const productSchema = z.object({
   supplier: z.string().optional().nullable(),
 });
 
+const settingsSchema = z.object({
+  name: z.string().min(1),
+  address: z.string().min(1),
+  gstin: z.string().min(1),
+  upiId: z.string().min(1),
+  phone: z.string().min(1),
+});
+
+
 // Get products with pagination
 app.get('/api/products', async (req, res) => {
   try {
@@ -288,6 +297,54 @@ app.get('/api/orders/:id', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch order details' });
   }
 });
+
+// Settings API
+app.get('/api/settings', async (req, res) => {
+  try {
+    let settings = await prisma.storeSettings.findFirst();
+    if (!settings) {
+      settings = await prisma.storeSettings.create({
+        data: {
+          name: 'LOOMPOS',
+          address: '123 Trend Avenue, Mumbai',
+          gstin: '27AAAAA0000A1Z5',
+          upiId: 'store@upi',
+          phone: '+91 98765 43210',
+        }
+      });
+    }
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch settings' });
+  }
+});
+
+app.put('/api/settings', async (req, res) => {
+  try {
+    const validatedData = settingsSchema.parse(req.body);
+    const settings = await prisma.storeSettings.findFirst();
+    
+    let updated;
+    if (settings) {
+      updated = await prisma.storeSettings.update({
+        where: { id: settings.id },
+        data: validatedData,
+      });
+    } else {
+      updated = await prisma.storeSettings.create({
+        data: validatedData,
+      });
+    }
+    res.json(updated);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: error.issues });
+    } else {
+      res.status(500).json({ error: 'Failed to update settings' });
+    }
+  }
+});
+
 
 // Analytics: Today's Summary
 app.get('/api/analytics/summary', async (req, res) => {

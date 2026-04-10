@@ -49,3 +49,12 @@ model OrderItem {
   order     Order    @relation(fields: [orderId], references: [id])
   product   Product  @relation(fields: [productId], references: [id])
 }
+model StoreSettings {
+  id        String   @id @default(cuid())
+  name      String   @default("LOOMPOS")
+  address   String   @default("123 Trend Avenue, Mumbai")
+  gstin     String   @default("27AAAAA0000A1Z5")
+  upiId     String   @default("store@upi")
+  phone     String   @default("+91 98765 43210")
+  updatedAt DateTime @updatedAt
+}

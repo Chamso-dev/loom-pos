@@ -7,9 +7,19 @@ import InventoryPage from './components/inventory/InventoryPage'
 import BillingPage from './components/billing/BillingPage'
 import Dashboard from './components/dashboard/Dashboard'
 import OrderHistoryPage from './components/orders/OrderHistoryPage'
+import SettingsPage from './components/settings/SettingsPage'
+
+
+import { useEffect } from 'react'
+import { useStore } from './store/useStore'
 
 function AppContent() {
   const location = useLocation()
+  const { fetchSettings } = useStore()
+
+  useEffect(() => {
+    fetchSettings()
+  }, [])
 
   return (
     <Shell>
@@ -19,7 +29,7 @@ function AppContent() {
           <Route path="/inventory" element={<PageWrapper><InventoryPage /></PageWrapper>} />
           <Route path="/billing" element={<PageWrapper><BillingPage /></PageWrapper>} />
           <Route path="/orders" element={<PageWrapper><OrderHistoryPage /></PageWrapper>} />
-          <Route path="/settings" element={<PageWrapper><div className="p-8">Settings</div></PageWrapper>} />
+          <Route path="/settings" element={<PageWrapper><SettingsPage /></PageWrapper>} />
         </Routes>
       </AnimatePresence>
     </Shell>

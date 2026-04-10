@@ -1,11 +1,14 @@
 import { formatCurrency, cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { QRCodeSVG } from 'qrcode.react'
-
-const upiId = 'store@api' // Replace with your actual UPI ID
+import { useStore } from '@/store/useStore'
 
 const PaymentQR = ({ amount, size = 60 }: { amount: number, size?: number }) => {
-  const upiLink = `upi://pay?pa=${upiId}&pn=LOOMPOS&am=${amount}&cu=INR`
+  const { settings } = useStore()
+  const upiId = settings?.upiId || 'store@upi'
+  const storeName = settings?.name || 'LOOMPOS'
+  const upiLink = `upi://pay?pa=${upiId}&pn=${storeName.replace(/\s/g, '')}&am=${amount}&cu=INR`
+
   return (
     <div className="flex flex-col items-center gap-1">
       <div className="p-1 bg-white border border-gray-100 rounded shadow-sm">
@@ -21,6 +24,14 @@ interface ReceiptProps {
 }
 
 export const A4Invoice = ({ order }: ReceiptProps) => {
+  const { settings } = useStore()
+  const store = settings || {
+    name: 'LOOMPOS',
+    address: '123 Trend Avenue, Fashion District',
+    gstin: '27AAAAA0000A1Z5',
+    phone: '+91 98765 43210'
+  }
+
   return (
     <div className="bg-white text-black p-12 max-w-[800px] mx-auto min-h-[1100px] flex flex-col font-sans">
       {/* Header */}
@@ -28,13 +39,13 @@ export const A4Invoice = ({ order }: ReceiptProps) => {
         <div>
           <h1 className="text-4xl font-black tracking-tighter uppercase mb-2">TAX INVOICE</h1>
           <div className="text-sm space-y-1">
-            <p className="font-bold text-lg">LOOMPOS</p>
-            <p>123 Trend Avenue, Fashion District</p>
-            <p>Mumbai, Maharashtra, 400001</p>
-            <p>GSTIN: 27AAAAA0000A1Z5</p>
-            <p>Phone: +91 98765 43210</p>
+            <p className="font-bold text-lg">{store.name}</p>
+            <p className="whitespace-pre-wrap">{store.address}</p>
+            <p>GSTIN: {store.gstin}</p>
+            <p>Phone: {store.phone}</p>
           </div>
         </div>
+
         <div className="text-right">
           <div className="mb-4">
              <p className="text-xs uppercase font-bold opacity-60">Invoice Date</p>
@@ -128,14 +139,23 @@ export const A4Invoice = ({ order }: ReceiptProps) => {
 }
 
 export const ThermalReceipt = ({ order }: ReceiptProps) => {
+  const { settings } = useStore()
+  const store = settings || {
+    name: 'LOOMPOS',
+    address: '123 Trend Avenue, Fashion District',
+    gstin: '27AAAAA0000A1Z5',
+    phone: '+91 98765 43210'
+  }
+
   return (
     <div className="bg-white text-black p-4 w-[80mm] mx-auto font-mono text-xs leading-tight">
       <div className="text-center mb-4 space-y-1">
-        <h2 className="text-lg font-bold uppercase tracking-tighter">LOOMPOS</h2>
-        <p>123 Trend Avenue, Fashion District</p>
-        <p>GSTIN: 27AAAAA0000A1Z5</p>
-        <p>Ph: +91 98765 43210</p>
+        <h2 className="text-lg font-bold uppercase tracking-tighter">{store.name}</h2>
+        <p className="whitespace-pre-wrap">{store.address}</p>
+        <p>GSTIN: {store.gstin}</p>
+        <p>Ph: {store.phone}</p>
       </div>
+
 
       <div className="border-y border-dashed border-black py-2 mb-2 flex justify-between uppercase">
         <span>In: {order.invoiceNo}</span>
