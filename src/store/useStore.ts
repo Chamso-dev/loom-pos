@@ -19,6 +19,7 @@ export interface StoreSettings {
   gstin: string
   upiId: string
   phone: string
+  cashierPassword?: string | null
 }
 
 
@@ -100,6 +101,7 @@ interface AppState {
   addUser: (userData: any) => Promise<void>
   updateUser: (id: string, userData: any) => Promise<void>
   revealStaffPassword: (staffId: string, adminPassword: string) => Promise<{ success: boolean, password?: string, error?: string }>
+  changePassword: (employeeId: string, currentPassword: string, newPassword: string) => Promise<{ success: boolean, error?: string }>
 }
 
 

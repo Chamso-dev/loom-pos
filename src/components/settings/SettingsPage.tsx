@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Store, MapPin, Hash, Phone, CreditCard, Save } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 export default function SettingsPage() {
   const { settings, updateSettings, user, changePassword } = useStore()

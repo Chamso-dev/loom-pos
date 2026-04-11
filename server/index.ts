@@ -120,32 +120,7 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-app.put('/api/settings', async (req, res) => {
-  try {
-    const validatedData = settingsSchema.parse(req.body);
-    const existing = await prisma.storeSettings.findFirst();
-    
-    if (existing) {
-      const updated = await prisma.storeSettings.update({
-        where: { id: existing.id },
-        data: validatedData
-      });
-      res.json(updated);
-    } else {
-      const created = await prisma.storeSettings.create({
-        data: { 
-          ...validatedData, 
-          id: '1',
-          updatedAt: new Date()
-        }
-      });
 
-      res.json(created);
-    }
-  } catch (error) {
-    res.status(400).json({ error: 'Failed to update settings' });
-  }
-});
 
 
 app.post('/api/users', async (req, res) => {
@@ -431,7 +406,17 @@ app.post('/api/orders', async (req, res) => {
         });
       }
 
-      return order;
+      // 4. Return the full order with its newly created items
+      return await tx.order.findUnique({
+        where: { id: order.id },
+        include: {
+          items: {
+            include: {
+              product: true
+            }
+          }
+        }
+      });
     });
 
     res.status(201).json(result);

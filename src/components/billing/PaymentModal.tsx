@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { Wallet, CreditCard, QrCode, X, CheckCircle2, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatCurrency, cn } from '@/lib/utils'
+import { useStore } from '@/store/useStore'
 
 interface PaymentModalProps {
   amount: number
