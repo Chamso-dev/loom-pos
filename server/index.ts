@@ -2,6 +2,12 @@ import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_super_secret_key_123';
+
 
 const prisma = new PrismaClient();
 const app = express();
@@ -23,13 +29,278 @@ const productSchema = z.object({
   supplier: z.string().optional().nullable(),
 });
 
+const userSchema = z.object({
+  employeeId: z.string().min(1),
+  name: z.string().min(1),
+  role: z.enum(['ADMIN', 'CASHIER']),
+  phone: z.string().optional().nullable(),
+  password: z.string().min(6),
+  isActive: z.boolean().optional(),
+});
+
+const loginSchema = z.object({
+  employeeId: z.string().min(1),
+  password: z.string().min(1),
+});
+
+
 const settingsSchema = z.object({
   name: z.string().min(1),
   address: z.string().min(1),
   gstin: z.string().min(1),
   upiId: z.string().min(1),
   phone: z.string().min(1),
+  cashierPassword: z.string().optional().nullable(),
 });
+
+
+// Auth & Users API
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { employeeId, password } = loginSchema.parse(req.body);
+    
+    // 1. Try individual password
+    let user = await prisma.user.findFirst({
+      where: { employeeId, isActive: true }
+    });
+
+    let isValid = false;
+    if (user && await bcrypt.compare(password, user.password)) {
+      isValid = true;
+    }
+
+    // 2. If not found, try global cashier password (only for cashiers)
+    if (!isValid && (!user || user.role === 'CASHIER')) {
+      const settings = await prisma.storeSettings.findFirst();
+      if (settings?.cashierPassword && await bcrypt.compare(password, settings.cashierPassword)) {
+        user = user || await prisma.user.findFirst({
+          where: { employeeId, isActive: true, role: 'CASHIER' }
+        });
+        if (user) isValid = true;
+      }
+    }
+
+    if (!user || !isValid) {
+      return res.status(401).json({ error: 'Invalid credentials or account deactivated' });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, employeeId: user.employeeId, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '12h' }
+    );
+
+    const { password: _, ...safeUser } = user;
+    res.json({ user: safeUser, token });
+  } catch (error) {
+    res.status(400).json({ error: 'Login failed' });
+  }
+});
+
+app.post('/api/auth/change-password', async (req, res) => {
+  try {
+    const { employeeId, currentPassword, newPassword } = z.object({
+      employeeId: z.string(),
+      currentPassword: z.string(),
+      newPassword: userSchema.shape.password
+    }).parse(req.body);
+
+    const user = await prisma.user.findFirst({
+      where: { employeeId }
+    });
+
+    if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
+      return res.status(401).json({ error: 'Current password verification failed' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword }
+    });
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to change password' });
+  }
+});
+
+
+const requireAdmin = async (req: any, res: any, next: any) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: Missing token' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+    if (!user || user.role !== 'ADMIN' || !user.isActive) {
+      return res.status(403).json({ error: 'Forbidden: Admin access required' });
+    }
+    req.user = user;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+  }
+};
+
+const requireAdminOrKey = async (req: any, res: any, next: any) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: Missing token' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  const adminKey = req.headers['x-admin-verification-key'];
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+    
+    if (!user || !user.isActive) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (user.role === 'ADMIN') {
+      req.user = user;
+      return next();
+    }
+
+    // If cashier, check the admin key
+    if (adminKey) {
+      const admin = await prisma.user.findFirst({ where: { role: 'ADMIN', isActive: true } });
+      if (admin && await bcrypt.compare(adminKey, admin.password)) {
+        req.user = user;
+        return next();
+      }
+    }
+
+    return res.status(403).json({ error: 'Forbidden: Admin verification required' });
+  } catch (err) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+  }
+};
+
+
+app.get('/api/users', requireAdmin, async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(users.map(({ password, ...u }) => u));
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+
+
+
+app.post('/api/users', requireAdmin, async (req: any, res) => {
+  try {
+    const validatedData = userSchema.parse(req.body);
+    validatedData.password = await bcrypt.hash(validatedData.password, 10);
+
+    const user = await prisma.user.create({
+      data: {
+        ...validatedData,
+        id: crypto.randomUUID(),
+        updatedAt: new Date()
+      }
+    });
+
+    const { password, ...safeUser } = user;
+    res.status(201).json(safeUser);
+
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to create user' });
+  }
+});
+
+app.put('/api/users/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const validatedData = userSchema.partial().parse(req.body);
+    if (validatedData.password && !validatedData.password.startsWith('$2a$')) {
+      validatedData.password = await bcrypt.hash(validatedData.password, 10);
+    }
+    const user = await prisma.user.update({
+      where: { id },
+      data: validatedData
+    });
+    const { password, ...safeUser } = user;
+    res.json(safeUser);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+const resetTokens = new Map<string, { expiresAt: number }>();
+
+app.post('/api/users/:id/reset-token', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const token = crypto.randomUUID();
+    resetTokens.set(`${id}-${token}`, { expiresAt: Date.now() + 15 * 60 * 1000 });
+    res.json({ token });
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to generate token' });
+  }
+});
+
+app.post('/api/users/:id/reset-password', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { token, newPassword } = z.object({
+      token: z.string(),
+      newPassword: z.string().min(6)
+    }).parse(req.body);
+
+    const tokenKey = `${id}-${token}`;
+    const tokenData = resetTokens.get(tokenKey);
+
+    if (!tokenData || tokenData.expiresAt < Date.now()) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id },
+      data: { password: hashedPassword }
+    });
+
+    resetTokens.delete(tokenKey);
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to reset password' });
+  }
+});
+
+const initializeAdmin = async () => {
+  const admin = await prisma.user.findUnique({ where: { employeeId: 'admin' } });
+  if (!admin) {
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    await prisma.user.create({
+      data: {
+        id: crypto.randomUUID(),
+        employeeId: 'admin',
+        name: 'System Admin',
+        role: 'ADMIN',
+        password: hashedPassword,
+        isActive: true,
+        updatedAt: new Date()
+      }
+
+    });
+    console.log('Default admin created: admin / admin123');
+  }
+
+};
+initializeAdmin();
+
 
 
 // Get products with pagination
@@ -71,12 +342,16 @@ app.get('/api/products', async (req, res) => {
 });
 
 // Create product
-app.post('/api/products', async (req, res) => {
+app.post('/api/products', requireAdminOrKey, async (req, res) => {
   try {
     const validatedData = productSchema.parse(req.body);
     const product = await prisma.product.create({
-      data: validatedData as any,
+      data: {
+        ...validatedData as any,
+        id: crypto.randomUUID()
+      },
     });
+
     res.status(201).json(product);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -88,7 +363,7 @@ app.post('/api/products', async (req, res) => {
 });
 
 // Update product
-app.put('/api/products/:id', async (req, res) => {
+app.put('/api/products/:id', requireAdminOrKey, async (req, res) => {
   const { id } = req.params;
   try {
     const validatedData = productSchema.partial().parse(req.body);
@@ -103,7 +378,7 @@ app.put('/api/products/:id', async (req, res) => {
 });
 
 // Delete product
-app.delete('/api/products/:id', async (req, res) => {
+app.delete('/api/products/:id', requireAdminOrKey, async (req, res) => {
   const { id } = req.params;
   try {
     await prisma.product.delete({ where: { id } });
@@ -136,6 +411,7 @@ const orderSchema = z.object({
   paymentMethod: z.string().min(1),
   customerName: z.string().optional().nullable(),
   customerMobile: z.string().optional().nullable(),
+  userId: z.string().optional().nullable(),
   items: z.array(z.object({
     productId: z.string().min(1),
     quantity: z.number().int().positive(),
@@ -143,11 +419,13 @@ const orderSchema = z.object({
   })),
 });
 
+
 // Create Order & Update Stock
 app.post('/api/orders', async (req, res) => {
   try {
     const validatedData = orderSchema.parse(req.body);
-    const { totalAmount, gstAmount, paymentMethod, customerName, customerMobile, items } = validatedData;
+    const { totalAmount, gstAmount, paymentMethod, customerName, customerMobile, items, userId } = validatedData;
+
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Generate sequential invoice number
@@ -157,14 +435,18 @@ app.post('/api/orders', async (req, res) => {
       // 2. Create the order
       const order = await tx.order.create({
         data: {
+          id: crypto.randomUUID(),
           invoiceNo,
           totalAmount,
           gstAmount,
           paymentMethod,
           customerName,
           customerMobile,
+          userId,
         },
+
         include: {
+
           items: {
             include: {
               product: true
@@ -191,12 +473,14 @@ app.post('/api/orders', async (req, res) => {
         // Create order item
         await tx.orderItem.create({
           data: {
+            id: crypto.randomUUID(),
             orderId: order.id,
             productId: item.productId,
             quantity: item.quantity,
             price: item.price,
           },
         });
+
 
         // Decrement stock
         await tx.product.update({
@@ -209,7 +493,17 @@ app.post('/api/orders', async (req, res) => {
         });
       }
 
-      return order;
+      // 4. Return the full order with its newly created items
+      return await tx.order.findUnique({
+        where: { id: order.id },
+        include: {
+          items: {
+            include: {
+              product: true
+            }
+          }
+        }
+      });
     });
 
     res.status(201).json(result);
@@ -275,11 +569,15 @@ app.get('/api/orders', async (req, res) => {
       take: l,
       orderBy: { date: 'desc' },
       include: {
+        processedBy: {
+          select: { name: true, employeeId: true, isActive: true }
+        },
         _count: {
           select: { items: true }
         }
       }
     });
+
 
     res.json({
       orders,
@@ -301,6 +599,9 @@ app.get('/api/orders/:id', async (req, res) => {
     const order = await prisma.order.findUnique({
       where: { id },
       include: {
+        processedBy: {
+          select: { name: true, employeeId: true, isActive: true }
+        },
         items: {
           include: {
             product: true
@@ -308,6 +609,7 @@ app.get('/api/orders/:id', async (req, res) => {
         }
       }
     });
+
     if (!order) return res.status(404).json({ error: 'Order not found' });
     res.json(order);
   } catch (error) {
@@ -322,6 +624,7 @@ app.get('/api/settings', async (req, res) => {
     if (!settings) {
       settings = await prisma.storeSettings.create({
         data: {
+          id: '1',
           name: 'LOOMPOS',
           address: '123 Trend Avenue, Mumbai',
           gstin: '27AAAAA0000A1Z5',
@@ -329,6 +632,7 @@ app.get('/api/settings', async (req, res) => {
           phone: '+91 98765 43210',
         }
       });
+
     }
     res.json(settings);
   } catch (error) {
@@ -339,6 +643,9 @@ app.get('/api/settings', async (req, res) => {
 app.put('/api/settings', async (req, res) => {
   try {
     const validatedData = settingsSchema.parse(req.body);
+    if (validatedData.cashierPassword && !validatedData.cashierPassword.startsWith('$2a$')) {
+      validatedData.cashierPassword = await bcrypt.hash(validatedData.cashierPassword, 10);
+    }
     const settings = await prisma.storeSettings.findFirst();
     
     let updated;
@@ -349,8 +656,13 @@ app.put('/api/settings', async (req, res) => {
       });
     } else {
       updated = await prisma.storeSettings.create({
-        data: validatedData,
+        data: { 
+          ...validatedData, 
+          id: '1',
+          updatedAt: new Date()
+        },
       });
+
     }
     res.json(updated);
   } catch (error) {

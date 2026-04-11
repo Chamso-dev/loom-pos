@@ -9,7 +9,7 @@ import PaymentModal from './PaymentModal'
 
 export default function BillingSummary() {
   // ... existing logic ...
-  const { cart, clearCart } = useStore()
+  const { cart, clearCart, user } = useStore()
   const [receiptType, setReceiptType] = useState<'A4' | 'Thermal'>('Thermal')
   const [lastOrder, setLastOrder] = useState<any>(null)
   const [customerName, setCustomerName] = useState('')
@@ -19,7 +19,6 @@ export default function BillingSummary() {
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH')
 
   const { subtotal, gstGroups, total } = useMemo(() => {
-    // ... logic for subtotal/total remains same ...
     let sub = 0
     const groups: Record<number, number> = {}
     
@@ -64,6 +63,7 @@ export default function BillingSummary() {
           paymentMethod: method, 
           customerName: customerName || null,
           customerMobile: customerMobile || null,
+          userId: user?.id,
           items: cart.map(item => ({
             productId: item.productId,
             quantity: item.quantity,
@@ -71,6 +71,8 @@ export default function BillingSummary() {
           }))
         })
       })
+
+
 
       if (!response.ok) {
         const error = await response.json()

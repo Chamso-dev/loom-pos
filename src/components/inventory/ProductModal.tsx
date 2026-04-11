@@ -15,6 +15,7 @@ interface ProductModalProps {
   product?: Product | null
   isOpen: boolean
   onClose: () => void
+  adminKey?: string
 }
 
 export default function ProductModal({ product, isOpen, onClose }: ProductModalProps) {
@@ -64,9 +65,9 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (product) {
-      await updateProduct(product.id, formData)
+      await updateProduct(product.id, formData, adminKey)
     } else {
-      await addProduct(formData)
+      await addProduct(formData, adminKey)
     }
     onClose()
   }

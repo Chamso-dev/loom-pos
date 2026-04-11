@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 interface InventoryTableProps {
   products: Product[]
   onEdit: (product: Product) => void
+  onDelete: (id: string) => void
   selectedIds: string[]
   onSelectionToggle: (id: string, selected: boolean) => void
   onSelectAll: (selected: boolean) => void
@@ -16,11 +17,12 @@ interface InventoryTableProps {
 export default function InventoryTable({ 
   products, 
   onEdit, 
+  onDelete,
   selectedIds, 
   onSelectionToggle, 
   onSelectAll 
 }: InventoryTableProps) {
-  const { deleteProduct, isLoadingProducts } = useStore()
+  const { isLoadingProducts } = useStore()
 
   if (isLoadingProducts) {
     return (
@@ -123,7 +125,7 @@ export default function InventoryTable({
                     <Button variant="ghost" size="icon" onClick={() => onEdit(product)} className="h-8 w-8 hover:text-primary transition-colors">
                       <Edit2 size={16} />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => deleteProduct(product.id)} className="h-8 w-8 hover:text-destructive transition-colors">
+                    <Button variant="ghost" size="icon" onClick={() => onDelete(product.id)} className="h-8 w-8 hover:text-destructive transition-colors">
                       <Trash2 size={16} />
                     </Button>
                   </div>

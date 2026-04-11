@@ -3,9 +3,14 @@ import { persist } from 'zustand/middleware'
 
 export interface User {
   id: string
+  employeeId: string
   name: string
   role: 'ADMIN' | 'CASHIER'
+  phone?: string | null
+  isActive: boolean
+  createdAt: string
 }
+
 
 export interface StoreSettings {
   id: string
@@ -14,6 +19,7 @@ export interface StoreSettings {
   gstin: string
   upiId: string
   phone: string
+  cashierPassword?: string | null
 }
 
 
@@ -53,9 +59,11 @@ interface AppState {
   setSidebarOpen: (isOpen: boolean) => void
 
   // Auth State
+  token: string | null
   user: User | null
-  setUser: (user: User | null) => void
+  login: (employeeId: string, password: string) => Promise<{ success: boolean, error?: string }>
   logout: () => void
+
 
   // Cart State
   cart: CartItem[]
@@ -75,9 +83,9 @@ interface AppState {
   hasMoreProducts: boolean
   totalProducts: number
   fetchProducts: (params?: { page?: number, search?: string }) => Promise<void>
-  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
-  updateProduct: (id: string, product: Partial<Product>) => Promise<void>
-  deleteProduct: (id: string) => Promise<void>
+  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>, adminKey?: string) => Promise<boolean>
+  updateProduct: (id: string, product: Partial<Product>, adminKey?: string) => Promise<boolean>
+  deleteProduct: (id: string, adminKey?: string) => Promise<boolean>
 
   // Settings State
   settings: StoreSettings | null
@@ -87,7 +95,17 @@ interface AppState {
   // Notification State
   lowStockProducts: Product[]
   fetchLowStockAlerts: () => Promise<void>
+
+  // Users State (Admin)
+  users: User[]
+  fetchUsers: () => Promise<void>
+  addUser: (userData: any) => Promise<void>
+  updateUser: (id: string, userData: any) => Promise<void>
+  requestResetToken: (staffId: string, adminPassword: string) => Promise<{ success: boolean, token?: string, error?: string }>
+  resetStaffPassword: (staffId: string, token: string, newPassword: string) => Promise<{ success: boolean, error?: string }>
+  changePassword: (employeeId: string, currentPassword: string, newPassword: string) => Promise<{ success: boolean, error?: string }>
 }
+
 
 
 
@@ -100,9 +118,28 @@ export const useStore = create<AppState>()(
       setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
 
       // Auth
+      token: null,
       user: null,
-      setUser: (user) => set({ user }),
-      logout: () => set({ user: null }),
+      login: async (employeeId, password) => {
+        try {
+          const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ employeeId, password }),
+          })
+          if (!response.ok) {
+            const data = await response.json()
+            return { success: false, error: data.error || 'Login failed' }
+          }
+          const { user, token } = await response.json()
+          set({ user, token })
+          return { success: true }
+        } catch (error) {
+          return { success: false, error: 'Connection error' }
+        }
+      },
+      logout: () => set({ user: null, token: null }),
+
 
       // Cart
       cart: [],
@@ -180,42 +217,80 @@ export const useStore = create<AppState>()(
           set({ isLoadingProducts: false })
         }
       },
-      addProduct: async (productData) => {
+      addProduct: async (productData, adminKey) => {
         try {
+          const { token } = get()
+          const headers: Record<string, string> = { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+          if (adminKey) headers['x-admin-verification-key'] = adminKey
+
           const response = await fetch('/api/products', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(productData),
           })
+          
+          if (!response.ok) return false
+          
           const nextProduct = await response.json()
           set((state) => ({ products: [nextProduct, ...state.products] }))
+          return true
         } catch (error) {
           console.error('Failed to add product:', error)
+          return false
         }
       },
-      updateProduct: async (id, productData) => {
+      updateProduct: async (id, productData, adminKey) => {
         try {
+          const { token } = get()
+          const headers: Record<string, string> = { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+          if (adminKey) headers['x-admin-verification-key'] = adminKey
+
           const response = await fetch(`/api/products/${id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(productData),
           })
+
+          if (!response.ok) return false
+
           const updatedProduct = await response.json()
           set((state) => ({
             products: state.products.map((p) => (p.id === id ? updatedProduct : p)),
           }))
+          return true
         } catch (error) {
           console.error('Failed to update product:', error)
+          return false
         }
       },
-      deleteProduct: async (id) => {
+      deleteProduct: async (id, adminKey) => {
         try {
-          await fetch(`/api/products/${id}`, { method: 'DELETE' })
+          const { token } = get()
+          const headers: Record<string, string> = { 
+            'Authorization': `Bearer ${token}`
+          }
+          if (adminKey) headers['x-admin-verification-key'] = adminKey
+
+          const response = await fetch(`/api/products/${id}`, { 
+            method: 'DELETE',
+            headers
+          })
+          
+          if (!response.ok) return false
+
           set((state) => ({
             products: state.products.filter((p) => p.id !== id),
           }))
+          return true
         } catch (error) {
           console.error('Failed to delete product:', error)
+          return false
         }
       },
 
@@ -260,7 +335,113 @@ export const useStore = create<AppState>()(
           console.error('Failed to fetch low stock alerts:', error)
         }
       },
+
+      // Users (Admin)
+      users: [],
+      fetchUsers: async () => {
+        try {
+          const response = await fetch('/api/users', {
+            headers: { 'Authorization': `Bearer ${get().token}` }
+          })
+          if (!response.ok) throw new Error('Failed to fetch users')
+          const users = await response.json()
+          set({ users })
+        } catch (error) {
+          console.error('Failed to fetch users:', error)
+        }
+      },
+      addUser: async (userData) => {
+        try {
+          const response = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${get().token}` },
+            body: JSON.stringify(userData),
+          })
+          if (!response.ok) throw new Error('Failed to add user')
+          const newUser = await response.json()
+          set((state) => ({ users: [newUser, ...state.users] }))
+        } catch (error) {
+          console.error('Failed to add user:', error)
+        }
+      },
+      updateUser: async (id, userData) => {
+        try {
+          const response = await fetch(`/api/users/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${get().token}` },
+            body: JSON.stringify(userData),
+          })
+          if (!response.ok) throw new Error('Failed to update user')
+          const updatedUser = await response.json()
+          set((state) => ({
+            users: state.users.map((u) => (u.id === id ? updatedUser : u)),
+          }))
+        } catch (error) {
+          console.error('Failed to update user:', error)
+        }
+      },
+      requestResetToken: async (staffId, adminPassword) => {
+        const adminUser = get().user;
+        const token = get().token;
+        if (!adminUser || adminUser.role !== 'ADMIN' || !token) {
+          return { success: false, error: 'Unauthorized: Admin access required' };
+        }
+
+        try {
+          const response = await fetch(`/api/users/${staffId}/reset-token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+          });
+          
+          if (!response.ok) {
+            const data = await response.json();
+            return { success: false, error: data.error || 'Verification failed' };
+          }
+          
+          const { token: resetToken } = await response.json();
+          return { success: true, resetToken };
+        } catch (error) {
+          return { success: false, error: 'Connection failure' };
+        }
+      },
+      resetStaffPassword: async (staffId, resetToken, newPassword) => {
+        try {
+          const response = await fetch(`/api/users/${staffId}/reset-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${get().token}` },
+            body: JSON.stringify({ token: resetToken, newPassword })
+          });
+          
+          if (!response.ok) {
+            const data = await response.json();
+            return { success: false, error: data.error || 'Failed to reset password' };
+          }
+          
+          return { success: true };
+        } catch (error) {
+          return { success: false, error: 'Connection failure' };
+        }
+      },
+      changePassword: async (employeeId, currentPassword, newPassword) => {
+        try {
+          const response = await fetch('/api/auth/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ employeeId, currentPassword, newPassword }),
+          })
+          if (!response.ok) {
+            const error = await response.json()
+            throw new Error(error.error || 'Failed to change password')
+          }
+          return { success: true }
+        } catch (error: any) {
+          console.error('Change password error:', error)
+          return { success: false, error: error.message }
+        }
+      },
+
     }),
+
 
 
     {

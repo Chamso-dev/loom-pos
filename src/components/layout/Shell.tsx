@@ -51,14 +51,14 @@ export default function Shell({ children }: ShellProps) {
 
   return (
     <div className="min-h-screen bg-background font-outfit selection:bg-primary/20 selection:text-primary">
-      {/* Sidebar - Hidden on billing screen per user requirement */}
-      {!isBillingScreen && <Sidebar />}
+      {/* Sidebar - Always rendered so cashiers can switch tabs */}
+      <Sidebar />
 
       {/* Main Content Area */}
       <div 
         className={cn(
           "transition-all duration-300 min-h-screen",
-          !isBillingScreen && (isSidebarOpen ? "pl-64" : "pl-20")
+          isSidebarOpen ? "pl-64" : "pl-20"
         )}
       >
         <Header />
