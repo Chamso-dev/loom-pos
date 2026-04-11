@@ -59,6 +59,7 @@ interface AppState {
   setSidebarOpen: (isOpen: boolean) => void
 
   // Auth State
+  token: string | null
   user: User | null
   login: (employeeId: string, password: string) => Promise<{ success: boolean, error?: string }>
   logout: () => void
@@ -82,9 +83,9 @@ interface AppState {
   hasMoreProducts: boolean
   totalProducts: number
   fetchProducts: (params?: { page?: number, search?: string }) => Promise<void>
-  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
-  updateProduct: (id: string, product: Partial<Product>) => Promise<void>
-  deleteProduct: (id: string) => Promise<void>
+  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>, adminKey?: string) => Promise<boolean>
+  updateProduct: (id: string, product: Partial<Product>, adminKey?: string) => Promise<boolean>
+  deleteProduct: (id: string, adminKey?: string) => Promise<boolean>
 
   // Settings State
   settings: StoreSettings | null
@@ -100,7 +101,8 @@ interface AppState {
   fetchUsers: () => Promise<void>
   addUser: (userData: any) => Promise<void>
   updateUser: (id: string, userData: any) => Promise<void>
-  revealStaffPassword: (staffId: string, adminPassword: string) => Promise<{ success: boolean, password?: string, error?: string }>
+  requestResetToken: (staffId: string, adminPassword: string) => Promise<{ success: boolean, token?: string, error?: string }>
+  resetStaffPassword: (staffId: string, token: string, newPassword: string) => Promise<{ success: boolean, error?: string }>
   changePassword: (employeeId: string, currentPassword: string, newPassword: string) => Promise<{ success: boolean, error?: string }>
 }
 
@@ -116,6 +118,7 @@ export const useStore = create<AppState>()(
       setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
 
       // Auth
+      token: null,
       user: null,
       login: async (employeeId, password) => {
         try {
@@ -128,14 +131,14 @@ export const useStore = create<AppState>()(
             const data = await response.json()
             return { success: false, error: data.error || 'Login failed' }
           }
-          const user = await response.json()
-          set({ user })
+          const { user, token } = await response.json()
+          set({ user, token })
           return { success: true }
         } catch (error) {
           return { success: false, error: 'Connection error' }
         }
       },
-      logout: () => set({ user: null }),
+      logout: () => set({ user: null, token: null }),
 
 
       // Cart
@@ -214,42 +217,80 @@ export const useStore = create<AppState>()(
           set({ isLoadingProducts: false })
         }
       },
-      addProduct: async (productData) => {
+      addProduct: async (productData, adminKey) => {
         try {
+          const { token } = get()
+          const headers: Record<string, string> = { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+          if (adminKey) headers['x-admin-verification-key'] = adminKey
+
           const response = await fetch('/api/products', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(productData),
           })
+          
+          if (!response.ok) return false
+          
           const nextProduct = await response.json()
           set((state) => ({ products: [nextProduct, ...state.products] }))
+          return true
         } catch (error) {
           console.error('Failed to add product:', error)
+          return false
         }
       },
-      updateProduct: async (id, productData) => {
+      updateProduct: async (id, productData, adminKey) => {
         try {
+          const { token } = get()
+          const headers: Record<string, string> = { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+          if (adminKey) headers['x-admin-verification-key'] = adminKey
+
           const response = await fetch(`/api/products/${id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(productData),
           })
+
+          if (!response.ok) return false
+
           const updatedProduct = await response.json()
           set((state) => ({
             products: state.products.map((p) => (p.id === id ? updatedProduct : p)),
           }))
+          return true
         } catch (error) {
           console.error('Failed to update product:', error)
+          return false
         }
       },
-      deleteProduct: async (id) => {
+      deleteProduct: async (id, adminKey) => {
         try {
-          await fetch(`/api/products/${id}`, { method: 'DELETE' })
+          const { token } = get()
+          const headers: Record<string, string> = { 
+            'Authorization': `Bearer ${token}`
+          }
+          if (adminKey) headers['x-admin-verification-key'] = adminKey
+
+          const response = await fetch(`/api/products/${id}`, { 
+            method: 'DELETE',
+            headers
+          })
+          
+          if (!response.ok) return false
+
           set((state) => ({
             products: state.products.filter((p) => p.id !== id),
           }))
+          return true
         } catch (error) {
           console.error('Failed to delete product:', error)
+          return false
         }
       },
 
@@ -299,7 +340,9 @@ export const useStore = create<AppState>()(
       users: [],
       fetchUsers: async () => {
         try {
-          const response = await fetch('/api/users')
+          const response = await fetch('/api/users', {
+            headers: { 'Authorization': `Bearer ${get().token}` }
+          })
           if (!response.ok) throw new Error('Failed to fetch users')
           const users = await response.json()
           set({ users })
@@ -311,7 +354,7 @@ export const useStore = create<AppState>()(
         try {
           const response = await fetch('/api/users', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${get().token}` },
             body: JSON.stringify(userData),
           })
           if (!response.ok) throw new Error('Failed to add user')
@@ -325,7 +368,7 @@ export const useStore = create<AppState>()(
         try {
           const response = await fetch(`/api/users/${id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${get().token}` },
             body: JSON.stringify(userData),
           })
           if (!response.ok) throw new Error('Failed to update user')
@@ -337,20 +380,17 @@ export const useStore = create<AppState>()(
           console.error('Failed to update user:', error)
         }
       },
-      revealStaffPassword: async (staffId, adminPassword) => {
+      requestResetToken: async (staffId, adminPassword) => {
         const adminUser = get().user;
-        if (!adminUser || adminUser.role !== 'ADMIN') {
+        const token = get().token;
+        if (!adminUser || adminUser.role !== 'ADMIN' || !token) {
           return { success: false, error: 'Unauthorized: Admin access required' };
         }
 
         try {
-          const response = await fetch(`/api/users/${staffId}/reveal-password`, {
+          const response = await fetch(`/api/users/${staffId}/reset-token`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              adminEmployeeId: adminUser.employeeId, 
-              adminPassword 
-            }),
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
           });
           
           if (!response.ok) {
@@ -358,8 +398,26 @@ export const useStore = create<AppState>()(
             return { success: false, error: data.error || 'Verification failed' };
           }
           
-          const { password } = await response.json();
-          return { success: true, password };
+          const { token: resetToken } = await response.json();
+          return { success: true, resetToken };
+        } catch (error) {
+          return { success: false, error: 'Connection failure' };
+        }
+      },
+      resetStaffPassword: async (staffId, resetToken, newPassword) => {
+        try {
+          const response = await fetch(`/api/users/${staffId}/reset-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${get().token}` },
+            body: JSON.stringify({ token: resetToken, newPassword })
+          });
+          
+          if (!response.ok) {
+            const data = await response.json();
+            return { success: false, error: data.error || 'Failed to reset password' };
+          }
+          
+          return { success: true };
         } catch (error) {
           return { success: false, error: 'Connection failure' };
         }

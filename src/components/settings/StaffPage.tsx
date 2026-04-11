@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
 export default function StaffPage() {
-  const { users, fetchUsers, addUser, updateUser, revealStaffPassword } = useStore()
+  const { users, fetchUsers, addUser, updateUser, requestResetToken, resetStaffPassword } = useStore()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -26,6 +26,7 @@ export default function StaffPage() {
   const [revealError, setRevealError] = useState('')
   const [isRevealLoading, setIsRevealLoading] = useState(false)
   const [showStaffPassword, setShowStaffPassword] = useState(false)
+  const [showResetPassword, setShowResetPassword] = useState(false)
 
   useEffect(() => {
     fetchUsers()
@@ -36,6 +37,7 @@ export default function StaffPage() {
     setAdminVerifyKey('')
     setRevealError('')
     setShowStaffPassword(false)
+    setShowResetPassword(false)
     
     if (user) {
       setEditingUser(user)
@@ -58,21 +60,31 @@ export default function StaffPage() {
     setIsModalOpen(true)
   }
 
-  const handleReveal = async () => {
-    if (!editingUser || !adminVerifyKey) return
+  const handleReset = async () => {
+    if (!editingUser) return
+    if (!password || password.length < 6) {
+      setRevealError('New password must be at least 6 characters')
+      return
+    }
     
     setIsRevealLoading(true)
     setRevealError('')
     
-    const result = await revealStaffPassword(editingUser.id, adminVerifyKey)
+    const tokenResult = await requestResetToken(editingUser.id)
     
-    if (result.success && result.password) {
-      setPassword(result.password)
-      setIsRevealing(false)
-      setShowStaffPassword(true)
-      setAdminVerifyKey('')
+    if (tokenResult.success && tokenResult.resetToken) {
+      const resetResult = await resetStaffPassword(editingUser.id, tokenResult.resetToken, password)
+      if (resetResult.success) {
+        setIsRevealing(false)
+        setShowStaffPassword(false)
+        setAdminVerifyKey('')
+        setPassword('')
+        setIsModalOpen(false)
+      } else {
+        setRevealError(resetResult.error || 'Reset failed')
+      }
     } else {
-      setRevealError(result.error || 'Verification failed')
+      setRevealError(tokenResult.error || 'Verification failed')
     }
     setIsRevealLoading(false)
   }
@@ -195,89 +207,107 @@ export default function StaffPage() {
       {/* User Management Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-           <div className="bg-card w-full max-w-md rounded-[2.5rem] border border-border/60 shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col overflow-hidden max-h-[90vh]">
-              <div className="p-8 border-b border-border/40 flex items-center justify-between bg-accent/10">
+            <div className="bg-card w-full max-w-md rounded-[2.5rem] border border-border/60 shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col overflow-hidden max-h-[90vh]">
+              <div className="p-6 border-b border-border/40 flex items-center justify-between bg-accent/10">
                  <div>
-                    <h2 className="text-2xl font-black tracking-tighter uppercase italic">{editingUser ? 'Modify Credentials' : 'Request Access'}</h2>
-                    <p className="text-[10px] uppercase font-black text-muted-foreground opacity-60 tracking-[0.2em]">Personnel Management System</p>
+                    <h2 className="text-xl font-black tracking-tighter uppercase italic">{editingUser ? 'Modify Credentials' : 'Request Access'}</h2>
+                    <p className="text-[9px] uppercase font-black text-muted-foreground opacity-60 tracking-[0.2em]">Personnel Management System</p>
                  </div>
-                 <button onClick={() => setIsModalOpen(false)} className="w-10 h-10 flex items-center justify-center hover:bg-background rounded-full border border-border/40 transition-all">
-                    <X size={20} />
+                 <button onClick={() => setIsModalOpen(false)} className="w-8 h-8 flex items-center justify-center hover:bg-background rounded-full border border-border/40 transition-all">
+                    <X size={18} />
                  </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto overflow-x-hidden">
-                 <div className="space-y-4">
-                    <div className="space-y-1.5">
-                       <label className="text-[9px] uppercase font-black tracking-widest text-muted-foreground pl-1">Full Name</label>
-                       <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="John Doe" className="h-12 bg-accent/20 border-border/40 rounded-xl font-bold text-sm px-4" required />
+              <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto overflow-x-hidden">
+                 <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                       <div className="space-y-1.5">
+                          <label className="text-[9px] uppercase font-black tracking-widest text-muted-foreground pl-1">Full Name</label>
+                          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="John Doe" className="h-11 bg-accent/20 border-border/40 rounded-xl font-bold text-xs px-4" required />
+                       </div>
+                       <div className="space-y-1.5">
+                          <label className="text-[9px] uppercase font-black tracking-widest text-muted-foreground pl-1">Employee ID</label>
+                          <Input value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} placeholder="EMP-001" className="h-11 bg-accent/20 border-border/40 rounded-xl font-bold text-xs px-4 uppercase" required />
+                       </div>
                     </div>
-                    <div className="space-y-1.5">
-                       <label className="text-[9px] uppercase font-black tracking-widest text-muted-foreground pl-1">Employee ID</label>
-                       <Input value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} placeholder="EMP-001" className="h-12 bg-accent/20 border-border/40 rounded-xl font-bold text-sm px-4 uppercase" required />
-                    </div>
-                    <div className="space-y-1.5">
-                       <label className="text-[9px] uppercase font-black tracking-widest text-muted-foreground pl-1">Contact Phone</label>
-                       <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 0000 00000" className="h-12 bg-accent/20 border-border/40 rounded-xl font-bold text-sm px-4" />
-                    </div>
-                    <div className="space-y-1.5">
-                       <label className="text-[9px] uppercase font-black tracking-widest text-muted-foreground pl-1">Access Role</label>
-                       <div className="grid grid-cols-2 gap-2">
-                          {['ADMIN', 'CASHIER'].map((r: any) => (
-                            <button
-                              key={r}
-                              type="button"
-                              onClick={() => setRole(r)}
-                              className={cn(
-                                "py-3 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all",
-                                role === r ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-background border-border"
-                              )}
-                            >
-                              {r}
-                            </button>
-                          ))}
+
+                    <div className="grid grid-cols-2 gap-3">
+                       <div className="space-y-1.5">
+                          <label className="text-[9px] uppercase font-black tracking-widest text-muted-foreground pl-1">Contact Phone</label>
+                          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 0000..." className="h-11 bg-accent/20 border-border/40 rounded-xl font-bold text-xs px-4" />
+                       </div>
+                       <div className="space-y-1.5">
+                          <label className="text-[9px] uppercase font-black tracking-widest text-muted-foreground pl-1">Access Role</label>
+                          <div className="grid grid-cols-2 gap-1.5">
+                             {['ADMIN', 'CASHIER'].map((r: any) => (
+                               <button
+                                 key={r}
+                                 type="button"
+                                 onClick={() => setRole(r)}
+                                 className={cn(
+                                   "py-2.5 rounded-xl border text-[8px] font-black uppercase tracking-widest transition-all",
+                                   role === r ? "bg-primary text-white border-primary shadow-md shadow-primary/20" : "bg-background border-border"
+                                 )}
+                               >
+                                 {r}
+                               </button>
+                             ))}
+                          </div>
                        </div>
                     </div>
                     
                     <div className="space-y-1.5">
                        <div className="flex items-center justify-between pr-1">
                           <label className="text-[9px] uppercase font-black tracking-widest text-muted-foreground pl-1">
-                             {editingUser ? 'Reset Security Key (Optional)' : 'Initial Security Key'}
+                             {editingUser ? 'Reset Security Key' : 'Initial Security Key'}
                           </label>
-                          {editingUser && !showStaffPassword && (
+                          {editingUser && !isRevealing && (
                              <button 
                                type="button"
-                               onClick={() => setIsRevealing(!isRevealing)}
+                               onClick={() => setIsRevealing(true)}
                                className="text-[9px] uppercase font-black text-primary tracking-widest hover:underline"
                              >
-                                {isRevealing ? 'Cancel' : 'Reveal Existing'}
+                                Reset Password
                              </button>
                           )}
                        </div>
 
                        {isRevealing ? (
                           <div className="space-y-3 p-4 bg-primary/5 rounded-2xl border border-primary/20 animate-in slide-in-from-top-4 duration-300">
-                             <div className="flex items-center gap-2 text-primary">
-                                <ShieldCheck size={14} />
-                                <span className="text-[9px] uppercase font-black tracking-widest">Manager Verification Required</span>
+                             <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-primary">
+                                   <ShieldCheck size={14} />
+                                   <span className="text-[9px] uppercase font-black tracking-widest">Admin Configured</span>
+                                </div>
+                                <button type="button" onClick={() => setIsRevealing(false)} className="text-[9px] uppercase font-black text-primary hover:underline">Cancel</button>
                              </div>
+                             
                              <div className="flex gap-2">
-                                <Input 
-                                  type="password" 
-                                  placeholder="Enter Admin Key..." 
-                                  value={adminVerifyKey}
-                                  onChange={(e) => setAdminVerifyKey(e.target.value)}
-                                  className="h-10 bg-background border-primary/20 rounded-xl text-xs font-bold"
-                                />
-                                <Button 
-                                  type="button"
-                                  onClick={handleReveal}
-                                  disabled={isRevealLoading || !adminVerifyKey}
-                                  className="h-10 px-4 rounded-xl text-[9px] uppercase font-black"
-                                >
-                                   {isRevealLoading ? '...' : 'Verify'}
-                                </Button>
-                             </div>
+                                 <div className="relative flex-1">
+                                    <Input 
+                                      type={showResetPassword ? "text" : "password"}
+                                      placeholder="New Password"
+                                      value={password}
+                                      onChange={(e) => setPassword(e.target.value)}
+                                      className="h-10 bg-background border-primary/20 rounded-xl text-xs font-bold pr-10"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowResetPassword(!showResetPassword)}
+                                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
+                                    >
+                                       {showResetPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                                    </button>
+                                 </div>
+                                 <Button 
+                                   type="button"
+                                   onClick={handleReset}
+                                   disabled={isRevealLoading || password.length < 6}
+                                   className="h-10 px-4 rounded-xl text-[9px] uppercase font-black whitespace-nowrap"
+                                 >
+                                    {isRevealLoading ? '...' : 'Reset'}
+                                 </Button>
+                              </div>
                              {revealError && (
                                 <div className="flex items-center gap-1.5 text-red-500">
                                    <AlertCircle size={10} />
@@ -295,14 +325,17 @@ export default function StaffPage() {
                                placeholder={editingUser ? "••••••••" : "MIN 6 CHARS"} 
                                className="h-12 bg-accent/20 border-border/40 rounded-xl font-bold text-sm pl-11 pr-11 transition-all" 
                                required={!editingUser} 
+                               disabled={!!editingUser}
                              />
-                             <button
-                               type="button"
-                               onClick={() => setShowStaffPassword(!showStaffPassword)}
-                               className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
-                             >
-                                {showStaffPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                             </button>
+                             {!editingUser && (
+                               <button
+                                 type="button"
+                                 onClick={() => setShowStaffPassword(!showStaffPassword)}
+                                 className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
+                               >
+                                  {showStaffPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                               </button>
+                             )}
                           </div>
                        )}
                     </div>

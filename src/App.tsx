@@ -30,7 +30,7 @@ function AppContent() {
         <Route path="/login" element={<LoginPage />} />
         
         <Route path="/" element={
-          <AuthGuard>
+          <AuthGuard requiredRole="ADMIN">
             <Shell>
               <PageWrapper><Dashboard /></PageWrapper>
             </Shell>

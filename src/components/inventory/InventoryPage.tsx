@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import InventoryTable from './InventoryTable'
 import ProductModal from './ProductModal'
 import PrintLabelsModal from './PrintLabelsModal'
+import AdminVerifyModal from './AdminVerifyModal'
 import { useStore, type Product } from '@/store/useStore'
 import { cn } from '@/lib/utils'
 
@@ -14,13 +15,17 @@ export default function InventoryPage() {
   const [searchParams] = useSearchParams()
   const initialSearch = searchParams.get('search') || ''
   
-  const { fetchProducts, products, hasMoreProducts, totalProducts, isLoadingProducts } = useStore()
+  const { fetchProducts, products, hasMoreProducts, totalProducts, isLoadingProducts, user, deleteProduct } = useStore()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false)
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
+  
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [searchQuery, setSearchQuery] = useState(initialSearch)
   const [page, setPage] = useState(1)
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([])
+  const [adminKey, setAdminKey] = useState<string | undefined>()
+  const [pendingAction, setPendingAction] = useState<{ type: 'add' | 'edit' | 'delete', data?: any } | null>(null)
 
   useEffect(() => {
     // Reset page and fetch on search change
@@ -39,13 +44,60 @@ export default function InventoryPage() {
   }
 
   const handleEdit = (product: Product) => {
-    setEditingProduct(product)
-    setIsModalOpen(true)
+    if (user?.role === 'ADMIN') {
+      setEditingProduct(product)
+      setAdminKey(undefined)
+      setIsModalOpen(true)
+    } else {
+      setPendingAction({ type: 'edit', data: product })
+      setIsVerifyModalOpen(true)
+    }
   }
 
   const handleAddNew = () => {
-    setEditingProduct(null)
-    setIsModalOpen(true)
+    if (user?.role === 'ADMIN') {
+      setEditingProduct(null)
+      setAdminKey(undefined)
+      setIsModalOpen(true)
+    } else {
+      setPendingAction({ type: 'add' })
+      setIsVerifyModalOpen(true)
+    }
+  }
+
+  const handleDelete = (id: string) => {
+    if (user?.role === 'ADMIN') {
+      if (confirm('Are you sure you want to delete this product?')) {
+        deleteProduct(id)
+      }
+    } else {
+      setPendingAction({ type: 'delete', data: id })
+      setIsVerifyModalOpen(true)
+    }
+  }
+
+  const handleVerifySuccess = async (key: string) => {
+    if (!pendingAction) return
+
+    if (pendingAction.type === 'add') {
+      setAdminKey(key)
+      setEditingProduct(null)
+      setIsModalOpen(true)
+    } else if (pendingAction.type === 'edit') {
+      setAdminKey(key)
+      setEditingProduct(pendingAction.data)
+      setIsModalOpen(true)
+    } else if (pendingAction.type === 'delete') {
+      if (confirm('Are you sure you want to delete this product?')) {
+        const success = await deleteProduct(pendingAction.data, key)
+        if (!success) {
+          alert('Verification failed or unauthorized action.')
+        }
+      }
+    }
+    
+    setIsVerifyModalOpen(false)
+    setPendingAction(null)
   }
 
 
@@ -113,6 +165,7 @@ export default function InventoryPage() {
       <InventoryTable 
         products={products}
         onEdit={handleEdit} 
+        onDelete={handleDelete}
         selectedIds={selectedProductIds}
         onSelectionToggle={handleSelectionToggle}
         onSelectAll={handleSelectAll}
@@ -136,8 +189,21 @@ export default function InventoryPage() {
 
       <ProductModal 
         isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        product={editingProduct} 
+        onClose={() => {
+          setIsModalOpen(false)
+          setAdminKey(undefined)
+        }} 
+        product={editingProduct}
+        adminKey={adminKey}
+      />
+
+      <AdminVerifyModal 
+        isOpen={isVerifyModalOpen}
+        onClose={() => {
+          setIsVerifyModalOpen(false)
+          setPendingAction(null)
+        }}
+        onVerify={handleVerifySuccess}
       />
 
       <PrintLabelsModal 
