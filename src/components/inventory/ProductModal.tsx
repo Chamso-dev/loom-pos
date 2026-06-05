@@ -18,7 +18,7 @@ interface ProductModalProps {
   adminKey?: string
 }
 
-export default function ProductModal({ product, isOpen, onClose }: ProductModalProps) {
+export default function ProductModal({ product, isOpen, onClose, adminKey }: ProductModalProps) {
   const { addProduct, updateProduct } = useStore()
   const [formData, setFormData] = useState<Omit<Product, 'id' | 'createdAt' | 'updatedAt'>>({
     name: '',
@@ -90,74 +90,74 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-      <Card className="w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <Card className="w-full max-w-2xl border border-border bg-card shadow-lg animate-in zoom-in-95 duration-200">
         <form onSubmit={handleSubmit}>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>{product ? 'Edit Product' : 'Add New Product'}</CardTitle>
-            <Button variant="ghost" size="icon" onClick={onClose} type="button">
-              <X size={20} />
+          <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4">
+            <CardTitle className="text-lg font-semibold">{product ? 'Edit Product' : 'Add New Product'}</CardTitle>
+            <Button variant="ghost" size="icon" onClick={onClose} type="button" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+              <X size={16} />
             </Button>
           </CardHeader>
           
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2 col-span-1 md:col-span-2">
-              <label className="text-sm font-medium">Product Name</label>
-              <Input name="name" value={formData.name} onChange={handleChange} required placeholder="e.g. Silk Shirt" />
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6">
+            <div className="space-y-1.5 col-span-1 md:col-span-2">
+              <label className="text-xs font-medium text-muted-foreground">Product Name</label>
+              <Input name="name" value={formData.name} onChange={handleChange} required placeholder="e.g. Silk Shirt" className="h-9 text-sm" />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">SKU</label>
+                <label className="text-xs font-medium text-muted-foreground">SKU</label>
                 {!product && (
-                  <button type="button" onClick={generateCodes} className="text-[10px] text-primary hover:underline flex items-center gap-1">
+                  <button type="button" onClick={generateCodes} className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1">
                     <RefreshCw size={10} /> Regen
                   </button>
                 )}
               </div>
-              <Input name="sku" value={formData.sku} onChange={handleChange} required />
+              <Input name="sku" value={formData.sku} onChange={handleChange} required className="h-9 text-sm" />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Barcode</label>
-              <Input name="barcode" value={formData.barcode} onChange={handleChange} required />
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Barcode</label>
+              <Input name="barcode" value={formData.barcode} onChange={handleChange} required className="h-9 text-sm" />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Category</label>
-              <Input name="category" value={formData.category} onChange={handleChange} required placeholder="e.g. Apparel" />
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Category</label>
+              <Input name="category" value={formData.category} onChange={handleChange} required placeholder="e.g. Apparel" className="h-9 text-sm" />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Stock Level</label>
-              <Input name="stock" type="number" value={formData.stock} onChange={handleChange} required />
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Stock Level</label>
+              <Input name="stock" type="number" value={formData.stock} onChange={handleChange} required className="h-9 text-sm" />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Cost Price</label>
-              <Input name="costPrice" type="number" step="0.01" value={formData.costPrice} onChange={handleChange} required />
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Cost Price</label>
+              <Input name="costPrice" type="number" step="0.01" value={formData.costPrice} onChange={handleChange} required className="h-9 text-sm" />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Selling Price</label>
-              <Input name="sellingPrice" type="number" step="0.01" value={formData.sellingPrice} onChange={handleChange} required />
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Selling Price</label>
+              <Input name="sellingPrice" type="number" step="0.01" value={formData.sellingPrice} onChange={handleChange} required className="h-9 text-sm" />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">GST (%)</label>
-              <Input name="gst" type="number" value={formData.gst} onChange={handleChange} required />
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">GST (%)</label>
+              <Input name="gst" type="number" value={formData.gst} onChange={handleChange} required className="h-9 text-sm" />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Supplier</label>
-              <Input name="supplier" value={formData.supplier || ''} onChange={handleChange} />
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Supplier</label>
+              <Input name="supplier" value={formData.supplier || ''} onChange={handleChange} className="h-9 text-sm" />
             </div>
           </CardContent>
 
-          <CardFooter className="flex justify-end gap-3 pt-4">
-            <Button variant="outline" type="button" onClick={onClose}>Cancel</Button>
-            <Button variant="premium" type="submit" className="gap-2">
-              <Save size={18} />
+          <CardFooter className="flex justify-end gap-2 border-t border-border/40 pt-4 pb-6 px-6">
+            <Button variant="outline" type="button" onClick={onClose} className="h-9 text-xs">Cancel</Button>
+            <Button variant="default" type="submit" className="gap-2 h-9 text-xs">
+              <Save size={14} />
               {product ? 'Update' : 'Save Product'}
             </Button>
           </CardFooter>

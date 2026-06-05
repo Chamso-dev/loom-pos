@@ -44,24 +44,24 @@ export default function InventoryTable({
   const allSelected = products.length > 0 && selectedIds.length === products.length
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-border/60 bg-card/40 backdrop-blur-sm">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-accent/50 text-muted-foreground border-b border-border">
+    <div className="overflow-x-auto rounded border border-border bg-card shadow-sm font-sans">
+      <table className="w-full text-left text-xs">
+        <thead className="bg-secondary/40 text-muted-foreground border-b border-border">
           <tr>
-            <th className="px-6 py-4 w-4">
+            <th className="px-4 py-3 w-4">
               <Checkbox 
                 checked={allSelected}
                 onChange={(e) => onSelectAll((e.target as HTMLInputElement).checked)}
               />
             </th>
-            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[10px]">Product Info</th>
-            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[10px]">Codes</th>
-            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[10px]">Price Details</th>
-            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[10px]">Stock Status</th>
-            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[10px] text-right">Actions</th>
+            <th className="px-4 py-3 font-bold uppercase tracking-wider text-[9px]">Product</th>
+            <th className="px-4 py-3 font-bold uppercase tracking-wider text-[9px]">Identifiers</th>
+            <th className="px-4 py-3 font-bold uppercase tracking-wider text-[9px]">Pricing</th>
+            <th className="px-4 py-3 font-bold uppercase tracking-wider text-[9px]">Stock Status</th>
+            <th className="px-4 py-3 font-bold uppercase tracking-wider text-[9px] text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-border">
+        <tbody className="divide-y divide-border/50">
           {products.map((product) => {
             const isLowStock = product.stock < 10
             const isSelected = selectedIds.includes(product.id)
@@ -71,62 +71,61 @@ export default function InventoryTable({
                 key={product.id} 
                 className={cn(
                   "group transition-colors",
-                  isSelected ? "bg-primary/5" : "hover:bg-accent/30"
+                  isSelected ? "bg-accent/40" : "hover:bg-accent/15"
                 )}
               >
-                <td className="px-6 py-4">
+                <td className="px-4 py-3">
                   <Checkbox 
                     checked={isSelected}
                     onChange={(e) => onSelectionToggle(product.id, (e.target as HTMLInputElement).checked)}
                   />
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-4 py-3">
                   <div className="flex flex-col">
-                    <span className="font-semibold text-foreground text-base tracking-tight">{product.name}</span>
-                    <span className="text-[10px] text-muted-foreground uppercase">{product.category}</span>
+                    <span className="font-semibold text-foreground text-sm tracking-tight">{product.name}</span>
+                    <span className="text-[9px] text-muted-foreground uppercase mt-0.5">{product.category}</span>
                   </div>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-4 py-3">
                   <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                       <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border/60">SKU: {product.sku}</span>
+                    <div className="flex items-center gap-1.5">
+                       <span className="text-[9px] bg-secondary px-1.5 py-0.5 rounded border border-border text-muted-foreground font-mono">SKU: {product.sku}</span>
                     </div>
                     <BarcodeView 
                       value={product.barcode} 
-                      width={100} 
-                      height={12} 
-                      className="mt-1 opacity-70 group-hover:opacity-100 transition-opacity bg-white/50 rounded p-1 max-w-[120px]" 
+                      width={80} 
+                      height={10} 
+                      className="mt-1 opacity-70 group-hover:opacity-100 transition-opacity bg-white border border-zinc-150 rounded p-1 max-w-[90px] h-6" 
                     />
-                    <span className="text-[10px] text-muted-foreground font-mono">{product.barcode}</span>
+                    <span className="text-[9px] text-muted-foreground font-mono">{product.barcode}</span>
                   </div>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-4 py-3">
                   <div className="flex flex-col">
-                    <span className="text-foreground font-medium">₹{product.sellingPrice.toFixed(2)}</span>
-                    <span className="text-[10px] text-muted-foreground">GST: {product.gst}% (₹{((product.sellingPrice * product.gst) / 100).toFixed(2)})</span>
+                    <span className="font-semibold text-foreground">₹{product.sellingPrice.toFixed(2)}</span>
+                    <span className="text-[9px] text-muted-foreground mt-0.5">GST: {product.gst}% (₹{((product.sellingPrice * product.gst) / 100).toFixed(2)})</span>
                   </div>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <div className={cn(
-                      "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border shadow-sm transition-all",
+                      "flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-bold transition-all",
                       isLowStock 
                         ? "bg-destructive/10 text-destructive border-destructive/20 animate-pulse" 
-                        : "bg-primary/10 text-primary border-primary/20"
+                        : "bg-secondary text-foreground border-border"
                     )}>
-                      {isLowStock && <AlertCircle size={14} />}
                       {product.stock} units
                     </div>
-                    {isLowStock && <span className="text-[10px] text-destructive font-medium uppercase animate-in fade-in duration-500">Low Stock</span>}
+                    {isLowStock && <span className="text-[9px] text-destructive font-semibold uppercase">Low</span>}
                   </div>
                 </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => onEdit(product)} className="h-8 w-8 hover:text-primary transition-colors">
-                      <Edit2 size={16} />
+                <td className="px-4 py-3 text-right">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <Button variant="ghost" size="icon" onClick={() => onEdit(product)} className="h-7 w-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground">
+                      <Edit2 size={13} />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => onDelete(product.id)} className="h-8 w-8 hover:text-destructive transition-colors">
-                      <Trash2 size={16} />
+                    <Button variant="ghost" size="icon" onClick={() => onDelete(product.id)} className="h-7 w-7 rounded hover:bg-red-500/5 text-muted-foreground hover:text-destructive">
+                      <Trash2 size={13} />
                     </Button>
                   </div>
                 </td>

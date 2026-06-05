@@ -17,33 +17,33 @@ export default function CartList() {
   }
 
   return (
-    <div className="flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar">
+    <div className="flex flex-col gap-2 overflow-y-auto pr-2 custom-scrollbar font-sans">
       {cart.map((item) => (
         <div 
           key={item.id} 
-          className="group flex items-center gap-4 p-4 bg-card/40 border border-border/40 rounded-2xl hover:border-primary/40 hover:bg-card/60 transition-all shadow-sm hover:shadow-xl hover:shadow-primary/5 group"
+          className="flex items-center gap-3 p-3 bg-card border border-border rounded-md hover:border-border hover:bg-accent/15 transition-all shadow-none"
         >
           {/* Item Info */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-base font-bold text-foreground truncate tracking-tight uppercase">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="text-sm font-semibold text-foreground truncate tracking-tight uppercase">
                 {item.name}
               </span>
-              <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border/40 font-mono opacity-60">
+              <span className="text-[9px] bg-secondary px-1.5 py-0.5 rounded border border-border font-mono text-muted-foreground">
                 {item.sku}
               </span>
               {item.size && (
-                <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-black">
+                <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold">
                   {item.size}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-4 text-xs">
-              <span className="font-bold text-muted-foreground opacity-80">{formatCurrency(item.price)} each</span>
+            <div className="flex items-center gap-3 text-[10px]">
+              <span className="font-semibold text-muted-foreground">{formatCurrency(item.price)} each</span>
               <span className="text-muted-foreground/60">GST: {item.gst}%</span>
               <span className={cn(
-                "font-black uppercase tracking-widest text-[9px]",
-                item.stock < 10 ? "text-destructive" : "text-primary opacity-60"
+                "font-bold uppercase tracking-wider text-[8px]",
+                item.stock < 10 ? "text-destructive" : "text-primary opacity-65"
               )}>
                 {item.stock} in stock
               </span>
@@ -51,39 +51,39 @@ export default function CartList() {
           </div>
 
           {/* Quantity Controls */}
-          <div className="flex items-center gap-1.5 p-1 bg-accent/30 rounded-xl border border-border/40 shrink-0">
+          <div className="flex items-center gap-1 p-0.5 bg-secondary/80 rounded border border-border shrink-0">
             <Button 
               variant="ghost" 
               size="icon" 
-              className="h-8 w-8 hover:bg-background rounded-lg text-muted-foreground"
+              className="h-6 w-6 hover:bg-card rounded text-muted-foreground hover:text-foreground"
               onClick={() => updateQuantity(item.productId, item.quantity - 1)}
             >
-              <Minus size={14} />
+              <Minus size={12} />
             </Button>
-            <span className="w-8 text-center text-sm font-black tabular-nums">{item.quantity}</span>
+            <span className="w-6 text-center text-xs font-bold tabular-nums text-foreground">{item.quantity}</span>
             <Button 
               variant="ghost" 
               size="icon" 
-              className="h-8 w-8 hover:bg-background rounded-lg text-muted-foreground"
+              className="h-6 w-6 hover:bg-card rounded text-muted-foreground hover:text-foreground"
               disabled={item.quantity >= item.stock}
               onClick={() => updateQuantity(item.productId, item.quantity + 1)}
             >
-              <Plus size={14} />
+              <Plus size={12} />
             </Button>
           </div>
 
           {/* Subtotal & Action */}
-          <div className="flex flex-col items-end gap-2 shrink-0 min-w-[100px]">
-            <span className="text-lg font-black tracking-tight tabular-nums">
+          <div className="flex flex-col items-end gap-1 shrink-0 min-w-[90px]">
+            <span className="text-sm font-bold tracking-tight tabular-nums text-foreground">
               {formatCurrency(item.price * item.quantity)}
             </span>
             <Button 
               variant="ghost" 
               size="icon" 
-              className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive hover:bg-destructive/10 rounded-lg"
+              className="h-6 w-6 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 hover:text-destructive hover:bg-destructive/10 rounded"
               onClick={() => removeFromCart(item.productId)}
             >
-              <Trash2 size={14} />
+              <Trash2 size={12} className="opacity-70" />
             </Button>
           </div>
         </div>

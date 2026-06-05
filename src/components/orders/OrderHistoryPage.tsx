@@ -182,12 +182,12 @@ export default function OrderHistoryPage() {
   }
 
   return (
-    <div className="p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="p-8 space-y-8 max-w-7xl mx-auto animate-in fade-in duration-300">
       {/* Header */}
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-black tracking-tighter uppercase italic">Sales Archives</h1>
-          <p className="text-muted-foreground text-xs uppercase tracking-[0.3em] font-bold">Historical Invoice Management</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground mb-1">Sales Archives</h1>
+          <p className="text-sm text-muted-foreground">Search and review historical transactions and invoice records</p>
         </div>
         
         <div className="flex items-center gap-3">
@@ -197,23 +197,23 @@ export default function OrderHistoryPage() {
               variant="outline" 
               onClick={() => setShowFilters(!showFilters)}
               className={cn(
-                "h-12 px-5 gap-2 rounded-2xl border-border/40 transition-all active:scale-95",
-                (startDate || endDate || selectedMethods.length > 0) ? "bg-primary/10 border-primary text-primary" : "hover:bg-accent"
+                "h-9 px-3 gap-1.5 rounded-md border-border text-xs transition-all",
+                (startDate || endDate || selectedMethods.length > 0) ? "bg-accent text-accent-foreground border-border" : "hover:bg-accent"
               )}
             >
-               <Filter size={18} />
-               <span className="text-[10px] uppercase font-black tracking-widest">Filters</span>
+               <Filter size={14} />
+               <span className="font-medium">Filters</span>
                {(startDate || endDate || selectedMethods.length > 0) && (
-                 <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                 <span className="w-1.5 h-1.5 bg-primary rounded-full" />
                )}
             </Button>
 
             {showFilters && (
-              <div className="absolute top-14 right-0 w-[400px] bg-card border border-border/60 shadow-2xl rounded-[2rem] p-6 z-[99] animate-in zoom-in-95 slide-in-from-top-2 duration-200">
-                 <div className="space-y-6">
+              <div className="absolute top-11 right-0 w-[360px] bg-card border border-border shadow-lg rounded-md p-5 z-[99] animate-in zoom-in-95 duration-150">
+                 <div className="space-y-5">
                     {/* Date Presets */}
-                    <div className="space-y-3">
-                       <span className="text-[9px] uppercase font-black text-muted-foreground tracking-widest pl-1">Quick Date Filter</span>
+                    <div className="space-y-2">
+                       <span className="text-xs font-semibold text-muted-foreground">Quick Date Filter</span>
                        <div className="grid grid-cols-3 gap-2">
                           {[
                             { id: 'today', label: 'Today' },
@@ -223,44 +223,44 @@ export default function OrderHistoryPage() {
                             <button 
                               key={p.id}
                               onClick={() => applyPresets(p.id as  'today' | 'yesterday' | 'dayBefore')}
-                              className="py-2 rounded-xl bg-accent/20 border border-border/40 text-[9px] font-black uppercase hover:bg-primary/5 hover:border-primary/40 transition-all"
+                              className="py-1.5 rounded-md bg-accent/30 border border-border text-[11px] font-medium hover:bg-accent hover:border-border-hover transition-all"
                             >
-                               {p.label}
+                                {p.label}
                             </button>
                           ))}
                        </div>
                     </div>
 
                     {/* Custom Date Range */}
-                    <div className="space-y-3">
-                       <span className="text-[9px] uppercase font-black text-muted-foreground tracking-widest pl-1 text-center block">Custom Range</span>
+                    <div className="space-y-2">
+                       <span className="text-xs font-semibold text-muted-foreground block">Custom Range</span>
                        <div className="grid grid-cols-2 gap-3">
                           <input 
                             type="date" 
                             value={startDate} 
                             onChange={(e) => setStartDate(e.target.value)}
-                            className="bg-accent/10 border border-border/40 rounded-xl px-3 py-2 text-[10px] focus:ring-1 focus:ring-primary outline-none" 
+                            className="bg-background border border-border rounded-md px-3 py-1.5 text-xs text-foreground focus:outline-none" 
                           />
                           <input 
                             type="date" 
                             value={endDate} 
                             onChange={(e) => setEndDate(e.target.value)}
-                            className="bg-accent/10 border border-border/40 rounded-xl px-3 py-2 text-[10px] focus:ring-1 focus:ring-primary outline-none" 
+                            className="bg-background border border-border rounded-md px-3 py-1.5 text-xs text-foreground focus:outline-none" 
                           />
                        </div>
                     </div>
 
                     {/* Payment Methods */}
-                    <div className="space-y-3">
-                       <span className="text-[9px] uppercase font-black text-muted-foreground tracking-widest pl-1">Payment Method (Multi-select)</span>
+                    <div className="space-y-2">
+                       <span className="text-xs font-semibold text-muted-foreground">Payment Method</span>
                        <div className="flex flex-wrap gap-2">
                           {['CASH', 'UPI', 'CARD'].map(m => (
                             <button 
                               key={m}
                               onClick={() => toggleMethod(m)}
                               className={cn(
-                                "flex items-center gap-2 px-4 py-2 rounded-xl border transition-all text-[10px] font-black uppercase",
-                                selectedMethods.includes(m) ? "bg-primary text-white border-primary" : "bg-accent/20 border-border/40"
+                                "flex items-center gap-1.5 px-3 py-1.5 rounded-md border transition-all text-xs font-medium",
+                                selectedMethods.includes(m) ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground hover:text-foreground"
                               )}
                             >
                                {selectedMethods.includes(m) && <Check size={12} />}
@@ -272,14 +272,14 @@ export default function OrderHistoryPage() {
 
                     {/* Footer Actions */}
                     <div className="pt-4 border-t border-border/40 flex items-center justify-between">
-                       <button onClick={clearFilters} className="text-[10px] uppercase font-black text-red-500 hover:underline flex items-center gap-1">
-                          <Trash2 size={12} /> Clear All
+                       <button onClick={clearFilters} className="text-xs font-medium text-destructive hover:underline flex items-center gap-1">
+                          <Trash2 size={13} /> Clear All
                        </button>
                        <Button 
-                        variant="premium" 
+                        variant="default" 
                         size="sm" 
                         onClick={() => { fetchOrders(); setShowFilters(false); }}
-                        className="px-6 rounded-xl uppercase font-black tracking-widest text-[9px]"
+                        className="h-8 text-xs rounded-md"
                        >
                           Apply Filters
                        </Button>
@@ -292,23 +292,23 @@ export default function OrderHistoryPage() {
           <Button 
             variant="outline" 
             onClick={() => fetchOrders()}
-            className="h-12 w-12 rounded-2xl border-border/40 hover:bg-accent flex items-center justify-center p-0"
+            className="h-9 w-9 rounded-md border-border hover:bg-accent flex items-center justify-center p-0"
           >
-             <RotateCw size={18} className={cn(loading && "animate-spin")} />
+             <RotateCw size={15} className={cn(loading && "animate-spin")} />
           </Button>
           
           <form onSubmit={handleSearch} className="flex items-center gap-2">
              <div className="relative group text-foreground">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 transition-colors group-focus-within:text-primary" size={18} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" size={15} />
                 <input 
                   type="text" 
                   placeholder="Invoice / Name / Mobile" 
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="bg-card w-64 h-12 pl-10 pr-4 rounded-2xl border border-border/40 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold text-sm"
+                  className="bg-background w-64 h-9 pl-9 pr-4 rounded-md border border-border focus:outline-none text-sm"
                 />
              </div>
-             <Button type="submit" variant="premium" className="h-12 px-6 rounded-2xl uppercase font-black tracking-widest text-xs shadow-lg shadow-primary/10">
+             <Button type="submit" variant="default" className="h-9 px-4 rounded-md text-xs">
                 Search
              </Button>
           </form>
@@ -316,76 +316,77 @@ export default function OrderHistoryPage() {
       </div>
 
       {/* Orders Table */}
-      <div className="bg-card/50 backdrop-blur-xl rounded-[2.5rem] border border-border/40 shadow-2xl overflow-hidden">
+      <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
         <table className="w-full text-left">
            <thead>
-              <tr className="border-b border-border/40 bg-accent/10">
-                 <th className="px-8 py-6 text-[10px] uppercase font-black tracking-[0.2em] opacity-60">Invoice</th>
-                 <th className="px-8 py-6 text-[10px] uppercase font-black tracking-[0.2em] opacity-60">Date & Time</th>
-                 <th className="px-8 py-6 text-[10px] uppercase font-black tracking-[0.2em] opacity-60">Customer</th>
-                 <th className="px-8 py-6 text-[10px] uppercase font-black tracking-[0.2em] opacity-60">Amount</th>
-                 <th className="px-8 py-6 text-[10px] uppercase font-black tracking-[0.2em] opacity-60">Staff</th>
-                 <th className="px-8 py-6 text-[10px] uppercase font-black tracking-[0.2em] opacity-60">Method</th>
-                 <th className="px-8 py-6 text-[10px] uppercase font-black tracking-[0.2em] opacity-60 text-right">Actions</th>
+              <tr className="border-b border-border/40 bg-accent/20">
+                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground">Invoice</th>
+                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground">Date & Time</th>
+                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground">Customer</th>
+                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground">Amount</th>
+                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground">Staff</th>
+                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground">Method</th>
+                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground text-right">Actions</th>
               </tr>
            </thead>
            <tbody className="divide-y divide-border/20">
               {loading ? (
                 <tr>
-                   <td colSpan={6} className="px-8 py-20 text-center animate-pulse text-muted-foreground uppercase font-black tracking-widest">
+                   <td colSpan={7} className="px-6 py-12 text-center animate-pulse text-muted-foreground text-sm font-medium">
                       Retrieving Archives...
                    </td>
                 </tr>
               ) : orders?.length === 0 ? (
                 <tr>
-                   <td colSpan={7} className="px-8 py-20 text-center text-muted-foreground uppercase font-black tracking-widest">
-
+                   <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground text-sm font-medium">
                       No matching records found.
                    </td>
                 </tr>
               ) : orders?.map((order) => (
-
-                <tr key={order.id} className="hover:bg-primary/5 transition-colors group">
-                   <td className="px-8 py-6">
-                      <span className="font-black font-mono text-primary">{order.invoiceNo}</span>
+                <tr key={order.id} className="hover:bg-accent/40 transition-colors group">
+                   <td className="px-6 py-4">
+                      <span className="font-semibold font-mono text-foreground text-sm">{order.invoiceNo}</span>
                    </td>
-                   <td className="px-8 py-6">
+                   <td className="px-6 py-4">
                       <div className="flex flex-col">
-                         <span className="font-bold text-sm">{format(new Date(order.date), 'dd MMM yyyy')}</span>
-                         <span className="text-[10px] uppercase tracking-widest opacity-50">{format(new Date(order.date), 'hh:mm a')}</span>
+                         <span className="font-medium text-sm text-foreground">{format(new Date(order.date), 'dd MMM yyyy')}</span>
+                         <span className="text-[10px] uppercase text-muted-foreground tracking-wider">{format(new Date(order.date), 'hh:mm a')}</span>
                       </div>
                    </td>
-                   <td className="px-8 py-6">
+                   <td className="px-6 py-4">
                       <div className="flex flex-col">
-                         <span className="font-bold text-sm">{order.customerName || 'Cash Customer'}</span>
-                         <span className="text-[10px] font-mono opacity-50">{order.customerMobile || '-'}</span>
+                         <span className="font-medium text-sm text-foreground">{order.customerName || 'Cash Customer'}</span>
+                         <span className="text-[10px] font-mono text-muted-foreground">{order.customerMobile || '-'}</span>
                       </div>
                    </td>
-                   <td className="px-8 py-6">
+                   <td className="px-6 py-4 text-sm font-medium text-foreground tabular-nums">
+                      {formatCurrency(order.totalAmount)}
+                   </td>
+                   <td className="px-6 py-4">
                       <div className="flex flex-col">
-                         <span className="font-bold text-xs">
+                         <span className="font-medium text-xs text-foreground">
                             {order.processedBy?.name || 'System'}
                             {order.processedBy && !order.processedBy.isActive && (
-                              <span className="ml-1 text-[8px] opacity-40 italic">(Ex-Staff)</span>
+                              <span className="ml-1 text-[8px] text-muted-foreground italic">(Ex-Staff)</span>
                             )}
                          </span>
-                         <span className="text-[9px] uppercase tracking-widest opacity-40">{order.processedBy?.role || 'Admin'}</span>
+                         <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{order.processedBy?.role || 'Admin'}</span>
                       </div>
                    </td>
-                   <td className="px-8 py-6">
-                      <div className="flex items-center gap-2 px-3 py-1 bg-background border border-border/40 rounded-full w-fit">
+                   <td className="px-6 py-4">
+                      <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-background border border-border/40 rounded-full w-fit">
                          {getPaymentIcon(order.paymentMethod)}
-                         <span className="text-[10px] font-black uppercase tracking-widest">{order.paymentMethod}</span>
+                         <span className="text-[10px] font-medium uppercase tracking-wider text-foreground">{order.paymentMethod}</span>
                       </div>
                    </td>
 
-                   <td className="px-8 py-6 text-right">
+                   <td className="px-6 py-4 text-right">
                       <Button 
                         variant="ghost" 
                         onClick={() => openOrderDetails(order)}
-                        className="rounded-xl hover:bg-primary hover:text-white transition-all group-hover:px-6"
+                        className="rounded-md h-8 text-xs hover:bg-accent"
                       >
-                         <Eye size={16} className="mr-2" /> View
+                         <Eye size={14} className="mr-1.5" /> View
                       </Button>
                    </td>
                 </tr>
@@ -395,116 +396,118 @@ export default function OrderHistoryPage() {
 
         {/* Load More Button */}
         {hasMore && orders && orders.length > 0 && (
-
-           <div className="p-8 border-t border-border/20 flex flex-col items-center gap-4 bg-accent/5">
+           <div className="p-6 border-t border-border/20 flex flex-col items-center gap-3 bg-accent/5">
               <Button 
                 onClick={handleLoadMore} 
                 disabled={loading}
                 variant="outline"
-                className="h-14 px-10 rounded-2xl border-primary/40 hover:bg-primary hover:text-white font-black uppercase tracking-[0.2em] text-[10px] transition-all shadow-xl shadow-primary/5 active:scale-95"
+                className="h-9 px-6 rounded-md border-border hover:bg-accent text-xs font-medium transition-all"
               >
-                 {loading ? <RotateCw className="animate-spin mr-2" size={16} /> : <ChevronDown className="mr-2" size={16} />}
+                 {loading ? <RotateCw className="animate-spin mr-1.5" size={14} /> : <ChevronDown className="mr-1.5" size={14} />}
                  Load Next 50 Records
               </Button>
-              <p className="text-[9px] uppercase font-black text-muted-foreground opacity-40 tracking-widest">
+              <p className="text-[10px] uppercase text-muted-foreground tracking-wider">
                  Showing {orders?.length || 0} of {totalCount} Historical Transactions
               </p>
-
            </div>
         )}
       </div>
 
       {/* Order Details Compact Modal */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-           <div className="bg-card w-full max-w-lg rounded-[2.5rem] border border-border/60 shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col overflow-hidden max-h-[90vh]">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+           <div className="bg-card w-full max-w-lg rounded-lg border border-border shadow-lg animate-in zoom-in-95 duration-200 flex flex-col overflow-hidden max-h-[90vh]">
               {/* Modal Header */}
-              <div className="p-6 border-b border-border/40 flex items-center justify-between bg-accent/10 relative">
+              <div className="p-4 border-b border-border/40 flex items-center justify-between">
                  <div>
-                    <span className="text-[9px] text-primary uppercase font-black tracking-[0.2em] mb-1 block">Transaction Record</span>
-                    <h2 className="text-2xl font-black tracking-tighter uppercase italic">{selectedOrder.invoiceNo}</h2>
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground">{format(new Date(selectedOrder.date), 'dd MMM yyyy, hh:mm a')}</p>
+                    <span className="text-[10px] text-primary uppercase font-semibold tracking-wider mb-0.5 block">Transaction Record</span>
+                    <h2 className="text-base font-semibold text-foreground">{selectedOrder.invoiceNo}</h2>
+                    <p className="text-[11px] text-muted-foreground">{format(new Date(selectedOrder.date), 'dd MMM yyyy, hh:mm a')}</p>
                  </div>
-                 <button 
+                 <Button 
+                  variant="ghost"
+                  size="icon"
                   onClick={() => { setSelectedOrder(null); setFullOrderData(null); }} 
-                  className="w-10 h-10 flex items-center justify-center hover:bg-background rounded-full border border-border/40 transition-all shadow-sm active:scale-95"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
                  >
-                    <X size={20} />
-                 </button>
+                    <X size={16} />
+                 </Button>
               </div>
 
               {/* Modal Body */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-                 <div className="grid grid-cols-2 gap-6 pb-2 border-b border-border/40">
+              <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
+                 <div className="grid grid-cols-2 gap-4 pb-3 border-b border-border/40">
                     <div className="space-y-0.5">
-                       <p className="text-[9px] uppercase font-black text-muted-foreground tracking-widest">Customer</p>
-                       <p className="font-bold text-base tracking-tight">{selectedOrder.customerName || 'Cash Customer'}</p>
-                       <p className="text-[10px] opacity-60 font-mono italic">{selectedOrder.customerMobile || 'No contact'}</p>
+                       <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">Customer</p>
+                       <p className="font-semibold text-sm text-foreground">{selectedOrder.customerName || 'Cash Customer'}</p>
+                       <p className="text-[11px] text-muted-foreground font-mono">{selectedOrder.customerMobile || 'No contact'}</p>
                     </div>
                     <div className="space-y-0.5">
-                       <p className="text-[9px] uppercase font-black text-muted-foreground tracking-widest">Payment Mode</p>
-                       <div className="flex items-center gap-2">
+                       <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">Payment Mode</p>
+                       <div className="flex items-center gap-1.5">
                           {getPaymentIcon(selectedOrder.paymentMethod)}
-                          <p className="font-bold text-base uppercase tracking-tight">{selectedOrder.paymentMethod}</p>
+                          <p className="font-semibold text-sm uppercase text-foreground">{selectedOrder.paymentMethod}</p>
                        </div>
                     </div>
                  </div>
 
-                 <div className="space-y-3">
+                 <div className="space-y-2">
                     <div className="flex justify-between items-end border-b border-border/40 pb-1">
-                       <h3 className="text-[9px] uppercase font-black tracking-widest text-muted-foreground">Order Items</h3>
-                       <span className="text-[9px] uppercase font-bold opacity-40">Qty x Price</span>
+                       <h3 className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground">Order Items</h3>
+                       <span className="text-[10px] font-medium text-muted-foreground">Qty x Price</span>
                     </div>
                     {fullOrderData ? (
-                       <div className="space-y-3">
+                       <div className="space-y-2.5">
                           {fullOrderData.items.map((item: any, idx: number) => (
                              <div key={idx} className="flex justify-between items-center group">
                                 <div className="space-y-0.5">
-                                   <p className="font-bold text-sm tracking-tight group-hover:text-primary transition-colors">{item.product.name}</p>
-                                   <p className="text-[9px] opacity-40 uppercase font-bold">{item.quantity} x {formatCurrency(item.price)}</p>
+                                   <p className="font-medium text-sm text-foreground">{item.product.name}</p>
+                                   <p className="text-[10px] text-muted-foreground">{item.quantity} x {formatCurrency(item.price)}</p>
                                 </div>
-                                <span className="font-bold text-sm tabular-nums">{formatCurrency(item.price * item.quantity)}</span>
+                                <span className="font-medium text-sm text-foreground tabular-nums">{formatCurrency(item.price * item.quantity)}</span>
                              </div>
                           ))}
                        </div>
                     ) : (
-                       <div className="py-8 flex flex-col items-center gap-3 animate-pulse">
-                          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                          <p className="text-[9px] uppercase font-black tracking-widest opacity-40">Loading Archive...</p>
+                       <div className="py-6 flex flex-col items-center gap-2 animate-pulse">
+                          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                          <p className="text-[10px] font-medium text-muted-foreground">Loading Items...</p>
                        </div>
                     )}
                  </div>
               </div>
 
               {/* Modal Footer / Summary */}
-              <div className="p-6 bg-accent/20 border-t border-border/40">
-                 <div className="bg-card px-5 py-4 rounded-3xl border border-border/40 shadow-lg space-y-2 mb-6">
-                    <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase">
+              <div className="p-5 bg-accent/10 border-t border-border/40">
+                 <div className="bg-card px-4 py-3 rounded-md border border-border/40 shadow-sm space-y-1.5 mb-4">
+                    <div className="flex justify-between text-xs text-muted-foreground">
                        <span>Sub Total</span>
                        <span>{formatCurrency(selectedOrder.totalAmount - selectedOrder.gstAmount)}</span>
                     </div>
-                    <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase border-b border-border/20 pb-2">
+                    <div className="flex justify-between text-xs text-muted-foreground border-b border-border/20 pb-1.5">
                        <span>Total GST</span>
                        <span>{formatCurrency(selectedOrder.gstAmount)}</span>
                     </div>
-                    <div className="flex justify-between items-center pt-1">
-                       <span className="font-black text-lg uppercase italic tracking-tighter">Total Paid</span>
-                       <span className="font-black text-2xl tracking-tighter text-primary">{formatCurrency(selectedOrder.totalAmount)}</span>
+                    <div className="flex justify-between items-center pt-1.5">
+                       <span className="font-semibold text-sm text-foreground">Total Paid</span>
+                       <span className="font-bold text-lg text-primary">{formatCurrency(selectedOrder.totalAmount)}</span>
                     </div>
                  </div>
 
-                 <div className="grid grid-cols-2 gap-3">
+                 <div className="grid grid-cols-2 gap-2">
                     <Button 
+                      variant="outline"
                       onClick={() => handleReprint('A4')}
-                      className="h-12 rounded-xl bg-white text-black border border-border/40 hover:bg-black hover:text-white transition-all font-black uppercase tracking-widest text-[9px]"
+                      className="h-9 rounded-md text-xs font-medium"
                     >
-                       <Printer size={14} className="mr-2" /> Reprint A4
+                       <Printer size={14} className="mr-1.5" /> Reprint A4
                     </Button>
                     <Button 
+                      variant="default"
                       onClick={() => handleReprint('Thermal')}
-                      className="h-12 rounded-xl bg-primary text-white hover:opacity-90 transition-all font-black uppercase tracking-widest text-[9px] shadow-lg shadow-primary/20"
+                      className="h-9 rounded-md text-xs font-medium"
                     >
-                       <Printer size={14} className="mr-2" /> Reprint 80mm
+                       <Printer size={14} className="mr-1.5" /> Reprint 80mm
                     </Button>
                  </div>
               </div>

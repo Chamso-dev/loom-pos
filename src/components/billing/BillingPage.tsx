@@ -13,42 +13,42 @@ export default function BillingPage() {
   }, [fetchProducts])
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="h-[calc(100vh-6.5rem)] flex flex-col gap-5 animate-in fade-in duration-300 font-sans">
       {/* POS Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shadow-sm shadow-primary/10">
-            <Calculator size={24} />
+          <div className="w-10 h-10 rounded bg-secondary flex items-center justify-center text-foreground border border-border">
+            <Calculator size={20} />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">Fast POS Billing</h1>
-            <p className="text-muted-foreground text-sm flex items-center gap-2">
-              <User size={14} /> Cashier: <span className="text-foreground font-semibold">{user?.name || 'Administrator'}</span>
+            <h1 className="text-xl font-bold tracking-tight text-foreground">Billing</h1>
+            <p className="text-muted-foreground text-[10px] flex items-center gap-1.5 mt-0.5">
+              <User size={12} className="opacity-65" /> Cashier: <span className="text-foreground font-semibold">{user?.name || 'Administrator'}</span>
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
            <div className="text-right hidden md:block">
-              <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest block">Local Time</span>
-              <span className="text-sm font-bold opacity-80">{new Date().toLocaleTimeString()}</span>
+              <span className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider block">Local Time</span>
+              <span className="text-xs font-semibold text-foreground/80">{new Date().toLocaleTimeString()}</span>
            </div>
-           <div className="p-3 bg-card/40 rounded-xl border border-border/40 shadow-sm">
-             <ShoppingCart size={20} className="text-primary" />
+           <div className="p-2 bg-card rounded border border-border">
+             <ShoppingCart size={16} className="text-muted-foreground" />
            </div>
         </div>
       </div>
 
       {/* Main Billing Grid */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-8 min-h-0 overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0 overflow-hidden">
         {/* Left Section: Scanner & Cart (2 columns) */}
-        <div className="lg:col-span-2 flex flex-col gap-6 min-h-0">
+        <div className="lg:col-span-2 flex flex-col gap-4 min-h-0">
           <div className="shrink-0">
             <ScannerInput />
           </div>
           
-          <div className="flex-1 min-h-0">
-             <h3 className="text-xs font-black uppercase text-muted-foreground tracking-widest mb-4 px-1 flex items-center gap-2">
-               <LayoutGrid size={14} className="opacity-40" /> Active Basket
+          <div className="flex-1 min-h-0 flex flex-col gap-2">
+             <h3 className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider px-1 flex items-center gap-1.5">
+               <LayoutGrid size={12} className="opacity-45" /> Active Basket
              </h3>
              <CartList />
           </div>

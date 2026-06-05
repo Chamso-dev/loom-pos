@@ -96,144 +96,142 @@ export default function BillingSummary() {
 
   return (
     <>
-      <Card className="h-full flex flex-col border-border/60 shadow-2xl shadow-primary/5 bg-card/60 backdrop-blur-md overflow-hidden">
-        {/* ... CardHeader ... */}
-        <CardHeader className="border-b border-border/40 pb-4 shrink-0">
+      <Card className="h-full flex flex-col border border-border shadow-sm bg-card rounded-md overflow-hidden font-sans">
+        <CardHeader className="border-b border-border pb-3 shrink-0">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                <Receipt size={20} />
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-secondary rounded text-foreground border border-border">
+                <Receipt size={16} />
               </div>
-              <CardTitle className="text-xl font-bold tracking-tight">Order Summary</CardTitle>
+              <CardTitle className="text-sm font-bold uppercase tracking-wider">Order Summary</CardTitle>
             </div>
             
-            <div className="flex bg-accent/30 p-1 rounded-xl border border-border/40 scale-90">
+            <div className="flex bg-secondary p-0.5 rounded border border-border scale-90">
                <button 
                  onClick={() => setReceiptType('A4')}
                  className={cn(
-                   "flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                   receiptType === 'A4' ? "bg-white text-black shadow-sm" : "text-muted-foreground opacity-50"
+                   "flex items-center gap-1 px-2 py-1 rounded text-[8px] font-bold uppercase tracking-wider transition-all",
+                   receiptType === 'A4' ? "bg-card text-foreground border border-border shadow-sm" : "text-muted-foreground"
                  )}
                >
-                 <FileText size={12} /> A4
+                 <FileText size={10} /> A4
                </button>
                <button 
                  onClick={() => setReceiptType('Thermal')}
                  className={cn(
-                   "flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                   receiptType === 'Thermal' ? "bg-white text-black shadow-sm" : "text-muted-foreground opacity-50"
+                   "flex items-center gap-1 px-2 py-1 rounded text-[8px] font-bold uppercase tracking-wider transition-all",
+                   receiptType === 'Thermal' ? "bg-card text-foreground border border-border shadow-sm" : "text-muted-foreground"
                  )}
                >
-                 <Receipt size={12} /> 80mm
+                 <Receipt size={10} /> 80mm
                </button>
             </div>
           </div>
         </CardHeader>
       
-      <CardContent className="flex-1 overflow-y-auto p-6 space-y-6 shrink-0 custom-scrollbar">
+      <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 shrink-0 custom-scrollbar">
         {/* Customer Info Inputs */}
-        <div className="space-y-3 pb-2">
-           <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Customer Information</span>
+        <div className="space-y-2 pb-1">
+           <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Customer Info</span>
            <div className="grid grid-cols-1 gap-2">
              <input 
                type="text" 
                placeholder="Customer Name"
                value={customerName}
                onChange={(e) => setCustomerName(e.target.value)}
-               className="w-full bg-accent/20 border border-border/40 px-3 py-2 rounded-lg text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/40 transition-all"
+               className="w-full bg-accent/10 border border-border px-3 py-1.5 rounded-md text-xs placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition-all"
              />
              <input 
                type="text" 
                placeholder="Mobile Number"
                value={customerMobile}
                onChange={(e) => setCustomerMobile(e.target.value)}
-               className="w-full bg-accent/20 border border-border/40 px-3 py-2 rounded-lg text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/40 transition-all"
+               className="w-full bg-accent/10 border border-border px-3 py-1.5 rounded-md text-xs placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition-all"
              />
            </div>
         </div>
-        <div className="space-y-3">
-          <div className="flex justify-between text-sm text-muted-foreground uppercase tracking-widest font-semibold">
+        <div className="space-y-2">
+          <div className="flex justify-between text-xs text-muted-foreground uppercase tracking-wider font-semibold">
             <span>Subtotal</span>
             <span className="text-foreground">{formatCurrency(subtotal)}</span>
           </div>
           
-          <div className="space-y-2 pt-2 border-t border-border/40">
-            <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Tax Breakdown</span>
+          <div className="space-y-1 pt-1.5 border-t border-border">
+            <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Tax Breakdown</span>
             {gstGroups.length > 0 ? (
               gstGroups.map(group => (
-                <div key={group.rate} className="flex justify-between text-xs text-muted-foreground">
+                <div key={group.rate} className="flex justify-between text-[11px] text-muted-foreground">
                   <span>GST ({group.rate}%)</span>
                   <span>{formatCurrency(group.amount)}</span>
                 </div>
               ))
             ) : (
-                <div className="text-xs text-muted-foreground italic">No taxes applicable</div>
+                <div className="text-[11px] text-muted-foreground italic">No taxes applicable</div>
             )}
           </div>
         </div>
 
-        <div className="space-y-4 pt-6 mt-6 border-t border-border/60">
+        <div className="space-y-2 pt-4 border-t border-border">
            <div className="flex items-center justify-between">
-              <span className="text-xl font-black uppercase tracking-tighter">Total Payable</span>
-              <span className="text-3xl font-black text-primary drop-shadow-sm tracking-tighter tabular-nums">
+              <span className="text-sm font-bold uppercase tracking-wider text-foreground">Total Payable</span>
+              <span className="text-2xl font-bold text-foreground tracking-tight tabular-nums">
                 {formatCurrency(total)}
               </span>
            </div>
         </div>
 
         {/* Payment Modes Selection */}
-        <div className="space-y-3 pt-4">
-           <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Select Payment Method</span>
+        <div className="space-y-2 pt-2">
+           <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Payment Method</span>
            <div className="grid grid-cols-3 gap-2">
              <Button 
                variant="outline" 
                onClick={() => setPaymentMethod('CASH')}
                className={cn(
-                 "flex-col h-16 gap-2 border-primary/20 transition-all",
-                 paymentMethod === 'CASH' ? "bg-primary/10 border-primary text-primary shadow-sm" : "hover:bg-primary/5 hover:text-primary transition-all"
+                 "flex-col h-12 gap-1 border transition-all rounded-md cursor-pointer",
+                 paymentMethod === 'CASH' ? "bg-secondary border-foreground text-foreground" : "border-border text-muted-foreground hover:text-foreground"
                )}
              >
-                <Wallet size={18} />
-                <span className="text-[10px] uppercase font-bold">Cash</span>
+                 <Wallet size={14} />
+                 <span className="text-[8px] uppercase font-bold">Cash</span>
              </Button>
              <Button 
                variant="outline" 
                onClick={() => setPaymentMethod('UPI')}
                className={cn(
-                 "flex-col h-16 gap-2 border-primary/20 transition-all",
-                 paymentMethod === 'UPI' ? "bg-primary/10 border-primary text-primary shadow-sm" : "hover:bg-primary/5 hover:text-primary transition-all shadow-sm shadow-primary/10"
+                 "flex-col h-12 gap-1 border transition-all rounded-md cursor-pointer",
+                 paymentMethod === 'UPI' ? "bg-secondary border-foreground text-foreground" : "border-border text-muted-foreground hover:text-foreground"
                )}
              >
-                <QrCode size={18} />
-                <span className="text-[10px] uppercase font-bold">UPI</span>
+                 <QrCode size={14} />
+                 <span className="text-[8px] uppercase font-bold">UPI</span>
              </Button>
              <Button 
                variant="outline" 
                onClick={() => setPaymentMethod('CARD')}
                className={cn(
-                 "flex-col h-16 gap-2 border-primary/20 transition-all",
-                 paymentMethod === 'CARD' ? "bg-primary/10 border-primary text-primary shadow-sm" : "hover:bg-primary/5 hover:text-primary transition-all"
+                 "flex-col h-12 gap-1 border transition-all rounded-md cursor-pointer",
+                 paymentMethod === 'CARD' ? "bg-secondary border-foreground text-foreground" : "border-border text-muted-foreground hover:text-foreground"
                )}
              >
-                <CreditCard size={18} />
-                <span className="text-[10px] uppercase font-bold">Card</span>
+                 <CreditCard size={14} />
+                 <span className="text-[8px] uppercase font-bold">Card</span>
              </Button>
            </div>
         </div>
       </CardContent>
 
-      <CardFooter className="p-6 pt-2 border-t border-border/40 shrink-0 bg-accent/20">
+      <CardFooter className="p-4 pt-0 border-t border-border shrink-0 bg-secondary/30">
         <Button 
-          variant="premium" 
           size="lg" 
           disabled={cart.length === 0}
           onClick={handleCheckout}
           className={cn(
-            "w-full py-8 text-xl font-black uppercase tracking-widest shadow-2xl transition-all active:scale-[0.98]",
-            cart.length > 0 ? "shadow-primary/30" : "opacity-50 grayscale"
+            "w-full h-11 text-sm font-semibold uppercase tracking-wider transition-all active:scale-[0.99] rounded-md cursor-pointer bg-primary text-primary-foreground hover:opacity-90 shadow-sm",
+            cart.length === 0 && "opacity-50 grayscale"
           )}
         >
-          <Printer size={22} className="mr-3" />
+          <Printer size={16} className="mr-2" />
           Complete Sale
         </Button>
       </CardFooter>

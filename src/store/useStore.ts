@@ -68,7 +68,7 @@ interface AppState {
   // Cart State
   cart: CartItem[]
   addToCart: (product: Product) => void
-  addByBarcode: (barcode: string) => boolean // Returns true if found
+  addByBarcode: (barcode: string) => Promise<boolean> // Returns true if found
   removeFromCart: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
   clearCart: () => void
@@ -101,7 +101,7 @@ interface AppState {
   fetchUsers: () => Promise<void>
   addUser: (userData: any) => Promise<void>
   updateUser: (id: string, userData: any) => Promise<void>
-  requestResetToken: (staffId: string, adminPassword: string) => Promise<{ success: boolean, token?: string, error?: string }>
+  requestResetToken: (staffId: string, adminPassword?: string) => Promise<{ success: boolean, resetToken?: string, token?: string, error?: string }>
   resetStaffPassword: (staffId: string, token: string, newPassword: string) => Promise<{ success: boolean, error?: string }>
   changePassword: (employeeId: string, currentPassword: string, newPassword: string) => Promise<{ success: boolean, error?: string }>
 }
@@ -167,11 +167,25 @@ export const useStore = create<AppState>()(
         }
         return { cart: [...state.cart, newItem] }
       }),
-      addByBarcode: (barcode) => {
+      addByBarcode: async (barcode) => {
         const product = get().products.find(p => p.barcode === barcode)
         if (product) {
           get().addToCart(product)
           return true
+        }
+        // Fallback: query API
+        try {
+          const response = await fetch(`/api/products?search=${encodeURIComponent(barcode)}`)
+          if (response.ok) {
+            const data = await response.json()
+            const found = data.products?.find((p: any) => p.barcode === barcode || p.sku === barcode)
+            if (found) {
+              get().addToCart(found)
+              return true
+            }
+          }
+        } catch (error) {
+          console.error('Failed to lookup product by barcode:', error)
         }
         return false
       },

@@ -55,7 +55,7 @@ export default function PrintLabelsModal({ isOpen, onClose, selectedProducts }: 
   )
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/80 backdrop-blur-md p-4 print:p-0 print:bg-white print:relative print:block">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 print:p-0 print:bg-white print:relative print:block">
       {/* Dynamic Print Styles for Roll Printers */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
@@ -79,72 +79,70 @@ export default function PrintLabelsModal({ isOpen, onClose, selectedProducts }: 
       `}} />
 
       <Card className={cn(
-        "w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 print:shadow-none print:border-none print:w-auto print:h-auto print:max-w-none print:static",
-        "bg-card border-border"
+        "w-full max-w-5xl h-[90vh] flex flex-col shadow-lg border border-border animate-in zoom-in-95 duration-200 print:shadow-none print:border-none print:w-auto print:h-auto print:max-w-none print:static",
+        "bg-card"
       )}>
-        <CardHeader className="flex flex-row items-center justify-between print:hidden shrink-0 border-b border-border/40">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg text-primary">
-              <Printer size={20} />
-            </div>
-            <CardTitle>Print Barcode Labels</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between print:hidden shrink-0 border-b border-border/40 py-4">
+          <div className="flex items-center gap-2">
+            <Printer size={18} className="text-muted-foreground" />
+            <CardTitle className="text-base font-semibold">Print Barcode Labels</CardTitle>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X size={20} />
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-muted-foreground hover:text-foreground">
+            <X size={16} />
           </Button>
         </CardHeader>
         
         <CardContent className="flex-1 overflow-hidden flex flex-col md:flex-row gap-6 p-6 print:p-0 print:block">
           {/* Configuration - Hidden on Print */}
           <div className="w-full md:w-96 space-y-6 print:hidden overflow-y-auto pr-6 border-r border-border/40 custom-scrollbar">
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold flex items-center gap-2">
-                <Settings2 size={16} /> Printer Mode
+            <div className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <Settings2 size={12} /> Printer Mode
               </h3>
-              <div className="grid grid-cols-2 gap-2 p-1 bg-accent/30 rounded-lg border border-border/40">
+              <div className="grid grid-cols-2 gap-1 p-1 bg-accent/20 rounded-md border border-border/40">
                 <Button 
                   variant={printerType === 'roll' ? 'secondary' : 'ghost'} 
                   size="sm" 
                   onClick={() => setPrinterType('roll')}
-                  className="text-xs gap-2"
+                  className="text-xs h-8 gap-2"
                 >
-                  <Printer size={14} /> Roll
+                  <Printer size={12} /> Roll
                 </Button>
                 <Button 
                   variant={printerType === 'a4' ? 'secondary' : 'ghost'} 
                   size="sm" 
                   onClick={() => setPrinterType('a4')}
-                  className="text-xs gap-2"
+                  className="text-xs h-8 gap-2"
                 >
-                  <Grid3X3 size={14} /> A4 Sheet
+                  <Grid3X3 size={12} /> A4 Sheet
                 </Button>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold flex items-center gap-2">
-                <Ruler size={16} /> Label Size & Gap (mm)
+            <div className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <Ruler size={12} /> Label Size & Gap (mm)
               </h3>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <span className="text-[10px] text-muted-foreground uppercase">Width</span>
-                  <Input type="number" value={width} onChange={(e) => setWidth(Number(e.target.value))} className="h-8 text-xs bg-accent/20" />
+                  <span className="text-[10px] text-muted-foreground font-medium">Width</span>
+                  <Input type="number" value={width} onChange={(e) => setWidth(Number(e.target.value))} className="h-8 text-xs bg-background border-border" />
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[10px] text-muted-foreground uppercase">Height</span>
-                  <Input type="number" value={height} onChange={(e) => setHeight(Number(e.target.value))} className="h-8 text-xs bg-accent/20" />
+                  <span className="text-[10px] text-muted-foreground font-medium">Height</span>
+                  <Input type="number" value={height} onChange={(e) => setHeight(Number(e.target.value))} className="h-8 text-xs bg-background border-border" />
                 </div>
                 {printerType === 'a4' && (
                   <div className="space-y-1 col-span-2">
-                    <span className="text-[10px] text-muted-foreground uppercase">Grid Gap</span>
-                    <Input type="number" value={gap} onChange={(e) => setGap(Number(e.target.value))} className="h-8 text-xs bg-accent/20" />
+                    <span className="text-[10px] text-muted-foreground font-medium">Grid Gap</span>
+                    <Input type="number" value={gap} onChange={(e) => setGap(Number(e.target.value))} className="h-8 text-xs bg-background border-border" />
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold">Label Quantities</h3>
+            <div className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Label Quantities</h3>
               <div className="space-y-2">
                 {selectedProducts.map(product => (
                   <div key={product.id} className="flex items-center justify-between p-2 bg-accent/20 rounded-md border border-border/20 text-xs text-foreground/80">
@@ -161,14 +159,14 @@ export default function PrintLabelsModal({ isOpen, onClose, selectedProducts }: 
           </div>
 
           {/* Preview Area - Shows only one of each product design on screen for verification */}
-          <div className="flex-1 bg-accent/5 rounded-xl border border-border/20 p-8 overflow-y-auto print:hidden custom-scrollbar">
+          <div className="flex-1 bg-accent/5 rounded-lg border border-border/20 p-8 overflow-y-auto print:hidden custom-scrollbar">
              <div className="flex flex-col items-center gap-6">
-               <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                 <Settings2 size={14} /> Design Preview
-               </h3>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                  <Settings2 size={12} /> Design Preview
+                </h3>
                <div className="flex flex-wrap gap-6 justify-center">
                  {selectedProducts.map((product) => (
-                   <div key={product.id} className="shadow-xl hover:scale-[1.02] transition-transform">
+                   <div key={product.id} className="shadow-md border border-border/20 hover:scale-[1.02] transition-transform">
                      <BarcodeLabel 
                       product={product} 
                       width={width} 
@@ -209,14 +207,14 @@ export default function PrintLabelsModal({ isOpen, onClose, selectedProducts }: 
           </div>
         </CardContent>
 
-        <CardFooter className="flex justify-between border-t border-border/40 pt-4 print:hidden shrink-0">
+        <CardFooter className="flex justify-between border-t border-border/40 pt-4 pb-6 px-6 print:hidden shrink-0">
           <p className="text-xs text-muted-foreground">
             Total labels: <span className="font-bold text-foreground">{labelsToPrint.length}</span>
           </p>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button variant="premium" className="gap-2 shadow-lg shadow-primary/20" onClick={handlePrint}>
-              <Printer size={18} />
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose} className="h-9 text-xs">Cancel</Button>
+            <Button variant="default" className="gap-2 h-9 text-xs" onClick={handlePrint}>
+              <Printer size={14} />
               Print Labels
             </Button>
           </div>

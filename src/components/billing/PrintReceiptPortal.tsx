@@ -67,18 +67,18 @@ export default function PrintReceiptPortal({ order, type, onClose, autoPrint = t
   return createPortal(
     <div id="receipt-print-area" className="fixed inset-0 z-[9999] bg-white print:static print:z-auto h-screen overflow-auto">
       {/* Screen View (Preview/Buttons) */}
-      <div className="print:hidden fixed bottom-8 left-1/2 -translate-x-1/2 z-[10000] flex gap-4 bg-black/80 backdrop-blur-xl p-4 rounded-3xl border border-white/10 shadow-2xl">
+      <div className="print:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] flex gap-3 bg-zinc-950 p-2.5 rounded-md border border-white/15 shadow-xl font-sans">
          <button 
            onClick={() => hardware.print()}
-           className="px-6 py-2 bg-primary text-primary-foreground font-black rounded-xl hover:scale-105 transition-transform"
+           className="px-4 py-2 bg-white text-black font-semibold text-xs rounded hover:opacity-90 transition-all cursor-pointer"
          >
-           Print Again
+           Print Invoice
          </button>
          <button 
            onClick={onClose}
-           className="px-6 py-2 bg-white/10 text-white font-bold rounded-xl hover:bg-white/20 transition-all"
+           className="px-4 py-2 bg-zinc-800 text-white font-semibold text-xs rounded hover:bg-zinc-700 transition-all cursor-pointer"
          >
-           Done / Close
+           Close Preview
          </button>
       </div>
 

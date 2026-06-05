@@ -11,47 +11,47 @@ interface EODProps {
 
 export default function EndOfDaySummary({ summary, onClose }: EODProps) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-card w-full max-w-2xl rounded-[2.5rem] border border-border/40 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-        <div className="p-8 border-b border-border/40 flex items-center justify-between bg-primary/5">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-250 font-sans">
+      <div className="bg-card w-full max-w-xl rounded-lg border border-border shadow-lg overflow-hidden animate-in zoom-in-98 duration-200">
+        <div className="p-5 border-b border-border flex items-center justify-between bg-secondary/50">
           <div>
-            <h2 className="text-3xl font-black tracking-tighter uppercase italic">Day Closing Report</h2>
-            <p className="text-xs text-muted-foreground uppercase font-black tracking-widest">{format(new Date(), 'EEEE, dd MMMM yyyy')}</p>
+            <h2 className="text-lg font-bold text-foreground">Day Closing Report</h2>
+            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{format(new Date(), 'EEEE, dd MMM yyyy')}</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-accent rounded-full transition-colors border border-border/40 bg-background">
-            <X size={24} />
+          <button onClick={onClose} className="p-1.5 hover:bg-accent rounded-md transition-colors border border-border bg-card">
+            <X size={16} />
           </button>
         </div>
 
-        <div className="p-8 space-y-8">
-          <div className="grid grid-cols-2 gap-6">
-             <div className="p-6 bg-emerald-500/5 border border-emerald-500/20 rounded-3xl space-y-1">
-                <p className="text-[10px] text-emerald-500 uppercase font-black tracking-widest">Total Collection</p>
-                <p className="text-4xl font-black tracking-tighter text-emerald-500">{formatCurrency(summary?.revenue || 0)}</p>
+        <div className="p-6 space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+             <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-lg space-y-1">
+                <p className="text-[9px] text-emerald-600 dark:text-emerald-400 uppercase font-bold tracking-wider">Total Collection</p>
+                <p className="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">{formatCurrency(summary?.revenue || 0)}</p>
              </div>
-             <div className="p-6 bg-primary/5 border border-primary/20 rounded-3xl space-y-1">
-                <p className="text-[10px] text-primary uppercase font-black tracking-widest">Orders Processed</p>
-                <p className="text-4xl font-black tracking-tighter">{summary?.orders || 0}</p>
+             <div className="p-4 bg-primary/5 border border-primary/10 rounded-lg space-y-1">
+                <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Orders Processed</p>
+                <p className="text-2xl font-bold tracking-tight text-foreground">{summary?.orders || 0}</p>
              </div>
           </div>
 
-          <div className="space-y-4">
-             <h4 className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Payment Breakdown</h4>
-             <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-2.5">
+             <h4 className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider pl-0.5">Payment Breakdown</h4>
+             <div className="grid grid-cols-3 gap-3">
                 {[
-                  { label: 'Cash', icon: Wallet, method: 'CASH', color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-                  { label: 'Digital', icon: QrCode, method: 'UPI', color: 'text-primary', bg: 'bg-primary/10' },
-                  { label: 'Card', icon: CreditCard, method: 'CARD', color: 'text-blue-500', bg: 'bg-blue-500/10' },
+                  { label: 'Cash', icon: Wallet, method: 'CASH', color: 'text-emerald-500', bg: 'bg-emerald-500/5 border-emerald-500/10' },
+                  { label: 'Digital', icon: QrCode, method: 'UPI', color: 'text-primary', bg: 'bg-primary/5 border-primary/10' },
+                  { label: 'Card', icon: CreditCard, method: 'CARD', color: 'text-blue-500', bg: 'bg-blue-500/5 border-blue-500/10' },
                 ].map((m) => {
                   const amount = summary?.paymentBreakdown?.find((p: any) => p.paymentMethod === m.method)?._sum?.totalAmount || 0
                   return (
-                    <div key={m.method} className={cn("p-6 rounded-3xl border border-border/40 space-y-3", m.bg.replace('/10', '/5'))}>
-                       <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center border border-border/10", m.bg, m.color)}>
-                          <m.icon size={20} />
+                    <div key={m.method} className={cn("p-4 rounded-lg border space-y-2", m.bg)}>
+                       <div className={cn("w-7 h-7 rounded flex items-center justify-center border border-border bg-card", m.color)}>
+                          <m.icon size={14} />
                        </div>
                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">{m.label}</p>
-                          <p className="text-lg font-black">{formatCurrency(amount)}</p>
+                          <p className="text-[9px] text-muted-foreground uppercase font-semibold">{m.label}</p>
+                          <p className="text-sm font-bold text-foreground">{formatCurrency(amount)}</p>
                        </div>
                     </div>
                   )
@@ -59,22 +59,22 @@ export default function EndOfDaySummary({ summary, onClose }: EODProps) {
              </div>
           </div>
 
-          <div className="bg-accent/20 p-6 rounded-3xl border border-border/40 flex items-center justify-between">
-             <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
-                   <CheckCircle2 size={24} />
+          <div className="bg-secondary/40 p-4 rounded-lg border border-border flex items-center justify-between">
+             <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20">
+                   <CheckCircle2 size={16} />
                 </div>
                 <div>
-                   <p className="font-bold text-lg leading-none">Ready for EOD Settlement</p>
-                   <p className="text-xs text-muted-foreground mt-1">Stock and sales records are synced</p>
+                   <p className="font-semibold text-sm leading-none text-foreground">Settlement Ready</p>
+                   <p className="text-[10px] text-muted-foreground mt-0.5">Stock and sales records are fully synced</p>
                 </div>
              </div>
              <div className="flex gap-2">
-                <Button variant="outline" className="rounded-xl border-border/60">
-                   <Download size={18} className="mr-2" /> Export
+                <Button variant="outline" size="sm" className="rounded-md border-border h-8 text-xs font-semibold px-3">
+                   <Download size={14} className="mr-1.5" /> Export
                 </Button>
-                <Button className="rounded-xl font-black uppercase tracking-widest">
-                   <Printer size={18} className="mr-2" /> Print EOD
+                <Button size="sm" className="rounded-md h-8 text-xs font-semibold px-3 bg-primary text-primary-foreground">
+                   <Printer size={14} className="mr-1.5" /> Print EOD
                 </Button>
              </div>
           </div>

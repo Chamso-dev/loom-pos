@@ -117,48 +117,48 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
+    <div className="space-y-6 animate-in fade-in duration-300 font-sans">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shadow-sm shadow-primary/10">
-            <Package size={24} />
+          <div className="w-10 h-10 rounded bg-secondary flex items-center justify-center text-foreground border border-border">
+            <Package size={20} />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">Inventory Management</h1>
-            <p className="text-muted-foreground text-sm">Monitor stock levels and manage product listings.</p>
+            <h1 className="text-xl font-bold tracking-tight text-foreground">Inventory</h1>
+            <p className="text-muted-foreground text-xs font-medium">Monitor stock levels and manage product listings.</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
            {selectedProductIds.length > 0 && (
              <Button 
                variant="outline" 
                onClick={() => setIsPrintModalOpen(true)}
-               className="gap-2 h-11 px-6 border-primary/20 hover:bg-primary/5 text-primary animate-in zoom-in-95"
+               className="gap-1.5 h-10 px-4 border-border hover:bg-accent text-foreground text-xs font-semibold rounded-md"
              >
-               <Printer size={20} />
+               <Printer size={16} />
                Print Labels ({selectedProductIds.length})
              </Button>
            )}
-           <Button variant="premium" onClick={handleAddNew} className="gap-2 shadow-lg shadow-primary/20 h-11 px-6">
-            <Plus size={20} />
+           <Button onClick={handleAddNew} className="gap-1.5 bg-primary text-primary-foreground hover:opacity-90 h-10 px-4 text-xs font-semibold rounded-md shadow-none cursor-pointer">
+            <Plus size={16} />
             Add Product
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2 relative group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4 transition-colors group-focus-within:text-primary" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4 transition-colors group-focus-within:text-primary" />
           <Input 
             placeholder="Search by name, SKU, or barcode..." 
-            className="pl-10 h-11 bg-card/40 border-border/60 hover:border-primary/40 focus:border-primary/60 transition-all rounded-xl"
+            className="pl-10 h-10 bg-card border-border hover:border-primary/40 focus:border-primary/60 transition-all rounded-md text-sm font-medium"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-1 bg-accent/30 p-1 rounded-xl border border-border/40 ml-auto">
-          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg bg-background shadow-sm"><ListIcon size={18} /></Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg opacity-40 hover:opacity-100"><LayoutGrid size={18} /></Button>
+        <div className="flex items-center gap-1 bg-secondary/80 p-0.5 rounded border border-border ml-auto">
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded bg-card border border-border shadow-sm text-foreground"><ListIcon size={16} /></Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded opacity-40 hover:opacity-100"><LayoutGrid size={16} /></Button>
         </div>
       </div>
 
@@ -172,16 +172,16 @@ export default function InventoryPage() {
       />
 
       {hasMoreProducts && (
-        <div className="flex flex-col items-center gap-4 py-8">
+        <div className="flex flex-col items-center gap-2 py-6">
            <Button 
             variant="outline" 
             onClick={handleLoadMore} 
             disabled={isLoadingProducts}
-            className="h-12 px-10 rounded-xl border-primary/20 hover:bg-primary/5 text-primary font-bold uppercase tracking-widest text-[10px]"
+            className="h-10 px-6 rounded-md border-border hover:bg-accent text-foreground font-semibold text-xs transition-all active:scale-[0.99]"
            >
               {isLoadingProducts ? 'Loading...' : 'Load Next 50 Products'}
            </Button>
-           <p className="text-[10px] uppercase font-bold text-muted-foreground opacity-50 tracking-[0.2em]">
+           <p className="text-[9px] uppercase font-bold text-muted-foreground opacity-55 tracking-wider">
              Showing {products.length} of {totalProducts} Products
            </p>
         </div>

@@ -50,7 +50,7 @@ export default function Shell({ children }: ShellProps) {
   }, [isBillingScreen, setSidebarOpen])
 
   return (
-    <div className="min-h-screen bg-background font-outfit selection:bg-primary/20 selection:text-primary">
+    <div className="min-h-screen bg-background font-sans selection:bg-primary/20 selection:text-primary">
       {/* Sidebar - Always rendered so cashiers can switch tabs */}
       <Sidebar />
 
@@ -63,14 +63,10 @@ export default function Shell({ children }: ShellProps) {
       >
         <Header />
         <main className="relative z-10">
-          <div className="max-w-[1600px] mx-auto p-4 md:p-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="max-w-[1600px] mx-auto p-4 md:p-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
             {children}
           </div>
         </main>
-        
-        {/* Subtle background decoration */}
-        <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-primary/5 blur-[150px] -z-10 rounded-full pointer-events-none"></div>
-        <div className="fixed bottom-0 left-0 w-[400px] h-[400px] bg-primary/3 blur-[120px] -z-10 rounded-full pointer-events-none"></div>
       </div>
     </div>
   )

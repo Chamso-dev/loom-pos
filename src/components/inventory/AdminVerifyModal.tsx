@@ -36,30 +36,28 @@ export default function AdminVerifyModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
-      <Card className="w-full max-w-md shadow-2xl border-primary/20 animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <Card className="w-full max-w-md shadow-lg border border-border animate-in zoom-in-95 duration-200">
         <form onSubmit={handleSubmit}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-border/40">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                <ShieldAlert size={20} />
-              </div>
-              <CardTitle className="text-xl font-bold">{title}</CardTitle>
+              <ShieldAlert size={18} className="text-muted-foreground" />
+              <CardTitle className="text-base font-semibold">{title}</CardTitle>
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose} type="button" className="rounded-full">
-              <X size={20} />
+            <Button variant="ghost" size="icon" onClick={onClose} type="button" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+              <X size={16} />
             </Button>
           </CardHeader>
           
-          <CardContent className="pt-4 space-y-4">
-            <p className="text-sm text-muted-foreground leading-relaxed">
+          <CardContent className="pt-6 space-y-4">
+            <p className="text-sm text-muted-foreground leading-normal">
               {message}
             </p>
             
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Admin Password</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Admin Password</label>
               <div className="relative group">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={16} />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
                 <Input 
                   type="password" 
                   value={password} 
@@ -67,18 +65,18 @@ export default function AdminVerifyModal({
                   autoFocus
                   required 
                   placeholder="••••••••" 
-                  className="pl-10 h-12 bg-accent/20 border-border/40 focus:ring-primary/20"
+                  className="pl-9 h-10 bg-background border-border"
                 />
               </div>
             </div>
           </CardContent>
 
-          <CardFooter className="flex flex-col gap-3 pt-2 pb-6 px-6">
-            <Button variant="premium" type="submit" className="w-full h-12 font-black uppercase tracking-widest text-xs shadow-lg shadow-primary/20">
-              Authorize Action
-            </Button>
-            <Button variant="ghost" type="button" onClick={onClose} className="w-full text-[10px] uppercase font-bold tracking-widest opacity-60 hover:opacity-100">
+          <CardFooter className="flex justify-end gap-2 pt-2 pb-6 px-6">
+            <Button variant="outline" type="button" onClick={onClose} className="h-9 text-xs">
               Cancel
+            </Button>
+            <Button variant="default" type="submit" className="h-9 text-xs">
+              Authorize Action
             </Button>
           </CardFooter>
         </form>
@@ -86,3 +84,4 @@ export default function AdminVerifyModal({
     </div>
   )
 }
+

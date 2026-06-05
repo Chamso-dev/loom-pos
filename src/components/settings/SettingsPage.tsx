@@ -71,26 +71,26 @@ export default function SettingsPage() {
 
 
   return (
-    <div className="p-8 max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="p-8 max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
       <div>
-        <h1 className="text-4xl font-black tracking-tight uppercase italic mb-2">Store Settings</h1>
-        <p className="text-muted-foreground uppercase tracking-widest text-[10px] font-bold">Configure your business details</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground mb-1">Store Settings</h1>
+        <p className="text-sm text-muted-foreground">Configure your business details and credentials</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="md:col-span-2">
-          <form onSubmit={handleSubmit} className="space-y-6 bg-card p-8 rounded-[2rem] border border-border/60 shadow-xl shadow-primary/5">
+        <div className="md:col-span-2 space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6 bg-card p-6 rounded-lg border border-border shadow-sm">
             <div className="grid grid-cols-1 gap-6">
               {/* Store Name */}
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Store Name</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Store Name</label>
                 <div className="relative group">
-                  <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Store className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full bg-accent/30 border border-border/50 h-12 pl-12 pr-4 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+                    className="w-full bg-background border border-border h-10 pl-10 pr-4 rounded-md text-sm focus:outline-none focus:border-border transition-all"
                     placeholder="Enter store name"
                     required
                   />
@@ -98,14 +98,14 @@ export default function SettingsPage() {
               </div>
 
               {/* Address */}
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Business Address</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Business Address</label>
                 <div className="relative group">
-                  <MapPin className="absolute left-4 top-4 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <MapPin className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
                   <textarea
                     value={formData.address}
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className="w-full bg-accent/30 border border-border/50 min-h-[100px] pl-12 pr-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all resize-none"
+                    className="w-full bg-background border border-border min-h-[100px] pl-10 pr-4 py-2.5 rounded-md text-sm focus:outline-none focus:border-border transition-all resize-none"
                     placeholder="Enter full address"
                     required
                   />
@@ -114,15 +114,15 @@ export default function SettingsPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {/* GSTIN */}
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">GSTIN</label>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">GSTIN</label>
                   <div className="relative group">
-                    <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="text"
                       value={formData.gstin}
                       onChange={(e) => setFormData({ ...formData, gstin: e.target.value })}
-                      className="w-full bg-accent/30 border border-border/50 h-12 pl-12 pr-4 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+                      className="w-full bg-background border border-border h-10 pl-10 pr-4 rounded-md text-sm focus:outline-none focus:border-border transition-all"
                       placeholder="Enter GSTIN"
                       required
                     />
@@ -130,15 +130,15 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Phone */}
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Contact Phone</label>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Contact Phone</label>
                   <div className="relative group">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="text"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full bg-accent/30 border border-border/50 h-12 pl-12 pr-4 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+                      className="w-full bg-background border border-border h-10 pl-10 pr-4 rounded-md text-sm focus:outline-none focus:border-border transition-all"
                       placeholder="Enter phone number"
                       required
                     />
@@ -147,15 +147,15 @@ export default function SettingsPage() {
               </div>
 
               {/* UPI ID */}
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">UPI ID for Payments</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">UPI ID for Payments</label>
                 <div className="relative group">
-                  <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
                     type="text"
                     value={formData.upiId}
                     onChange={(e) => setFormData({ ...formData, upiId: e.target.value })}
-                    className="w-full bg-accent/30 border border-border/50 h-12 pl-12 pr-4 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all font-mono"
+                    className="w-full bg-background border border-border h-10 pl-10 pr-4 rounded-md text-sm focus:outline-none focus:border-border transition-all font-mono"
                     placeholder="Enter UPI ID (e.g. store@upi)"
                     required
                   />
@@ -163,79 +163,79 @@ export default function SettingsPage() {
               </div>
 
               {/* Security Section (Global Cashier Password) */}
-              <div className="pt-6 border-t border-border/40 space-y-6">
+              <div className="pt-6 border-t border-border/40 space-y-4">
                 <div className="flex items-center gap-2">
-                   <div className="p-2 bg-primary/10 rounded-lg text-primary text-xs font-black uppercase tracking-widest">
+                   <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Security & Access
-                   </div>
+                   </span>
                    <div className="flex-1 h-px bg-border/40" />
                 </div>
                 
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Global Cashier Password (OPTIONAL)</label>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Global Cashier Password (OPTIONAL)</label>
                   <div className="relative group">
-                    <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="text"
                       value={formData.cashierPassword}
                       onChange={(e) => setFormData({ ...formData, cashierPassword: e.target.value })}
-                      className="w-full bg-accent/30 border border-border/50 h-12 pl-12 pr-4 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all font-mono"
+                      className="w-full bg-background border border-border h-10 pl-10 pr-4 rounded-md text-sm focus:outline-none focus:border-border transition-all font-mono"
                       placeholder="Set a shared password for all cashiers"
                     />
                   </div>
-                  <p className="text-[9px] text-muted-foreground italic px-1">If set, any active cashier can use this password to log in.</p>
+                  <p className="text-[11px] text-muted-foreground italic">If set, any active cashier can use this password to log in.</p>
                 </div>
               </div>
             </div>
 
             <Button 
               type="submit" 
-              variant="premium" 
-              className="w-full h-14 text-lg font-black uppercase tracking-widest"
+              variant="default" 
+              className="w-full h-10 text-sm font-medium"
               disabled={isSaving}
             >
-              <Save size={20} className="mr-2" />
+              <Save size={16} className="mr-2" />
               {isSaving ? 'Saving Changes...' : 'Save Configuration'}
             </Button>
           </form>
 
           {/* Individual Password Change Section */}
-          <form onSubmit={handlePasswordChange} className="mt-8 space-y-6 bg-card p-8 rounded-[2rem] border border-border/60 shadow-xl shadow-primary/5">
-            <div className="space-y-2 mb-6">
-               <h3 className="text-xl font-bold tracking-tight">Security Credentials</h3>
-               <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Manage your personal password</p>
+          <form onSubmit={handlePasswordChange} className="space-y-6 bg-card p-6 rounded-lg border border-border shadow-sm">
+            <div className="space-y-1">
+               <h3 className="text-base font-semibold tracking-tight text-foreground">Security Credentials</h3>
+               <p className="text-xs text-muted-foreground">Manage your personal password</p>
             </div>
 
             <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Current Password</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Current Password</label>
                 <input
                   type="password"
                   value={passwordForm.currentPassword}
                   onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                  className="w-full bg-accent/30 border border-border/50 h-12 px-4 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                  className="w-full bg-background border border-border h-10 px-3 rounded-md text-sm focus:outline-none focus:border-border transition-all"
                   required
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">New Password</label>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">New Password</label>
                   <input
                     type="password"
                     value={passwordForm.newPassword}
                     onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                    className="w-full bg-accent/30 border border-border/50 h-12 px-4 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                    className="w-full bg-background border border-border h-10 px-3 rounded-md text-sm focus:outline-none focus:border-border transition-all"
                     required
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Confirm New Password</label>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Confirm New Password</label>
                   <input
                     type="password"
                     value={passwordForm.confirmPassword}
                     onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                    className="w-full bg-accent/30 border border-border/50 h-12 px-4 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                    className="w-full bg-background border border-border h-10 px-3 rounded-md text-sm focus:outline-none focus:border-border transition-all"
                     required
                   />
                 </div>
@@ -243,8 +243,8 @@ export default function SettingsPage() {
 
               {passwordMessage.text && (
                 <div className={cn(
-                  "p-4 rounded-xl text-xs font-bold uppercase tracking-widest",
-                  passwordMessage.type === 'success' ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-red-500/10 text-red-500 border border-red-500/20"
+                  "p-3 rounded-md text-xs font-medium",
+                  passwordMessage.type === 'success' ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" : "bg-destructive/10 text-destructive border border-destructive/20"
                 )}>
                   {passwordMessage.text}
                 </div>
@@ -253,7 +253,7 @@ export default function SettingsPage() {
               <Button 
                 type="submit"
                 variant="outline"
-                className="w-full h-12 font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all"
+                className="w-full h-10 text-sm font-medium"
                 disabled={isChangingPassword}
               >
                 {isChangingPassword ? 'Updating...' : 'Change Password'}
@@ -264,28 +264,28 @@ export default function SettingsPage() {
         </div>
 
         <div className="space-y-6">
-          <div className="bg-primary/5 p-8 rounded-[2rem] border border-primary/20">
-            <h3 className="font-black uppercase tracking-tight mb-4">Preview</h3>
+          <div className="bg-accent/10 p-6 rounded-lg border border-border">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">Preview</h3>
             <div className="space-y-4 text-sm">
               <div>
-                <p className="text-[10px] uppercase opacity-40 font-bold">Header Logo</p>
-                <p className="text-xl font-bold text-primary italic uppercase tracking-tighter">
-                  {formData.name.slice(0, 4)}<span className="text-foreground">{formData.name.slice(4)}</span>
+                <p className="text-[10px] uppercase text-muted-foreground font-medium mb-1">Header Logo</p>
+                <p className="text-lg font-semibold text-foreground tracking-tight uppercase">
+                  {formData.name.slice(0, 4)}<span className="text-muted-foreground">{formData.name.slice(4)}</span>
                 </p>
               </div>
               <div>
-                <p className="text-[10px] uppercase opacity-40 font-bold">Receipt Address</p>
-                <p className="font-medium whitespace-pre-wrap">{formData.address}</p>
+                <p className="text-[10px] uppercase text-muted-foreground font-medium mb-1">Receipt Address</p>
+                <p className="font-medium whitespace-pre-wrap text-foreground/80">{formData.address}</p>
               </div>
               <div>
-                <p className="text-[10px] uppercase opacity-40 font-bold">GST Number</p>
-                <p className="font-mono font-bold">{formData.gstin}</p>
+                <p className="text-[10px] uppercase text-muted-foreground font-medium mb-1">GST Number</p>
+                <p className="font-mono font-semibold text-foreground">{formData.gstin}</p>
               </div>
             </div>
           </div>
           
-          <div className="bg-accent/30 p-8 rounded-[2rem] border border-border/60">
-             <p className="text-xs text-muted-foreground leading-relaxed italic">
+          <div className="bg-accent/5 p-6 rounded-lg border border-border/60">
+             <p className="text-xs text-muted-foreground leading-normal">
                Note: These details will appear on all printed invoices and digital receipts generated by the system.
              </p>
           </div>

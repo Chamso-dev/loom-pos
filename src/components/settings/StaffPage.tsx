@@ -110,30 +110,25 @@ export default function StaffPage() {
   )
 
   return (
-    <div className="p-8 space-y-8 max-w-7xl mx-auto animate-in fade-in duration-700">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-3xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shadow-lg shadow-primary/5">
-            <Users size={28} />
-          </div>
-          <div>
-            <h1 className="text-4xl font-black tracking-tighter uppercase italic">Staff Operations</h1>
-            <p className="text-muted-foreground text-xs uppercase tracking-[0.3em] font-bold">Manage system access & credentials</p>
-          </div>
+    <div className="p-8 space-y-8 max-w-7xl mx-auto animate-in fade-in duration-300">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground mb-1">Staff Operations</h1>
+          <p className="text-sm text-muted-foreground">Manage system access, employee credentials and security keys</p>
         </div>
         
         <div className="flex items-center gap-3">
            <div className="relative group flex-1 md:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 w-4 h-4 group-focus-within:text-primary transition-colors" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input 
-               placeholder="Search by ID or Name..." 
+               placeholder="Search staff..." 
                value={search}
                onChange={(e) => setSearch(e.target.value)}
-               className="pl-10 h-12 bg-card/50 border-border/40 rounded-2xl font-bold text-xs focus:ring-2 focus:ring-primary/10"
+               className="pl-9 h-9 bg-background border-border text-sm rounded-md"
               />
            </div>
-           <Button variant="premium" onClick={() => openModal()} className="h-12 px-6 gap-2 rounded-2xl uppercase font-black text-xs tracking-widest shadow-lg shadow-primary/20">
-             <UserPlus size={18} />
+           <Button variant="default" onClick={() => openModal()} className="h-9 px-4 gap-2 text-xs">
+             <UserPlus size={16} />
              Add Staff
            </Button>
         </div>
@@ -144,60 +139,55 @@ export default function StaffPage() {
           <div 
             key={user.id} 
             className={cn(
-              "group bg-card/40 backdrop-blur-xl rounded-[2.5rem] border border-border/40 p-6 hover:border-primary/40 transition-all duration-500 relative overflow-hidden",
+              "group bg-card rounded-lg border border-border p-6 hover:border-border-hover/80 transition-all duration-200 relative overflow-hidden shadow-sm",
               !user.isActive && "opacity-60 grayscale"
             )}
           >
-            {/* Background Decorative Role Icon */}
-            <div className="absolute top-[-20px] right-[-20px] opacity-[0.03] rotate-12 group-hover:rotate-0 transition-transform duration-700">
-               <Shield size={120} />
-            </div>
-
             <div className="flex items-start justify-between relative z-10">
-               <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-accent flex items-center justify-center text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-all duration-500">
-                     <Users size={24} />
+               <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-md bg-accent flex items-center justify-center text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-all duration-200">
+                     <Users size={20} />
                   </div>
                   <div>
-                     <h3 className="font-black text-lg tracking-tight leading-none group-hover:text-primary transition-colors">{user.name}</h3>
-                     <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1.5 opacity-60">ID: {user.employeeId}</p>
+                     <h3 className="font-semibold text-base tracking-tight leading-none text-foreground">{user.name}</h3>
+                     <p className="text-[10px] uppercase text-muted-foreground tracking-wider mt-1.5 font-medium">ID: {user.employeeId}</p>
                   </div>
                </div>
                <div className={cn(
-                 "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border",
-                 user.role === 'ADMIN' ? "bg-primary/10 text-primary border-primary/20" : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                 "px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider border",
+                 user.role === 'ADMIN' ? "bg-primary/10 text-primary border-primary/20" : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
                )}>
                   {user.role}
                </div>
             </div>
 
-            <div className="mt-8 space-y-4 relative z-10">
-               <div className="flex items-center gap-3 text-muted-foreground">
-                  <Smartphone size={14} className="opacity-40" />
-                  <span className="text-[10px] uppercase font-bold tracking-widest">{user.phone || 'No contact saved'}</span>
+            <div className="mt-6 space-y-3 relative z-10">
+               <div className="flex items-center gap-2.5 text-muted-foreground">
+                  <Smartphone size={13} className="opacity-60" />
+                  <span className="text-[11px] font-medium">{user.phone || 'No contact saved'}</span>
                </div>
-               <div className="flex items-center gap-3 text-muted-foreground">
-                  <Check size={14} className={cn("opacity-40", user.isActive ? "text-emerald-500" : "text-red-500")} />
-                  <span className="text-[10px] uppercase font-bold tracking-widest">
+               <div className="flex items-center gap-2.5 text-muted-foreground">
+                  <Check size={13} className={cn("opacity-60", user.isActive ? "text-emerald-500" : "text-red-500")} />
+                  <span className="text-[11px] font-medium">
                      {user.isActive ? 'Active Duty' : 'Deactivated / Ex-Staff'}
                   </span>
                </div>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-border/20 flex gap-2 relative z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="mt-6 pt-4 border-t border-border/40 flex gap-2 relative z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                <Button 
                 variant="outline" 
                 onClick={() => openModal(user)}
-                className="flex-1 h-10 rounded-xl uppercase font-black text-[9px] tracking-[0.2em] border-border/40 hover:bg-primary hover:text-white transition-all"
+                className="flex-1 h-9 rounded-md text-xs border-border/40"
                >
                   Edit Profile
                </Button>
                <Button 
                 variant="ghost" 
                 onClick={() => updateUser(user.id, { isActive: !user.isActive })}
-                className="w-10 h-10 p-0 rounded-xl hover:bg-accent border border-transparent hover:border-border"
+                className="w-9 h-9 p-0 rounded-md text-muted-foreground hover:text-foreground border border-border/40"
                >
-                  {user.isActive ? <UserMinus size={16} /> : <RotateCw size={16} />}
+                  {user.isActive ? <UserMinus size={15} /> : <RotateCw size={15} />}
                </Button>
             </div>
           </div>
@@ -206,38 +196,38 @@ export default function StaffPage() {
 
       {/* User Management Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-            <div className="bg-card w-full max-w-md rounded-[2.5rem] border border-border/60 shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col overflow-hidden max-h-[90vh]">
-              <div className="p-6 border-b border-border/40 flex items-center justify-between bg-accent/10">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-card w-full max-w-md rounded-lg border border-border shadow-lg animate-in zoom-in-95 duration-200 flex flex-col overflow-hidden max-h-[90vh]">
+              <div className="p-4 border-b border-border/40 flex items-center justify-between">
                  <div>
-                    <h2 className="text-xl font-black tracking-tighter uppercase italic">{editingUser ? 'Modify Credentials' : 'Request Access'}</h2>
-                    <p className="text-[9px] uppercase font-black text-muted-foreground opacity-60 tracking-[0.2em]">Personnel Management System</p>
+                    <h2 className="text-base font-semibold text-foreground">{editingUser ? 'Modify Credentials' : 'Request Access'}</h2>
+                    <p className="text-[10px] text-muted-foreground">Personnel Management System</p>
                  </div>
-                 <button onClick={() => setIsModalOpen(false)} className="w-8 h-8 flex items-center justify-center hover:bg-background rounded-full border border-border/40 transition-all">
-                    <X size={18} />
-                 </button>
+                 <Button variant="ghost" size="icon" onClick={() => setIsModalOpen(false)} className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                    <X size={16} />
+                 </Button>
               </div>
 
               <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto overflow-x-hidden">
                  <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                        <div className="space-y-1.5">
-                          <label className="text-[9px] uppercase font-black tracking-widest text-muted-foreground pl-1">Full Name</label>
-                          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="John Doe" className="h-11 bg-accent/20 border-border/40 rounded-xl font-bold text-xs px-4" required />
+                          <label className="text-xs font-medium text-muted-foreground">Full Name</label>
+                          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="John Doe" className="h-9 bg-background border-border text-sm" required />
                        </div>
                        <div className="space-y-1.5">
-                          <label className="text-[9px] uppercase font-black tracking-widest text-muted-foreground pl-1">Employee ID</label>
-                          <Input value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} placeholder="EMP-001" className="h-11 bg-accent/20 border-border/40 rounded-xl font-bold text-xs px-4 uppercase" required />
+                          <label className="text-xs font-medium text-muted-foreground">Employee ID</label>
+                          <Input value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} placeholder="EMP-001" className="h-9 bg-background border-border text-sm uppercase" required />
                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                        <div className="space-y-1.5">
-                          <label className="text-[9px] uppercase font-black tracking-widest text-muted-foreground pl-1">Contact Phone</label>
-                          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 0000..." className="h-11 bg-accent/20 border-border/40 rounded-xl font-bold text-xs px-4" />
+                          <label className="text-xs font-medium text-muted-foreground">Contact Phone</label>
+                          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 0000..." className="h-9 bg-background border-border text-sm" />
                        </div>
                        <div className="space-y-1.5">
-                          <label className="text-[9px] uppercase font-black tracking-widest text-muted-foreground pl-1">Access Role</label>
+                          <label className="text-xs font-medium text-muted-foreground">Access Role</label>
                           <div className="grid grid-cols-2 gap-1.5">
                              {['ADMIN', 'CASHIER'].map((r: any) => (
                                <button
@@ -245,8 +235,8 @@ export default function StaffPage() {
                                  type="button"
                                  onClick={() => setRole(r)}
                                  className={cn(
-                                   "py-2.5 rounded-xl border text-[8px] font-black uppercase tracking-widest transition-all",
-                                   role === r ? "bg-primary text-white border-primary shadow-md shadow-primary/20" : "bg-background border-border"
+                                   "py-1.5 rounded-md border text-[10px] font-semibold uppercase tracking-wider transition-all",
+                                   role === r ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground hover:text-foreground"
                                  )}
                                >
                                  {r}
@@ -257,15 +247,15 @@ export default function StaffPage() {
                     </div>
                     
                     <div className="space-y-1.5">
-                       <div className="flex items-center justify-between pr-1">
-                          <label className="text-[9px] uppercase font-black tracking-widest text-muted-foreground pl-1">
+                       <div className="flex items-center justify-between">
+                          <label className="text-xs font-medium text-muted-foreground">
                              {editingUser ? 'Reset Security Key' : 'Initial Security Key'}
                           </label>
                           {editingUser && !isRevealing && (
                              <button 
                                type="button"
                                onClick={() => setIsRevealing(true)}
-                               className="text-[9px] uppercase font-black text-primary tracking-widest hover:underline"
+                               className="text-xs font-medium text-primary hover:underline"
                              >
                                 Reset Password
                              </button>
@@ -273,57 +263,57 @@ export default function StaffPage() {
                        </div>
 
                        {isRevealing ? (
-                          <div className="space-y-3 p-4 bg-primary/5 rounded-2xl border border-primary/20 animate-in slide-in-from-top-4 duration-300">
+                          <div className="space-y-3 p-4 bg-accent/20 rounded-md border border-border/40 animate-in slide-in-from-top-4 duration-200">
                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 text-primary">
+                                <div className="flex items-center gap-2 text-muted-foreground">
                                    <ShieldCheck size={14} />
-                                   <span className="text-[9px] uppercase font-black tracking-widest">Admin Configured</span>
+                                   <span className="text-xs font-medium">Admin Configured</span>
                                 </div>
-                                <button type="button" onClick={() => setIsRevealing(false)} className="text-[9px] uppercase font-black text-primary hover:underline">Cancel</button>
+                                <button type="button" onClick={() => setIsRevealing(false)} className="text-xs font-medium text-primary hover:underline">Cancel</button>
                              </div>
                              
                              <div className="flex gap-2">
-                                 <div className="relative flex-1">
-                                    <Input 
-                                      type={showResetPassword ? "text" : "password"}
-                                      placeholder="New Password"
-                                      value={password}
-                                      onChange={(e) => setPassword(e.target.value)}
-                                      className="h-10 bg-background border-primary/20 rounded-xl text-xs font-bold pr-10"
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => setShowResetPassword(!showResetPassword)}
-                                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
-                                    >
-                                       {showResetPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                                    </button>
-                                 </div>
-                                 <Button 
-                                   type="button"
-                                   onClick={handleReset}
-                                   disabled={isRevealLoading || password.length < 6}
-                                   className="h-10 px-4 rounded-xl text-[9px] uppercase font-black whitespace-nowrap"
-                                 >
-                                    {isRevealLoading ? '...' : 'Reset'}
-                                 </Button>
-                              </div>
+                                  <div className="relative flex-1">
+                                     <Input 
+                                       type={showResetPassword ? "text" : "password"}
+                                       placeholder="New Password"
+                                       value={password}
+                                       onChange={(e) => setPassword(e.target.value)}
+                                       className="h-9 bg-background border-border text-sm pr-10"
+                                     />
+                                     <button
+                                       type="button"
+                                       onClick={() => setShowResetPassword(!showResetPassword)}
+                                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                     >
+                                        {showResetPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                                     </button>
+                                  </div>
+                                  <Button 
+                                    type="button"
+                                    onClick={handleReset}
+                                    disabled={isRevealLoading || password.length < 6}
+                                    className="h-9 px-3 rounded-md text-xs font-medium"
+                                  >
+                                     {isRevealLoading ? '...' : 'Reset'}
+                                  </Button>
+                               </div>
                              {revealError && (
-                                <div className="flex items-center gap-1.5 text-red-500">
+                                <div className="flex items-center gap-1.5 text-destructive">
                                    <AlertCircle size={10} />
-                                   <span className="text-[8px] uppercase font-black tracking-widest">{revealError}</span>
+                                   <span className="text-[10px] font-medium uppercase tracking-wider">{revealError}</span>
                                 </div>
                              )}
                           </div>
                        ) : (
                           <div className="relative group">
-                             <Key size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground opacity-40 group-focus-within:text-primary transition-colors" />
+                             <Key size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                              <Input 
                                type={showStaffPassword ? "text" : "password"} 
                                value={password} 
                                onChange={(e) => setPassword(e.target.value)} 
                                placeholder={editingUser ? "••••••••" : "MIN 6 CHARS"} 
-                               className="h-12 bg-accent/20 border-border/40 rounded-xl font-bold text-sm pl-11 pr-11 transition-all" 
+                               className="h-9 bg-background border-border text-sm pl-9 pr-9" 
                                required={!editingUser} 
                                disabled={!!editingUser}
                              />
@@ -331,11 +321,11 @@ export default function StaffPage() {
                                <button
                                  type="button"
                                  onClick={() => setShowStaffPassword(!showStaffPassword)}
-                                 className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
-                               >
-                                  {showStaffPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                               </button>
-                             )}
+                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                  {showStaffPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                                </button>
+                              )}
                           </div>
                        )}
                     </div>
@@ -344,12 +334,12 @@ export default function StaffPage() {
                  <Button 
                    type="submit" 
                    disabled={isLoading || isRevealing}
-                   className="w-full h-14 rounded-2xl bg-primary text-white hover:opacity-90 transition-all font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-primary/20 mt-4"
+                   className="w-full h-10 rounded-md bg-primary text-primary-foreground font-medium text-xs mt-4"
                  >
                     {isLoading ? 'Processing...' : editingUser ? 'Apply Updates' : 'Grant Permissions'}
                  </Button>
               </form>
-           </div>
+            </div>
         </div>
       )}
     </div>

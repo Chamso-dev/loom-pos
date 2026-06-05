@@ -71,66 +71,66 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="p-6 space-y-6 max-w-7xl mx-auto font-sans">
       {/* Header */}
-      <div className="flex justify-between items-end">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-4xl font-black tracking-tighter uppercase italic">Control Center</h1>
-          <p className="text-muted-foreground text-xs uppercase tracking-[0.3em] font-bold">Real-time Performance Metrics</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground text-xs font-medium">Real-time performance metrics</p>
         </div>
-        <div className="bg-card px-4 py-2 rounded-2xl border border-border/40 text-xs font-black uppercase flex items-center gap-2">
-           <Clock size={14} className="text-primary" />
-           {format(new Date(), 'dd MMMM yyyy')}
+        <div className="bg-card px-3.5 py-1.5 rounded-md border border-border text-[10px] font-bold uppercase tracking-wider flex items-center gap-2">
+           <Clock size={12} className="text-muted-foreground" />
+           {format(new Date(), 'dd MMM yyyy')}
         </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {stats.map((s, idx) => (
-          <div key={idx} className="bg-card/50 backdrop-blur-xl p-6 rounded-3xl border border-border/40 shadow-xl shadow-primary/5 hover:border-primary/40 transition-all group">
-            <div className="flex justify-between items-start mb-4">
-               <div className={cn("p-3 rounded-2xl border border-border/10", s.bg, s.color)}>
-                  <s.icon size={24} />
+          <div key={idx} className="bg-card p-5 rounded-md border border-border shadow-sm hover:shadow transition-all group">
+            <div className="flex justify-between items-start mb-3">
+               <div className={cn("p-2 rounded bg-secondary border border-border", s.color)}>
+                  <s.icon size={18} />
                </div>
                {s.isPositive !== null && (
                  <div className={cn(
-                   "flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black tracking-widest uppercase",
-                   s.isPositive ? "bg-emerald-400/10 text-emerald-400" : "bg-red-400/10 text-red-400"
+                   "flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider uppercase",
+                   s.isPositive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-red-500/10 text-red-600 dark:text-red-400"
                  )}>
-                   {s.isPositive ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
-                   {s.trend}
+                    {s.isPositive ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+                    {s.trend}
                  </div>
                )}
             </div>
             <div>
-               <p className="text-xs text-muted-foreground uppercase font-black tracking-widest opacity-60 mb-1">{s.label}</p>
-               <h3 className="text-3xl font-black tracking-tighter">{s.value}</h3>
+               <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-0.5">{s.label}</p>
+               <h3 className="text-2xl font-bold tracking-tight">{s.value}</h3>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Sales Chart */}
-        <div className="lg:col-span-2 bg-card/50 backdrop-blur-xl p-8 rounded-[2rem] border border-border/40 shadow-2xl">
-           <div className="flex justify-between items-center mb-8">
+        <div className="lg:col-span-2 bg-card p-6 rounded-md border border-border shadow-sm">
+           <div className="flex justify-between items-center mb-6">
               <div>
-                 <h2 className="text-xl font-black tracking-tight uppercase">Revenue Stream</h2>
-                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Last 7 Days Activity</p>
+                 <h2 className="text-sm font-bold uppercase tracking-wider">Revenue Stream</h2>
+                 <p className="text-[10px] text-muted-foreground font-medium">Last 7 days activity</p>
               </div>
               <div className="flex gap-2">
-                 <div className="flex items-center gap-2 px-3 py-1 bg-primary/5 border border-primary/20 rounded-full text-[10px] font-black text-primary uppercase">
-                    <TrendingUp size={12} /> Moving Up
+                 <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-secondary border border-border rounded-full text-[9px] font-bold text-muted-foreground uppercase">
+                    <TrendingUp size={10} /> Trend
                  </div>
               </div>
            </div>
            
-           <div className="h-[300px] w-full">
+           <div className="h-[280px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                  <AreaChart data={salesData}>
                     <defs>
                        <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.3}/>
+                          <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.15}/>
                           <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0}/>
                        </linearGradient>
                     </defs>
@@ -139,22 +139,22 @@ export default function Dashboard() {
                       dataKey="date" 
                       axisLine={false} 
                       tickLine={false} 
-                      tick={{fill: 'currentColor', fontSize: 10, fontWeight: 900}}
+                      tick={{fill: 'currentColor', fontSize: 9, fontWeight: 500}}
                       tickFormatter={(str) => format(new Date(str), 'ccc')}
-                      dy={10}
+                      dy={8}
                     />
                     <YAxis 
                       hide
                     />
                     <Tooltip 
-                      contentStyle={{ backgroundColor: 'rgb(var(--color-card))', borderRadius: '16px', border: '1px solid rgba(var(--color-foreground), 0.1)' }}
-                      labelStyle={{ fontWeight: 900, textTransform: 'uppercase', fontSize: '10px' }}
+                      contentStyle={{ backgroundColor: 'oklch(var(--color-card))', borderRadius: '6px', border: '1px solid oklch(var(--color-border))', fontSize: '11px' }}
+                      labelStyle={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '9px', opacity: 0.8 }}
                     />
                     <Area 
                       type="monotone" 
                       dataKey="amount" 
-                      stroke="var(--color-primary)" 
-                      strokeWidth={4}
+                      stroke="oklch(var(--color-foreground) / 0.8)" 
+                      strokeWidth={2}
                       fillOpacity={1} 
                       fill="url(#colorAmount)" 
                     />
@@ -164,45 +164,47 @@ export default function Dashboard() {
         </div>
 
         {/* Payment Breakdown */}
-        <div className="bg-card/50 backdrop-blur-xl p-8 rounded-[2rem] border border-border/40 shadow-2xl space-y-6">
-           <div>
-              <h2 className="text-xl font-black tracking-tight uppercase">Cash Drawer</h2>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Payment Methods Breakdown</p>
-           </div>
-
+        <div className="bg-card p-6 rounded-md border border-border shadow-sm flex flex-col justify-between">
            <div className="space-y-4">
-              {[
-                { label: 'Cash', icon: Wallet, method: 'CASH', color: 'text-emerald-500' },
-                { label: 'UPI / Digital', icon: QrCode, method: 'UPI', color: 'text-primary' },
-                { label: 'Card', icon: CreditCard, method: 'CARD', color: 'text-blue-500' },
-              ].map((m) => {
-                const amount = summary?.paymentBreakdown?.find((p: any) => p.paymentMethod === m.method)?._sum?.totalAmount || 0
-                const percent = summary?.revenue ? (amount / summary.revenue) * 100 : 0
+              <div>
+                 <h2 className="text-sm font-bold uppercase tracking-wider">Cash Drawer</h2>
+                 <p className="text-[10px] text-muted-foreground font-medium">Payment methods breakdown</p>
+              </div>
 
-                return (
-                  <div key={m.method} className="space-y-2">
-                    <div className="flex justify-between items-center">
-                       <div className="flex items-center gap-2">
-                          <m.icon size={14} className={m.color} />
-                          <span className="text-[10px] uppercase font-black tracking-widest">{m.label}</span>
+              <div className="space-y-3 pt-2">
+                 {[
+                   { label: 'Cash', icon: Wallet, method: 'CASH', color: 'text-emerald-500' },
+                   { label: 'UPI / Digital', icon: QrCode, method: 'UPI', color: 'text-primary' },
+                   { label: 'Card', icon: CreditCard, method: 'CARD', color: 'text-blue-500' },
+                 ].map((m) => {
+                   const amount = summary?.paymentBreakdown?.find((p: any) => p.paymentMethod === m.method)?._sum?.totalAmount || 0
+                   const percent = summary?.revenue ? (amount / summary.revenue) * 100 : 0
+
+                   return (
+                     <div key={m.method} className="space-y-1.5">
+                       <div className="flex justify-between items-center text-xs">
+                          <div className="flex items-center gap-1.5">
+                             <m.icon size={12} className={m.color} />
+                             <span className="text-[9px] uppercase font-bold text-muted-foreground">{m.label}</span>
+                          </div>
+                          <span className="font-semibold text-foreground">{formatCurrency(amount)}</span>
                        </div>
-                       <span className="text-xs font-black">{formatCurrency(amount)}</span>
-                    </div>
-                    <div className="h-2 w-full bg-accent/20 rounded-full overflow-hidden">
-                       <div 
-                         className={cn("h-full rounded-full transition-all duration-1000", m.color.replace('text', 'bg'))}
-                         style={{ width: `${percent}%` }}
-                       />
-                    </div>
-                  </div>
-                )
-              })}
+                       <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden border border-border/20">
+                          <div 
+                            className={cn("h-full rounded-full transition-all duration-500", m.color.replace('text', 'bg').replace('-500', '-600 dark:bg-emerald-500'))}
+                            style={{ width: `${percent}%` }}
+                          />
+                       </div>
+                     </div>
+                   )
+                 })}
+              </div>
            </div>
 
-           <div className="pt-4 border-t border-border/40">
+           <div className="pt-4 border-t border-border mt-4">
               <button 
                 onClick={() => setShowEOD(true)}
-                className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-primary/20"
+                className="w-full py-2.5 rounded-md bg-secondary border border-border text-foreground hover:bg-accent font-semibold text-xs transition-all active:scale-[0.99]"
               >
                  Close Day Summary (EOD)
               </button>
