@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom'
 import { A4Invoice, ThermalReceipt } from './ReceiptTemplates'
 import { useEffect, useState } from 'react'
 import { hardware } from '@/lib/hardware'
+import BluetoothPrintButton from './BluetoothPrintButton'
 
 interface PrintReceiptPortalProps {
   order: any
@@ -68,13 +69,14 @@ export default function PrintReceiptPortal({ order, type, onClose, autoPrint = t
     <div id="receipt-print-area" className="fixed inset-0 z-[9999] bg-white print:static print:z-auto h-screen overflow-auto">
       {/* Screen View (Preview/Buttons) */}
       <div className="print:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] flex gap-3 bg-zinc-950 p-2.5 rounded-md border border-white/15 shadow-xl font-sans">
-         <button 
+         <button
            onClick={() => hardware.print()}
            className="px-4 py-2 bg-white text-black font-semibold text-xs rounded hover:opacity-90 transition-all cursor-pointer"
          >
            Print Invoice
          </button>
-         <button 
+         {type === 'Thermal' && <BluetoothPrintButton order={order} />}
+         <button
            onClick={onClose}
            className="px-4 py-2 bg-zinc-800 text-white font-semibold text-xs rounded hover:bg-zinc-700 transition-all cursor-pointer"
          >

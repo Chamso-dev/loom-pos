@@ -54,8 +54,39 @@ npm run android:open
 CI builds a debug APK automatically on every push (`.github/workflows/build-apk.yml`)
 and uploads it as the `loompos-debug-apk` artifact.
 
+## Hardware (native build)
+
+These replace the PC peripherals the web build relied on. Both degrade
+gracefully on the web — the controls simply don't appear off-device.
+
+### Camera barcode scanning
+
+The phone camera doubles as the barcode scanner via
+[`@capacitor-mlkit/barcode-scanning`](https://github.com/capawesome-team/capacitor-mlkit)
+(Google ML Kit). A camera button appears in the billing scanner field; tapping
+it opens the scanner, and a decoded code flows through the **same** lookup as a
+typed/HID scan (`src/native/scanner.ts` → `ScannerInput`). Codes not in the
+catalogue are dropped back into the search box for the cashier. Requires the
+`CAMERA` permission, requested on first use.
+
+### Bluetooth thermal printing
+
+Receipts print to a paired ESC/POS thermal printer over classic Bluetooth
+(SPP/RFCOMM). On the thermal receipt preview a **Bluetooth Print** button lists
+paired printers and sends the receipt:
+
+- **`android/app/.../BluetoothPrinterPlugin.java`** — custom Capacitor plugin
+  that opens an RFCOMM socket to the chosen device and writes the byte stream.
+  (Most consumer thermal printers are classic SPP, not BLE.)
+- **`src/native/escpos.ts`** — builds the ESC/POS byte stream from the order +
+  store settings (32-column layout that prints cleanly on 58mm and 80mm).
+- **`src/native/bluetoothPrinter.ts`** — typed JS bridge to the plugin.
+- **`src/components/billing/BluetoothPrintButton.tsx`** — paired-device picker
+  and print/status UI.
+
+Pair the printer once in Android's Bluetooth settings; it then shows up in the
+picker. Requires `BLUETOOTH_CONNECT` (Android 12+), requested on first use.
+
 ## Roadmap (next phases)
 
-- Camera-based barcode scanning (replace HID scanner) via an ML Kit / ZXing plugin.
-- Bluetooth ESC/POS thermal receipt printing.
 - Data backup/restore and CSV export from the device.

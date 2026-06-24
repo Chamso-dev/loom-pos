@@ -1,17 +1,20 @@
 import { useState, useRef, useEffect } from 'react'
-import { ScanBarcode } from 'lucide-react'
+import { ScanBarcode, Camera } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { useStore } from '@/store/useStore'
 import { cn } from '@/lib/utils'
+import { isCameraScanSupported, scanBarcode } from '@/native/scanner'
 
 export default function ScannerInput() {
   const [value, setValue] = useState('')
   const [isError, setIsError] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
+  const [isScanning, setIsScanning] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  
+
+  const cameraScanAvailable = isCameraScanSupported()
   const { addByBarcode, products, addToCart } = useStore()
 
   // Filter products based on search query
@@ -65,40 +68,73 @@ export default function ScannerInput() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const term = value.trim()
-    if (!term) return
-
+  // Resolves a scanned/typed term to a product and adds it to the cart.
+  // Returns true when something was added. Shared by the form and the camera.
+  const resolveTerm = async (term: string): Promise<boolean> => {
     // 1. Check if there is an exact barcode/SKU match in local cache
     const exactLocalMatch = products.find(p => p.barcode === term || p.sku === term)
     if (exactLocalMatch) {
       addToCart(exactLocalMatch)
-      setValue('')
-      setIsError(false)
-      setShowDropdown(false)
-      return
+      return true
     }
 
     // 2. Fallback to server search/add by barcode
-    const success = await addByBarcode(term)
-    if (success) {
-      setValue('')
-      setIsError(false)
-      setShowDropdown(false)
-      return
+    if (await addByBarcode(term)) {
+      return true
     }
 
     // 3. Fallback: if dropdown has matching items, select the first one
     if (filteredProducts.length > 0) {
       addToCart(filteredProducts[0])
+      return true
+    }
+
+    return false
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const term = value.trim()
+    if (!term) return
+
+    if (await resolveTerm(term)) {
       setValue('')
       setIsError(false)
       setShowDropdown(false)
-      return
+    } else {
+      setIsError(true)
     }
+  }
 
-    setIsError(true)
+  const handleCameraScan = async () => {
+    if (isScanning) return
+    setIsScanning(true)
+    try {
+      const result = await scanBarcode()
+      if (!result.ok) {
+        // A cancelled scan is not an error; surface only real failures.
+        if (result.reason && result.reason !== 'cancelled') {
+          setValue('')
+          setIsError(true)
+        }
+        return
+      }
+
+      const term = result.value!.trim()
+      if (await resolveTerm(term)) {
+        setValue('')
+        setIsError(false)
+        setShowDropdown(false)
+      } else {
+        // Not in catalogue: drop the code into the box so the cashier can act.
+        setValue(term)
+        setIsError(true)
+        setShowDropdown(true)
+        inputRef.current?.focus()
+      }
+    } finally {
+      setIsScanning(false)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -152,20 +188,37 @@ export default function ScannerInput() {
           placeholder="Scan barcode or type SKU / keyword..."
           className={cn(
             "pl-10 h-10 bg-card transition-all rounded-md text-sm font-medium tracking-tight",
-            isError 
-              ? "border-destructive bg-destructive/5 animate-shake" 
+            cameraScanAvailable ? "pr-28" : "pr-20",
+            isError
+              ? "border-destructive bg-destructive/5 animate-shake"
               : "border-border hover:border-primary/40 focus:border-primary/60"
           )}
         />
-        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
           <div className={cn(
             "px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider border transition-colors",
-            isError 
-              ? "bg-destructive/10 text-destructive border-destructive/20" 
+            isError
+              ? "bg-destructive/10 text-destructive border-destructive/20"
               : "bg-muted text-muted-foreground border-border"
           )}>
             {isError ? 'Not Found' : 'Ready'}
           </div>
+          {cameraScanAvailable && (
+            <button
+              type="button"
+              onClick={handleCameraScan}
+              disabled={isScanning}
+              aria-label="Scan with camera"
+              title="Scan with camera"
+              className={cn(
+                "flex items-center justify-center h-7 w-7 rounded border transition-all active:scale-95",
+                "bg-primary text-primary-foreground border-primary/60 hover:opacity-90",
+                isScanning && "opacity-60 animate-pulse"
+              )}
+            >
+              <Camera size={14} />
+            </button>
+          )}
         </div>
       </form>
 
