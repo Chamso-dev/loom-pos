@@ -71,15 +71,15 @@ export default function SettingsPage() {
 
 
   return (
-    <div className="p-8 max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-300">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground mb-1">Store Settings</h1>
-        <p className="text-sm text-muted-foreground">Configure your business details and credentials</p>
+        <h1 className="text-xl font-bold tracking-tight text-foreground">Store Settings</h1>
+        <p className="text-[11px] text-muted-foreground">Business details & credentials</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="md:col-span-2 space-y-6">
-          <form onSubmit={handleSubmit} className="space-y-6 bg-card p-6 rounded-lg border border-border shadow-sm">
+      <div className="space-y-5">
+        <div className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5 bg-card p-4 rounded-2xl border border-border shadow-sm">
             <div className="grid grid-cols-1 gap-6">
               {/* Store Name */}
               <div className="space-y-1.5">

@@ -90,20 +90,20 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <Card className="w-full max-w-2xl border border-border bg-card shadow-lg animate-in zoom-in-95 duration-200">
-        <form onSubmit={handleSubmit}>
-          <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-background/80 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+      <Card className="w-full sm:max-w-2xl border border-border bg-card shadow-lg rounded-t-2xl sm:rounded-2xl animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 max-h-[92vh] flex flex-col overflow-hidden pb-safe">
+        <form onSubmit={handleSubmit} className="flex flex-col min-h-0">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 shrink-0">
             <CardTitle className="text-lg font-semibold">{product ? 'Edit Product' : 'Add New Product'}</CardTitle>
-            <Button variant="ghost" size="icon" onClick={onClose} type="button" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="icon" onClick={onClose} type="button" className="h-9 w-9 text-muted-foreground hover:text-foreground">
               <X size={16} />
             </Button>
           </CardHeader>
-          
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6">
-            <div className="space-y-1.5 col-span-1 md:col-span-2">
+
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-5 overflow-y-auto custom-scrollbar min-h-0">
+            <div className="space-y-1.5 sm:col-span-2">
               <label className="text-xs font-medium text-muted-foreground">Product Name</label>
-              <Input name="name" value={formData.name} onChange={handleChange} required placeholder="e.g. Silk Shirt" className="h-9 text-sm" />
+              <Input name="name" value={formData.name} onChange={handleChange} required placeholder="e.g. Silk Shirt" className="h-11 text-sm" />
             </div>
 
             <div className="space-y-1.5">
@@ -115,49 +115,49 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
                   </button>
                 )}
               </div>
-              <Input name="sku" value={formData.sku} onChange={handleChange} required className="h-9 text-sm" />
+              <Input name="sku" value={formData.sku} onChange={handleChange} required className="h-11 text-sm" />
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Barcode</label>
-              <Input name="barcode" value={formData.barcode} onChange={handleChange} required className="h-9 text-sm" />
+              <Input name="barcode" value={formData.barcode} onChange={handleChange} required className="h-11 text-sm" />
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Category</label>
-              <Input name="category" value={formData.category} onChange={handleChange} required placeholder="e.g. Apparel" className="h-9 text-sm" />
+              <Input name="category" value={formData.category} onChange={handleChange} required placeholder="e.g. Apparel" className="h-11 text-sm" />
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Stock Level</label>
-              <Input name="stock" type="number" value={formData.stock} onChange={handleChange} required className="h-9 text-sm" />
+              <Input name="stock" type="number" value={formData.stock} onChange={handleChange} required className="h-11 text-sm" />
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Cost Price</label>
-              <Input name="costPrice" type="number" step="0.01" value={formData.costPrice} onChange={handleChange} required className="h-9 text-sm" />
+              <Input name="costPrice" type="number" step="0.01" value={formData.costPrice} onChange={handleChange} required className="h-11 text-sm" />
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Selling Price</label>
-              <Input name="sellingPrice" type="number" step="0.01" value={formData.sellingPrice} onChange={handleChange} required className="h-9 text-sm" />
+              <Input name="sellingPrice" type="number" step="0.01" value={formData.sellingPrice} onChange={handleChange} required className="h-11 text-sm" />
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">GST (%)</label>
-              <Input name="gst" type="number" value={formData.gst} onChange={handleChange} required className="h-9 text-sm" />
+              <Input name="gst" type="number" value={formData.gst} onChange={handleChange} required className="h-11 text-sm" />
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Supplier</label>
-              <Input name="supplier" value={formData.supplier || ''} onChange={handleChange} className="h-9 text-sm" />
+              <Input name="supplier" value={formData.supplier || ''} onChange={handleChange} className="h-11 text-sm" />
             </div>
           </CardContent>
 
-          <CardFooter className="flex justify-end gap-2 border-t border-border/40 pt-4 pb-6 px-6">
-            <Button variant="outline" type="button" onClick={onClose} className="h-9 text-xs">Cancel</Button>
-            <Button variant="default" type="submit" className="gap-2 h-9 text-xs">
-              <Save size={14} />
+          <CardFooter className="flex gap-2 border-t border-border/40 pt-4 pb-4 px-4 shrink-0">
+            <Button variant="outline" type="button" onClick={onClose} className="flex-1 h-11 text-sm rounded-xl">Cancel</Button>
+            <Button variant="default" type="submit" className="flex-1 gap-2 h-11 text-sm rounded-xl">
+              <Save size={15} />
               {product ? 'Update' : 'Save Product'}
             </Button>
           </CardFooter>

@@ -96,7 +96,7 @@ export default function BillingSummary() {
 
   return (
     <>
-      <Card className="h-full flex flex-col border border-border shadow-sm bg-card rounded-md overflow-hidden font-sans">
+      <Card className="flex flex-col border border-border shadow-sm bg-card rounded-2xl overflow-hidden font-sans">
         <CardHeader className="border-b border-border pb-3 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -129,7 +129,7 @@ export default function BillingSummary() {
           </div>
         </CardHeader>
       
-      <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 shrink-0 custom-scrollbar">
+      <CardContent className="p-4 space-y-4 custom-scrollbar">
         {/* Customer Info Inputs */}
         <div className="space-y-2 pb-1">
            <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Customer Info</span>

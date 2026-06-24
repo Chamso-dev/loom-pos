@@ -53,11 +53,6 @@ export interface CartItem {
 }
 
 interface AppState {
-  // Sidebar State
-  isSidebarOpen: boolean
-  toggleSidebar: () => void
-  setSidebarOpen: (isOpen: boolean) => void
-
   // Auth State
   token: string | null
   user: User | null
@@ -112,11 +107,6 @@ interface AppState {
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
-      // Sidebar
-      isSidebarOpen: true,
-      toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
-      setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
-
       // Auth
       token: null,
       user: null,

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Plus, Package, Search, LayoutGrid, List as ListIcon, Printer } from 'lucide-react'
+import { Plus, Package, Search, Printer } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -117,52 +117,28 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 font-sans">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded bg-secondary flex items-center justify-center text-foreground border border-border">
-            <Package size={20} />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-foreground">Inventory</h1>
-            <p className="text-muted-foreground text-xs font-medium">Monitor stock levels and manage product listings.</p>
-          </div>
+    <div className="space-y-4 animate-in fade-in duration-300 font-sans">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-foreground border border-border shrink-0">
+          <Package size={20} />
         </div>
-        <div className="flex items-center gap-2">
-           {selectedProductIds.length > 0 && (
-             <Button 
-               variant="outline" 
-               onClick={() => setIsPrintModalOpen(true)}
-               className="gap-1.5 h-10 px-4 border-border hover:bg-accent text-foreground text-xs font-semibold rounded-md"
-             >
-               <Printer size={16} />
-               Print Labels ({selectedProductIds.length})
-             </Button>
-           )}
-           <Button onClick={handleAddNew} className="gap-1.5 bg-primary text-primary-foreground hover:opacity-90 h-10 px-4 text-xs font-semibold rounded-md shadow-none cursor-pointer">
-            <Plus size={16} />
-            Add Product
-          </Button>
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold tracking-tight text-foreground leading-tight">Inventory</h1>
+          <p className="text-muted-foreground text-[11px] font-medium truncate">Stock levels & product listings</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-2 relative group">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4 transition-colors group-focus-within:text-primary" />
-          <Input 
-            placeholder="Search by name, SKU, or barcode..." 
-            className="pl-10 h-10 bg-card border-border hover:border-primary/40 focus:border-primary/60 transition-all rounded-md text-sm font-medium"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-1 bg-secondary/80 p-0.5 rounded border border-border ml-auto">
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded bg-card border border-border shadow-sm text-foreground"><ListIcon size={16} /></Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded opacity-40 hover:opacity-100"><LayoutGrid size={16} /></Button>
-        </div>
+      <div className="relative group">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4 transition-colors group-focus-within:text-primary" />
+        <Input
+          placeholder="Search name, SKU, or barcode..."
+          className="pl-10 h-12 bg-card border-border focus:border-primary/60 transition-all rounded-xl text-sm font-medium"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
       </div>
 
-      <InventoryTable 
+      <InventoryTable
         products={products}
         onEdit={handleEdit} 
         onDelete={handleDelete}
@@ -172,12 +148,12 @@ export default function InventoryPage() {
       />
 
       {hasMoreProducts && (
-        <div className="flex flex-col items-center gap-2 py-6">
-           <Button 
-            variant="outline" 
-            onClick={handleLoadMore} 
+        <div className="flex flex-col items-center gap-2 py-4">
+           <Button
+            variant="outline"
+            onClick={handleLoadMore}
             disabled={isLoadingProducts}
-            className="h-10 px-6 rounded-md border-border hover:bg-accent text-foreground font-semibold text-xs transition-all active:scale-[0.99]"
+            className="h-11 w-full rounded-xl border-border hover:bg-accent text-foreground font-semibold text-xs transition-all active:scale-[0.99]"
            >
               {isLoadingProducts ? 'Loading...' : 'Load Next 50 Products'}
            </Button>
@@ -187,7 +163,35 @@ export default function InventoryPage() {
         </div>
       )}
 
-      <ProductModal 
+      {/* Floating Add button — reachable with the thumb, clear of the bottom nav */}
+      {selectedProductIds.length === 0 && (
+        <button
+          onClick={handleAddNew}
+          aria-label="Add product"
+          className="fixed right-4 z-40 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 flex items-center justify-center active:scale-95 transition-transform"
+          style={{ bottom: 'calc(4.75rem + env(safe-area-inset-bottom))' }}
+        >
+          <Plus size={24} />
+        </button>
+      )}
+
+      {/* Sticky selection action bar */}
+      {selectedProductIds.length > 0 && (
+        <div
+          className="fixed inset-x-0 z-40 px-4 animate-in slide-in-from-bottom duration-200"
+          style={{ bottom: 'calc(4.75rem + env(safe-area-inset-bottom))' }}
+        >
+          <Button
+            onClick={() => setIsPrintModalOpen(true)}
+            className="gap-1.5 w-full h-12 bg-primary text-primary-foreground hover:opacity-90 text-sm font-semibold rounded-xl shadow-lg"
+          >
+            <Printer size={16} />
+            Print Labels ({selectedProductIds.length})
+          </Button>
+        </div>
+      )}
+
+      <ProductModal
         isOpen={isModalOpen} 
         onClose={() => {
           setIsModalOpen(false)

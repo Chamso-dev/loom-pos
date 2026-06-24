@@ -85,11 +85,54 @@
   body {
     @apply bg-background text-foreground antialiased font-sans min-h-screen transition-colors duration-200;
   }
+
+  /* Mobile-first: never allow horizontal overflow / desktop-style x-scroll,
+     and disable text selection callouts + tap highlight for a native feel. */
+  html, body, #root {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  body {
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+  button, a, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 @utility glass {
   background-color: oklch(var(--color-card) / 0.8);
   border: 1px solid var(--color-border);
+}
+
+/* Stronger frosted glass used by the mobile app bar + bottom navigation. */
+@utility glass-nav {
+  background-color: oklch(var(--color-card) / 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* --- Mobile safe-area helpers (notches + gesture nav bars) --- */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility pl-safe {
+  padding-left: env(safe-area-inset-left);
+}
+@utility pr-safe {
+  padding-right: env(safe-area-inset-right);
+}
+/* Reserve room for the fixed bottom nav (its height + the bottom safe area). */
+@utility pb-nav {
+  padding-bottom: calc(4.25rem + env(safe-area-inset-bottom));
 }
 
 @utility transition-smooth {

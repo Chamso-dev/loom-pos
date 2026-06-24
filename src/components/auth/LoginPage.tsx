@@ -59,7 +59,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-background relative overflow-hidden font-sans">
+    <div className="min-h-screen w-full flex items-center justify-center bg-background relative overflow-hidden font-sans pt-safe pb-safe">
       <div className="w-full max-w-[400px] px-6 relative z-10">
         <div className="flex flex-col items-center mb-8 animate-in fade-in duration-500">
            <img src="/favicon.svg" alt="LoomPOS Logo" className="w-12 h-12 rounded-lg mb-4 shadow-sm border border-border/40" />

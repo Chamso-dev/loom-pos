@@ -71,25 +71,28 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto font-sans">
+    <div className="space-y-4 font-sans">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground text-xs font-medium">Real-time performance metrics</p>
+          <h1 className="text-xl font-bold tracking-tight text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground text-[11px] font-medium">Real-time performance</p>
         </div>
-        <div className="bg-card px-3.5 py-1.5 rounded-md border border-border text-[10px] font-bold uppercase tracking-wider flex items-center gap-2">
+        <div className="bg-card px-3 py-1.5 rounded-xl border border-border text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shrink-0">
            <Clock size={12} className="text-muted-foreground" />
-           {format(new Date(), 'dd MMM yyyy')}
+           {format(new Date(), 'dd MMM')}
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      {/* Stats: revenue hero + two compact tiles */}
+      <div className="grid grid-cols-2 gap-3">
         {stats.map((s, idx) => (
-          <div key={idx} className="bg-card p-5 rounded-md border border-border shadow-sm hover:shadow transition-all group">
-            <div className="flex justify-between items-start mb-3">
-               <div className={cn("p-2 rounded bg-secondary border border-border", s.color)}>
+          <div key={idx} className={cn(
+            "bg-card p-4 rounded-2xl border border-border shadow-sm",
+            idx === 0 && "col-span-2",
+          )}>
+            <div className="flex justify-between items-start mb-2.5">
+               <div className={cn("p-2 rounded-xl bg-secondary border border-border", s.color)}>
                   <s.icon size={18} />
                </div>
                {s.isPositive !== null && (
@@ -104,13 +107,13 @@ export default function Dashboard() {
             </div>
             <div>
                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-0.5">{s.label}</p>
-               <h3 className="text-2xl font-bold tracking-tight">{s.value}</h3>
+               <h3 className={cn("font-bold tracking-tight", idx === 0 ? "text-3xl" : "text-xl")}>{s.value}</h3>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="space-y-4">
         {/* Sales Chart */}
         <div className="lg:col-span-2 bg-card p-6 rounded-md border border-border shadow-sm">
            <div className="flex justify-between items-center mb-6">

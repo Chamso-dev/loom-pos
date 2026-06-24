@@ -110,36 +110,33 @@ export default function StaffPage() {
   )
 
   return (
-    <div className="p-8 space-y-8 max-w-7xl mx-auto animate-in fade-in duration-300">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground mb-1">Staff Operations</h1>
-          <p className="text-sm text-muted-foreground">Manage system access, employee credentials and security keys</p>
+    <div className="space-y-4 animate-in fade-in duration-300">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-foreground border border-border shrink-0">
+          <Users size={20} />
         </div>
-        
-        <div className="flex items-center gap-3">
-           <div className="relative group flex-1 md:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <Input 
-               placeholder="Search staff..." 
-               value={search}
-               onChange={(e) => setSearch(e.target.value)}
-               className="pl-9 h-9 bg-background border-border text-sm rounded-md"
-              />
-           </div>
-           <Button variant="default" onClick={() => openModal()} className="h-9 px-4 gap-2 text-xs">
-             <UserPlus size={16} />
-             Add Staff
-           </Button>
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold tracking-tight text-foreground leading-tight">Staff</h1>
+          <p className="text-[11px] text-muted-foreground truncate">Access & credentials</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="relative group">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+        <Input
+          placeholder="Search staff..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-10 h-12 bg-card border-border text-sm rounded-xl"
+        />
+      </div>
+
+      <div className="space-y-3">
         {filteredUsers.map(user => (
-          <div 
-            key={user.id} 
+          <div
+            key={user.id}
             className={cn(
-              "group bg-card rounded-lg border border-border p-6 hover:border-border-hover/80 transition-all duration-200 relative overflow-hidden shadow-sm",
+              "bg-card rounded-2xl border border-border p-4 transition-all duration-200 relative overflow-hidden shadow-sm",
               !user.isActive && "opacity-60 grayscale"
             )}
           >
@@ -174,18 +171,18 @@ export default function StaffPage() {
                </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-border/40 flex gap-2 relative z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-               <Button 
-                variant="outline" 
+            <div className="mt-4 pt-3 border-t border-border/40 flex gap-2 relative z-10">
+               <Button
+                variant="outline"
                 onClick={() => openModal(user)}
-                className="flex-1 h-9 rounded-md text-xs border-border/40"
+                className="flex-1 h-10 rounded-xl text-xs border-border"
                >
                   Edit Profile
                </Button>
-               <Button 
-                variant="ghost" 
+               <Button
+                variant="ghost"
                 onClick={() => updateUser(user.id, { isActive: !user.isActive })}
-                className="w-9 h-9 p-0 rounded-md text-muted-foreground hover:text-foreground border border-border/40"
+                className="w-10 h-10 p-0 rounded-xl text-muted-foreground border border-border"
                >
                   {user.isActive ? <UserMinus size={15} /> : <RotateCw size={15} />}
                </Button>
@@ -193,6 +190,18 @@ export default function StaffPage() {
           </div>
         ))}
       </div>
+
+      {/* Floating Add Staff button */}
+      {!isModalOpen && (
+        <button
+          onClick={() => openModal()}
+          aria-label="Add staff"
+          className="fixed right-4 z-40 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 flex items-center justify-center active:scale-95 transition-transform"
+          style={{ bottom: 'calc(4.75rem + env(safe-area-inset-bottom))' }}
+        >
+          <UserPlus size={22} />
+        </button>
+      )}
 
       {/* User Management Modal */}
       {isModalOpen && (
