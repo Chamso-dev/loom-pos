@@ -8,8 +8,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+# contents: write is needed to publish the APK as a release asset.
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -49,9 +50,32 @@ jobs:
         working-directory: android
         run: ./gradlew assembleDebug --stacktrace
 
+      - name: Stage APK with a friendly name
+        run: |
+          mkdir -p dist-apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist-apk/loompos.apk
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: loompos-debug-apk
-          path: android/app/build/outputs/apk/debug/*.apk
+          path: dist-apk/loompos.apk
           if-no-files-found: error
+
+      # Publish a rolling release so the latest APK has a stable, login-free
+      # download URL. Only on direct pushes (PRs from forks can't write releases).
+      - name: Publish APK to a rolling release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: LoomPOS Android (latest build)
+          body: |
+            Latest debug APK of the LoomPOS Android app, built automatically from
+            `${{ github.ref_name }}` (commit ${{ github.sha }}).
+
+            Download **loompos.apk** below and install it on your device
+            (enable "Install unknown apps" for your browser/file manager first).
+          prerelease: true
+          files: dist-apk/loompos.apk
+          fail_on_unmatched_files: true
