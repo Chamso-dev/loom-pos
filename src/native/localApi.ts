@@ -1,0 +1,515 @@
+/**
+ * Local re-implementation of the Express REST API (server/index.ts) backed by
+ * on-device SQLite. Every route returns the same JSON shape the web backend did,
+ * so the existing React store/components work unchanged on the native build.
+ */
+import bcrypt from 'bcryptjs';
+import { query, run, transaction } from './db';
+
+export interface LocalRequest {
+  method: string;
+  path: string;
+  query: URLSearchParams;
+  body: any;
+  headers: Record<string, string>;
+}
+
+export interface LocalResponse {
+  status: number;
+  body: any;
+}
+
+interface SessionToken {
+  id: string;
+  role: 'ADMIN' | 'CASHIER';
+  employeeId: string;
+}
+
+const ok = (body: any = {}, status = 200): LocalResponse => ({ status, body });
+const err = (status: number, message: string): LocalResponse => ({ status, body: { error: message } });
+
+function encodeToken(payload: SessionToken): string {
+  return btoa(JSON.stringify(payload));
+}
+
+function decodeToken(headers: Record<string, string>): SessionToken | null {
+  const auth = headers['authorization'] || headers['Authorization'];
+  if (!auth || !auth.startsWith('Bearer ')) return null;
+  try {
+    return JSON.parse(atob(auth.slice(7))) as SessionToken;
+  } catch {
+    return null;
+  }
+}
+
+function uuid(): string {
+  return crypto.randomUUID();
+}
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+function toUser(row: any) {
+  if (!row) return row;
+  const { password, ...rest } = row;
+  return { ...rest, isActive: !!row.isActive };
+}
+
+// ---- Auth ---------------------------------------------------------------
+
+async function login(req: LocalRequest): Promise<LocalResponse> {
+  const { employeeId, password } = req.body || {};
+  if (!employeeId || !password) return err(400, 'Login failed');
+
+  const users = await query<any>(`SELECT * FROM User WHERE employeeId = ? AND isActive = 1`, [employeeId]);
+  let user = users[0];
+  let isValid = !!user && (await bcrypt.compare(password, user.password));
+
+  if (!isValid && (!user || user.role === 'CASHIER')) {
+    const settings = (await query<any>(`SELECT * FROM StoreSettings LIMIT 1`))[0];
+    if (settings?.cashierPassword && (await bcrypt.compare(password, settings.cashierPassword))) {
+      user =
+        user ||
+        (await query<any>(`SELECT * FROM User WHERE employeeId = ? AND isActive = 1 AND role = 'CASHIER'`, [employeeId]))[0];
+      if (user) isValid = true;
+    }
+  }
+
+  if (!user || !isValid) return err(401, 'Invalid credentials or account deactivated');
+
+  const token = encodeToken({ id: user.id, role: user.role, employeeId: user.employeeId });
+  return ok({ user: toUser(user), token });
+}
+
+async function changePassword(req: LocalRequest): Promise<LocalResponse> {
+  const { employeeId, currentPassword, newPassword } = req.body || {};
+  if (!newPassword || newPassword.length < 6) return err(400, 'Failed to change password');
+
+  const user = (await query<any>(`SELECT * FROM User WHERE employeeId = ?`, [employeeId]))[0];
+  if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
+    return err(401, 'Current password verification failed');
+  }
+  const hashed = await bcrypt.hash(newPassword, 10);
+  await run(`UPDATE User SET password = ?, updatedAt = ? WHERE id = ?`, [hashed, nowIso(), user.id]);
+  return ok({ message: 'Password changed successfully' });
+}
+
+// ---- Authorization guards ----------------------------------------------
+
+async function getAdmin(req: LocalRequest): Promise<any | null> {
+  const session = decodeToken(req.headers);
+  if (!session) return null;
+  const user = (await query<any>(`SELECT * FROM User WHERE id = ?`, [session.id]))[0];
+  if (!user || user.role !== 'ADMIN' || !user.isActive) return null;
+  return user;
+}
+
+async function authorizeAdminOrKey(req: LocalRequest): Promise<boolean> {
+  const session = decodeToken(req.headers);
+  if (!session) return false;
+  const user = (await query<any>(`SELECT * FROM User WHERE id = ?`, [session.id]))[0];
+  if (!user || !user.isActive) return false;
+  if (user.role === 'ADMIN') return true;
+
+  const adminKey = req.headers['x-admin-verification-key'];
+  if (adminKey) {
+    const admin = (await query<any>(`SELECT * FROM User WHERE role = 'ADMIN' AND isActive = 1 LIMIT 1`))[0];
+    if (admin && (await bcrypt.compare(adminKey, admin.password))) return true;
+  }
+  return false;
+}
+
+// ---- Users --------------------------------------------------------------
+
+const resetTokens = new Map<string, { expiresAt: number }>();
+
+async function listUsers(req: LocalRequest): Promise<LocalResponse> {
+  if (!(await getAdmin(req))) return err(403, 'Forbidden: Admin access required');
+  const rows = await query<any>(`SELECT * FROM User ORDER BY createdAt DESC`);
+  return ok(rows.map(toUser));
+}
+
+async function createUser(req: LocalRequest): Promise<LocalResponse> {
+  if (!(await getAdmin(req))) return err(403, 'Forbidden: Admin access required');
+  const d = req.body || {};
+  if (!d.employeeId || !d.name || !d.role || !d.password || d.password.length < 6) {
+    return err(400, 'Failed to create user');
+  }
+  const ts = nowIso();
+  const id = uuid();
+  const hashed = await bcrypt.hash(d.password, 10);
+  try {
+    await run(
+      `INSERT INTO User (id, employeeId, name, role, phone, password, isActive, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, d.employeeId, d.name, d.role, d.phone ?? null, hashed, d.isActive === false ? 0 : 1, ts, ts]
+    );
+  } catch {
+    return err(400, 'Failed to create user');
+  }
+  const user = (await query<any>(`SELECT * FROM User WHERE id = ?`, [id]))[0];
+  return ok(toUser(user), 201);
+}
+
+async function updateUser(req: LocalRequest, id: string): Promise<LocalResponse> {
+  if (!(await getAdmin(req))) return err(403, 'Forbidden: Admin access required');
+  const d = req.body || {};
+  const fields: string[] = [];
+  const params: any[] = [];
+  const setField = (col: string, val: any) => {
+    fields.push(`${col} = ?`);
+    params.push(val);
+  };
+
+  if (d.employeeId !== undefined) setField('employeeId', d.employeeId);
+  if (d.name !== undefined) setField('name', d.name);
+  if (d.role !== undefined) setField('role', d.role);
+  if (d.phone !== undefined) setField('phone', d.phone);
+  if (d.isActive !== undefined) setField('isActive', d.isActive ? 1 : 0);
+  if (d.password !== undefined && !String(d.password).startsWith('$2')) {
+    setField('password', await bcrypt.hash(d.password, 10));
+  } else if (d.password !== undefined) {
+    setField('password', d.password);
+  }
+  setField('updatedAt', nowIso());
+
+  try {
+    await run(`UPDATE User SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
+  } catch {
+    return err(500, 'Failed to update user');
+  }
+  const user = (await query<any>(`SELECT * FROM User WHERE id = ?`, [id]))[0];
+  return ok(toUser(user));
+}
+
+async function createResetToken(req: LocalRequest, id: string): Promise<LocalResponse> {
+  if (!(await getAdmin(req))) return err(403, 'Forbidden: Admin access required');
+  const token = uuid();
+  resetTokens.set(`${id}-${token}`, { expiresAt: Date.now() + 15 * 60 * 1000 });
+  return ok({ token });
+}
+
+async function resetPassword(req: LocalRequest, id: string): Promise<LocalResponse> {
+  const { token, newPassword } = req.body || {};
+  if (!newPassword || newPassword.length < 6) return err(400, 'Failed to reset password');
+  const key = `${id}-${token}`;
+  const data = resetTokens.get(key);
+  if (!data || data.expiresAt < Date.now()) return err(401, 'Invalid or expired token');
+  const hashed = await bcrypt.hash(newPassword, 10);
+  await run(`UPDATE User SET password = ?, updatedAt = ? WHERE id = ?`, [hashed, nowIso(), id]);
+  resetTokens.delete(key);
+  return ok({ message: 'Password reset successfully' });
+}
+
+// ---- Products -----------------------------------------------------------
+
+async function listProducts(req: LocalRequest): Promise<LocalResponse> {
+  const page = parseInt(req.query.get('page') || '1', 10);
+  const limit = parseInt(req.query.get('limit') || '50', 10);
+  const search = req.query.get('search') || '';
+  const skip = (page - 1) * limit;
+
+  let where = '';
+  const params: any[] = [];
+  if (search) {
+    where = `WHERE name LIKE ? OR sku LIKE ? OR barcode LIKE ?`;
+    const like = `%${search}%`;
+    params.push(like, like, like);
+  }
+
+  const total = (await query<{ c: number }>(`SELECT COUNT(*) AS c FROM Product ${where}`, params))[0]?.c ?? 0;
+  const products = await query<any>(
+    `SELECT * FROM Product ${where} ORDER BY createdAt DESC LIMIT ? OFFSET ?`,
+    [...params, limit, skip]
+  );
+  return ok({ products, total, page, limit, hasMore: skip + products.length < total });
+}
+
+const PRODUCT_FIELDS = ['name', 'sku', 'barcode', 'category', 'size', 'color', 'costPrice', 'sellingPrice', 'gst', 'stock', 'supplier'];
+
+async function createProduct(req: LocalRequest): Promise<LocalResponse> {
+  if (!(await authorizeAdminOrKey(req))) return err(403, 'Forbidden: Admin verification required');
+  const d = req.body || {};
+  const ts = nowIso();
+  const id = uuid();
+  try {
+    await run(
+      `INSERT INTO Product (id, name, sku, barcode, category, size, color, costPrice, sellingPrice, gst, stock, supplier, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id, d.name, d.sku, d.barcode, d.category, d.size ?? null, d.color ?? null,
+        d.costPrice, d.sellingPrice, d.gst ?? 0, d.stock ?? 0, d.supplier ?? null, ts, ts,
+      ]
+    );
+  } catch {
+    return err(500, 'Failed to create product');
+  }
+  const product = (await query<any>(`SELECT * FROM Product WHERE id = ?`, [id]))[0];
+  return ok(product, 201);
+}
+
+async function updateProduct(req: LocalRequest, id: string): Promise<LocalResponse> {
+  if (!(await authorizeAdminOrKey(req))) return err(403, 'Forbidden: Admin verification required');
+  const d = req.body || {};
+  const fields: string[] = [];
+  const params: any[] = [];
+  for (const f of PRODUCT_FIELDS) {
+    if (d[f] !== undefined) {
+      fields.push(`${f} = ?`);
+      params.push(d[f]);
+    }
+  }
+  fields.push('updatedAt = ?');
+  params.push(nowIso());
+  try {
+    await run(`UPDATE Product SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
+  } catch {
+    return err(500, 'Failed to update product');
+  }
+  const product = (await query<any>(`SELECT * FROM Product WHERE id = ?`, [id]))[0];
+  return ok(product);
+}
+
+async function deleteProduct(req: LocalRequest, id: string): Promise<LocalResponse> {
+  if (!(await authorizeAdminOrKey(req))) return err(403, 'Forbidden: Admin verification required');
+  try {
+    await run(`DELETE FROM Product WHERE id = ?`, [id]);
+  } catch {
+    return err(500, 'Failed to delete product');
+  }
+  return ok(null, 204);
+}
+
+async function lowStock(): Promise<LocalResponse> {
+  const products = await query<any>(`SELECT * FROM Product WHERE stock <= 10 ORDER BY stock ASC LIMIT 10`);
+  return ok(products);
+}
+
+// ---- Orders -------------------------------------------------------------
+
+async function buildOrderWithItems(orderId: string): Promise<any> {
+  const order = (await query<any>(`SELECT * FROM "Order" WHERE id = ?`, [orderId]))[0];
+  if (!order) return null;
+  const items = await query<any>(
+    `SELECT oi.id, oi.orderId, oi.productId, oi.quantity, oi.price FROM OrderItem oi WHERE oi.orderId = ?`,
+    [orderId]
+  );
+  for (const item of items) {
+    item.product = (await query<any>(`SELECT * FROM Product WHERE id = ?`, [item.productId]))[0] ?? null;
+  }
+  const processedBy = order.userId
+    ? (await query<any>(`SELECT name, employeeId, isActive FROM User WHERE id = ?`, [order.userId]))[0] ?? null
+    : null;
+  return { ...order, items, processedBy: processedBy ? { ...processedBy, isActive: !!processedBy.isActive } : null };
+}
+
+async function createOrder(req: LocalRequest): Promise<LocalResponse> {
+  const d = req.body || {};
+  const items: any[] = Array.isArray(d.items) ? d.items : [];
+  if (!d.totalAmount || items.length === 0) return err(400, 'Invalid order payload');
+
+  try {
+    const orderId = await transaction(async () => {
+      const count = (await query<{ c: number }>(`SELECT COUNT(*) AS c FROM "Order"`))[0]?.c ?? 0;
+      const invoiceNo = `INV-${(count + 1).toString().padStart(4, '0')}`;
+      const id = uuid();
+      await run(
+        `INSERT INTO "Order" (id, invoiceNo, date, totalAmount, gstAmount, paymentMethod, customerName, customerMobile, userId)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id, invoiceNo, nowIso(), d.totalAmount, d.gstAmount ?? 0, d.paymentMethod,
+          d.customerName ?? null, d.customerMobile ?? null, d.userId ?? null,
+        ],
+        false
+      );
+
+      for (const item of items) {
+        const product = (await query<any>(`SELECT * FROM Product WHERE id = ?`, [item.productId]))[0];
+        if (!product) throw new Error(`Product ${item.productId} not found`);
+        if (product.stock < item.quantity) throw new Error(`Insufficient stock for ${product.name}`);
+        await run(
+          `INSERT INTO OrderItem (id, orderId, productId, quantity, price) VALUES (?, ?, ?, ?, ?)`,
+          [uuid(), id, item.productId, item.quantity, item.price],
+          false
+        );
+        await run(`UPDATE Product SET stock = stock - ? WHERE id = ?`, [item.quantity, item.productId], false);
+      }
+      return id;
+    });
+
+    return ok(await buildOrderWithItems(orderId), 201);
+  } catch (e: any) {
+    return err(500, e?.message || 'Failed to process order');
+  }
+}
+
+async function listOrders(req: LocalRequest): Promise<LocalResponse> {
+  const page = parseInt(req.query.get('page') || '1', 10);
+  const limit = parseInt(req.query.get('limit') || '50', 10);
+  const skip = (page - 1) * limit;
+  const search = req.query.get('search');
+  const startDate = req.query.get('startDate');
+  const endDate = req.query.get('endDate');
+  const methods = req.query.getAll('methods').filter((m) => m && m.trim() !== '');
+
+  const clauses: string[] = [];
+  const params: any[] = [];
+  if (search) {
+    clauses.push(`(invoiceNo LIKE ? OR customerMobile LIKE ? OR customerName LIKE ?)`);
+    const like = `%${search}%`;
+    params.push(like, like, like);
+  }
+  if (startDate) {
+    clauses.push(`date >= ?`);
+    params.push(new Date(startDate).toISOString());
+  }
+  if (endDate) {
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    clauses.push(`date <= ?`);
+    params.push(end.toISOString());
+  }
+  if (methods.length > 0) {
+    clauses.push(`paymentMethod IN (${methods.map(() => '?').join(', ')})`);
+    params.push(...methods);
+  }
+  const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+
+  const total = (await query<{ c: number }>(`SELECT COUNT(*) AS c FROM "Order" ${where}`, params))[0]?.c ?? 0;
+  const rows = await query<any>(
+    `SELECT o.*,
+       (SELECT COUNT(*) FROM OrderItem oi WHERE oi.orderId = o.id) AS itemCount,
+       u.name AS u_name, u.employeeId AS u_employeeId, u.isActive AS u_isActive
+     FROM "Order" o LEFT JOIN User u ON u.id = o.userId
+     ${where} ORDER BY o.date DESC LIMIT ? OFFSET ?`,
+    [...params, limit, skip]
+  );
+
+  const orders = rows.map((r) => {
+    const { itemCount, u_name, u_employeeId, u_isActive, ...order } = r;
+    return {
+      ...order,
+      _count: { items: itemCount },
+      processedBy: u_name ? { name: u_name, employeeId: u_employeeId, isActive: !!u_isActive } : null,
+    };
+  });
+
+  return ok({ orders, total, page, limit, hasMore: skip + orders.length < total });
+}
+
+async function getOrder(orderId: string): Promise<LocalResponse> {
+  const order = await buildOrderWithItems(orderId);
+  if (!order) return err(404, 'Order not found');
+  return ok(order);
+}
+
+// ---- Settings -----------------------------------------------------------
+
+async function getSettings(): Promise<LocalResponse> {
+  const settings = (await query<any>(`SELECT * FROM StoreSettings LIMIT 1`))[0];
+  return ok(settings);
+}
+
+async function updateSettings(req: LocalRequest): Promise<LocalResponse> {
+  const d = req.body || {};
+  let cashierPassword = d.cashierPassword;
+  if (cashierPassword && !String(cashierPassword).startsWith('$2')) {
+    cashierPassword = await bcrypt.hash(cashierPassword, 10);
+  }
+  const existing = (await query<any>(`SELECT * FROM StoreSettings LIMIT 1`))[0];
+  if (existing) {
+    await run(
+      `UPDATE StoreSettings SET name = ?, address = ?, gstin = ?, upiId = ?, phone = ?, cashierPassword = ?, updatedAt = ? WHERE id = ?`,
+      [d.name, d.address, d.gstin, d.upiId, d.phone, cashierPassword ?? existing.cashierPassword ?? null, nowIso(), existing.id]
+    );
+  } else {
+    await run(
+      `INSERT INTO StoreSettings (id, name, address, gstin, upiId, phone, cashierPassword, updatedAt) VALUES ('1', ?, ?, ?, ?, ?, ?, ?)`,
+      [d.name, d.address, d.gstin, d.upiId, d.phone, cashierPassword ?? null, nowIso()]
+    );
+  }
+  return getSettings();
+}
+
+// ---- Analytics ----------------------------------------------------------
+
+function startOfTodayIso(): string {
+  const t = new Date();
+  t.setHours(0, 0, 0, 0);
+  return t.toISOString();
+}
+
+async function analyticsSummary(): Promise<LocalResponse> {
+  const today = startOfTodayIso();
+  const agg = (await query<any>(
+    `SELECT COALESCE(SUM(totalAmount), 0) AS revenue, COALESCE(SUM(gstAmount), 0) AS gst, COUNT(*) AS orders
+     FROM "Order" WHERE date >= ?`,
+    [today]
+  ))[0];
+  const breakdown = await query<any>(
+    `SELECT paymentMethod, SUM(totalAmount) AS total FROM "Order" WHERE date >= ? GROUP BY paymentMethod`,
+    [today]
+  );
+  return ok({
+    revenue: agg?.revenue || 0,
+    gst: agg?.gst || 0,
+    orders: agg?.orders || 0,
+    paymentBreakdown: breakdown.map((b) => ({ paymentMethod: b.paymentMethod, _sum: { totalAmount: b.total } })),
+  });
+}
+
+async function analyticsSales(): Promise<LocalResponse> {
+  const since = new Date();
+  since.setDate(since.getDate() - 7);
+  since.setHours(0, 0, 0, 0);
+  const orders = await query<any>(`SELECT date, totalAmount FROM "Order" WHERE date >= ? ORDER BY date ASC`, [since.toISOString()]);
+  const daily: Record<string, number> = {};
+  for (const o of orders) {
+    const day = String(o.date).split('T')[0];
+    daily[day] = (daily[day] || 0) + o.totalAmount;
+  }
+  const result = Object.entries(daily)
+    .map(([date, amount]) => ({ date, amount }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  return ok(result);
+}
+
+// ---- Router -------------------------------------------------------------
+
+export async function handleLocalRequest(req: LocalRequest): Promise<LocalResponse> {
+  const { method, path } = req;
+  try {
+    if (path === '/api/auth/login' && method === 'POST') return await login(req);
+    if (path === '/api/auth/change-password' && method === 'POST') return await changePassword(req);
+
+    if (path === '/api/users' && method === 'GET') return await listUsers(req);
+    if (path === '/api/users' && method === 'POST') return await createUser(req);
+
+    let m: RegExpMatchArray | null;
+    if ((m = path.match(/^\/api\/users\/([^/]+)\/reset-token$/)) && method === 'POST') return await createResetToken(req, m[1]);
+    if ((m = path.match(/^\/api\/users\/([^/]+)\/reset-password$/)) && method === 'POST') return await resetPassword(req, m[1]);
+    if ((m = path.match(/^\/api\/users\/([^/]+)$/)) && method === 'PUT') return await updateUser(req, m[1]);
+
+    if (path === '/api/products' && method === 'GET') return await listProducts(req);
+    if (path === '/api/products' && method === 'POST') return await createProduct(req);
+    if ((m = path.match(/^\/api\/products\/([^/]+)$/)) && method === 'PUT') return await updateProduct(req, m[1]);
+    if ((m = path.match(/^\/api\/products\/([^/]+)$/)) && method === 'DELETE') return await deleteProduct(req, m[1]);
+
+    if (path === '/api/inventory/low-stock' && method === 'GET') return await lowStock();
+
+    if (path === '/api/orders' && method === 'POST') return await createOrder(req);
+    if (path === '/api/orders' && method === 'GET') return await listOrders(req);
+    if ((m = path.match(/^\/api\/orders\/([^/]+)$/)) && method === 'GET') return await getOrder(m[1]);
+
+    if (path === '/api/settings' && method === 'GET') return await getSettings();
+    if (path === '/api/settings' && method === 'PUT') return await updateSettings(req);
+
+    if (path === '/api/analytics/summary' && method === 'GET') return await analyticsSummary();
+    if (path === '/api/analytics/sales' && method === 'GET') return await analyticsSales();
+
+    return err(404, 'Not found');
+  } catch (e: any) {
+    return err(500, e?.message || 'Internal error');
+  }
+}

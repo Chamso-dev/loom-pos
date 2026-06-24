@@ -9,12 +9,19 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "seed": "tsx scripts/seed.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "cap:sync": "npm run build && cap sync",
+    "android:apk": "npm run build && cap sync android && cd android && ./gradlew assembleDebug",
+    "android:open": "npm run build && cap sync android && cap open android"
   },
   "prisma": {
     "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
+    "@capacitor-community/sqlite": "^6.0.2",
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/cli": "^6.2.1",
+    "@capacitor/core": "^6.2.1",
     "@prisma/client": "^6.0.0",
     "@radix-ui/react-slot": "^1.0.2",
     "@tailwindcss/vite": "^4.2.2",
