@@ -5,6 +5,7 @@
  */
 import bcrypt from 'bcryptjs';
 import { query, run, transaction } from './db';
+import { computeIntelligence, predictiveLowStock, type IntelligenceInput } from '@/lib/intelligence';
 
 export interface LocalRequest {
   method: string;
@@ -281,9 +282,39 @@ async function deleteProduct(req: LocalRequest, id: string): Promise<LocalRespon
   return ok(null, 204);
 }
 
+/** Raw rows for the intelligence engine. */
+async function fetchIntelInput(): Promise<IntelligenceInput> {
+  const products = await query<any>(
+    `SELECT id, name, sku, category, supplier, costPrice, sellingPrice, gst, stock, createdAt FROM Product`
+  );
+  const orders = await query<any>(
+    `SELECT id, date, totalAmount, gstAmount, customerName, customerMobile FROM "Order"`
+  );
+  const items = await query<any>(`SELECT orderId, productId, quantity, price FROM OrderItem`);
+  return { products, orders, items };
+}
+
 async function lowStock(): Promise<LocalResponse> {
-  const products = await query<any>(`SELECT * FROM Product WHERE stock <= 10 ORDER BY stock ASC LIMIT 10`);
-  return ok(products);
+  // Predictive: flag products at/below their demand-based reorder point, not a
+  // flat stock<=10 rule. Keeps the same JSON shape the notifications UI expects.
+  const input = await fetchIntelInput();
+  const flagged = predictiveLowStock(input, 20).map((p) => ({
+    id: p.id,
+    name: p.name,
+    sku: p.sku,
+    barcode: '',
+    stock: p.stock,
+    velocityPerDay: p.velocityPerDay,
+    daysOfCover: p.daysOfCover,
+    suggestedReorderQty: p.suggestedReorderQty,
+    status: p.status,
+  }));
+  return ok(flagged);
+}
+
+async function analyticsIntelligence(): Promise<LocalResponse> {
+  const input = await fetchIntelInput();
+  return ok(computeIntelligence(input));
 }
 
 // ---- Orders -------------------------------------------------------------
@@ -507,6 +538,7 @@ export async function handleLocalRequest(req: LocalRequest): Promise<LocalRespon
 
     if (path === '/api/analytics/summary' && method === 'GET') return await analyticsSummary();
     if (path === '/api/analytics/sales' && method === 'GET') return await analyticsSales();
+    if (path === '/api/analytics/intelligence' && method === 'GET') return await analyticsIntelligence();
 
     return err(404, 'Not found');
   } catch (e: any) {

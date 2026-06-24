@@ -5,6 +5,7 @@ import { z } from 'zod';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { computeIntelligence, predictiveLowStock, type IntelligenceInput } from '../src/lib/intelligence';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_super_secret_key_123';
 
@@ -389,18 +390,42 @@ app.delete('/api/products/:id', requireAdminOrKey, async (req, res) => {
 });
 
 // Low Stock Alerts API
+async function intelInput(): Promise<IntelligenceInput> {
+  const [products, orders, items] = await Promise.all([
+    prisma.product.findMany({
+      select: { id: true, name: true, sku: true, category: true, supplier: true, costPrice: true, sellingPrice: true, gst: true, stock: true, createdAt: true },
+    }),
+    prisma.order.findMany({
+      select: { id: true, date: true, totalAmount: true, gstAmount: true, customerName: true, customerMobile: true },
+    }),
+    prisma.orderItem.findMany({ select: { orderId: true, productId: true, quantity: true, price: true } }),
+  ]);
+  return {
+    products: products.map((p) => ({ ...p, createdAt: p.createdAt?.toISOString?.() })),
+    orders: orders.map((o) => ({ ...o, date: o.date.toISOString() })),
+    items,
+  };
+}
+
 app.get('/api/inventory/low-stock', async (req, res) => {
   try {
-    const products = await prisma.product.findMany({
-      where: {
-        stock: { lte: 10 }
-      },
-      orderBy: { stock: 'asc' },
-      take: 10 // Show top 10 most urgent
-    });
-    res.json(products);
+    // Predictive reorder-point logic instead of a flat stock<=10 threshold.
+    const flagged = predictiveLowStock(await intelInput(), 20).map((p) => ({
+      id: p.id, name: p.name, sku: p.sku, barcode: '', stock: p.stock,
+      velocityPerDay: p.velocityPerDay, daysOfCover: p.daysOfCover,
+      suggestedReorderQty: p.suggestedReorderQty, status: p.status,
+    }));
+    res.json(flagged);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch alert products' });
+  }
+});
+
+app.get('/api/analytics/intelligence', async (req, res) => {
+  try {
+    res.json(computeIntelligence(await intelInput()));
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to compute intelligence' });
   }
 });
 
