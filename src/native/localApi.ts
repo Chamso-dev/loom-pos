@@ -600,8 +600,14 @@ async function deleteSupplier(id: string): Promise<LocalResponse> {
 // ---- Settings -----------------------------------------------------------
 
 async function getSettings(): Promise<LocalResponse> {
-  const settings = (await query<any>(`SELECT * FROM StoreSettings LIMIT 1`))[0];
-  return ok(settings);
+  const s = (await query<any>(`SELECT * FROM StoreSettings LIMIT 1`))[0];
+  if (!s) return ok(s);
+  return ok({
+    ...s,
+    taxEnabled: s.taxEnabled === undefined ? true : !!s.taxEnabled,
+    defaultTaxRate: s.defaultTaxRate ?? 19,
+    pricesIncludeTax: !!s.pricesIncludeTax,
+  });
 }
 
 async function updateSettings(req: LocalRequest): Promise<LocalResponse> {
@@ -610,16 +616,19 @@ async function updateSettings(req: LocalRequest): Promise<LocalResponse> {
   if (cashierPassword && !String(cashierPassword).startsWith('$2')) {
     cashierPassword = await bcrypt.hash(cashierPassword, 10);
   }
+  const taxEnabled = d.taxEnabled === false ? 0 : 1;
+  const defaultTaxRate = Number(d.defaultTaxRate ?? 19) || 0;
+  const pricesIncludeTax = d.pricesIncludeTax ? 1 : 0;
   const existing = (await query<any>(`SELECT * FROM StoreSettings LIMIT 1`))[0];
   if (existing) {
     await run(
-      `UPDATE StoreSettings SET name = ?, address = ?, nif = ?, nis = ?, rc = ?, phone = ?, cashierPassword = ?, updatedAt = ? WHERE id = ?`,
-      [d.name, d.address, d.nif ?? '', d.nis ?? '', d.rc ?? '', d.phone, cashierPassword ?? existing.cashierPassword ?? null, nowIso(), existing.id]
+      `UPDATE StoreSettings SET name = ?, address = ?, nif = ?, nis = ?, rc = ?, phone = ?, taxEnabled = ?, defaultTaxRate = ?, pricesIncludeTax = ?, cashierPassword = ?, updatedAt = ? WHERE id = ?`,
+      [d.name, d.address, d.nif ?? '', d.nis ?? '', d.rc ?? '', d.phone, taxEnabled, defaultTaxRate, pricesIncludeTax, cashierPassword ?? existing.cashierPassword ?? null, nowIso(), existing.id]
     );
   } else {
     await run(
-      `INSERT INTO StoreSettings (id, name, address, nif, nis, rc, phone, cashierPassword, updatedAt) VALUES ('1', ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [d.name, d.address, d.nif ?? '', d.nis ?? '', d.rc ?? '', d.phone, cashierPassword ?? null, nowIso()]
+      `INSERT INTO StoreSettings (id, name, address, nif, nis, rc, phone, taxEnabled, defaultTaxRate, pricesIncludeTax, cashierPassword, updatedAt) VALUES ('1', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [d.name, d.address, d.nif ?? '', d.nis ?? '', d.rc ?? '', d.phone, taxEnabled, defaultTaxRate, pricesIncludeTax, cashierPassword ?? null, nowIso()]
     );
   }
   return getSettings();

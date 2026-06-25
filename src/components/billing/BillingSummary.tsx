@@ -10,7 +10,7 @@ import CustomerPicker, { type BillingCustomer } from './CustomerPicker'
 
 export default function BillingSummary() {
   // ... existing logic ...
-  const { cart, clearCart, user } = useStore()
+  const { cart, clearCart, user, settings } = useStore()
   const [receiptType, setReceiptType] = useState<'A4' | 'Thermal'>('Thermal')
   const [lastOrder, setLastOrder] = useState<any>(null)
   const [customer, setCustomer] = useState<BillingCustomer>({ customerId: null, name: '', mobile: '' })
@@ -18,28 +18,30 @@ export default function BillingSummary() {
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH')
 
   const { subtotal, gstGroups, total } = useMemo(() => {
-    let sub = 0
+    const taxEnabled = settings?.taxEnabled !== false
+    const inclusive = !!settings?.pricesIncludeTax
     const groups: Record<number, number> = {}
-    
+    let lineSum = 0
+
     cart.forEach(item => {
-      const itemSubtotal = item.price * item.quantity
-      sub += itemSubtotal
-      
-      const itemGst = (itemSubtotal * item.gst) / 100
-      groups[item.gst] = (groups[item.gst] || 0) + itemGst
+      const line = item.price * item.quantity
+      lineSum += line
+      if (taxEnabled && item.gst > 0) {
+        // Inclusive: extract tax from the price. Exclusive: add it on top.
+        const tax = inclusive ? line - line / (1 + item.gst / 100) : (line * item.gst) / 100
+        groups[item.gst] = (groups[item.gst] || 0) + tax
+      }
     })
-    
+
     const gstTotal = Object.values(groups).reduce((acc, val) => acc + val, 0)
-    
+    const total = inclusive ? lineSum : lineSum + gstTotal
+
     return {
-      subtotal: sub,
-      gstGroups: Object.entries(groups).map(([rate, amount]) => ({
-        rate: Number(rate),
-        amount
-      })),
-      total: sub + gstTotal
+      subtotal: total - gstTotal,
+      gstGroups: Object.entries(groups).map(([rate, amount]) => ({ rate: Number(rate), amount })),
+      total,
     }
-  }, [cart])
+  }, [cart, settings])
 
   const handleCheckout = () => {
     if (cart.length === 0) return

@@ -88,6 +88,9 @@ CREATE TABLE IF NOT EXISTS StoreSettings (
   nis TEXT NOT NULL DEFAULT '',
   rc TEXT NOT NULL DEFAULT '',
   phone TEXT NOT NULL DEFAULT '',
+  taxEnabled INTEGER NOT NULL DEFAULT 1,
+  defaultTaxRate REAL NOT NULL DEFAULT 19,
+  pricesIncludeTax INTEGER NOT NULL DEFAULT 0,
   cashierPassword TEXT,
   updatedAt TEXT NOT NULL
 );
@@ -133,6 +136,9 @@ async function migrateSchema(): Promise<void> {
   await addColumn('StoreSettings', 'nif', `TEXT NOT NULL DEFAULT ''`);
   await addColumn('StoreSettings', 'nis', `TEXT NOT NULL DEFAULT ''`);
   await addColumn('StoreSettings', 'rc', `TEXT NOT NULL DEFAULT ''`);
+  await addColumn('StoreSettings', 'taxEnabled', `INTEGER NOT NULL DEFAULT 1`);
+  await addColumn('StoreSettings', 'defaultTaxRate', `REAL NOT NULL DEFAULT 19`);
+  await addColumn('StoreSettings', 'pricesIncludeTax', `INTEGER NOT NULL DEFAULT 0`);
 }
 
 function nowIso(): string {

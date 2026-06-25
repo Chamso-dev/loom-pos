@@ -17,7 +17,7 @@ type Entry = Record<Lang, string>
 const STRINGS: Record<string, Entry> = {
   'nav.home': { en: 'Home', fr: 'Accueil', ar: 'الرئيسية' },
   'nav.stock': { en: 'Stock', fr: 'Stock', ar: 'المخزون' },
-  'nav.billing': { en: 'Billing', fr: 'Caisse', ar: 'الفوترة' },
+  'nav.billing': { en: 'Cart', fr: 'Panier', ar: 'السلة' },
   'nav.orders': { en: 'Orders', fr: 'Ventes', ar: 'المبيعات' },
   'nav.manage': { en: 'Manage', fr: 'Gestion', ar: 'الإدارة' },
   'nav.settings': { en: 'Settings', fr: 'Réglages', ar: 'الإعدادات' },

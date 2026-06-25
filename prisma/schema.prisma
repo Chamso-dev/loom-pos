@@ -96,6 +96,9 @@ model StoreSettings {
   nis             String   @default("") // Numéro d'Identification Statistique
   rc              String   @default("") // Registre de Commerce
   phone           String   @default("")
+  taxEnabled      Boolean  @default(true)
+  defaultTaxRate  Float    @default(19) // Algerian TVA standard rate
+  pricesIncludeTax Boolean @default(false)
   cashierPassword String?
   updatedAt       DateTime @default(now()) @updatedAt
 }

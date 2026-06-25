@@ -27,6 +27,7 @@ export default function ManagementPage() {
   const [edit, setEdit] = useState<EditTarget>(null)
   const [detail, setDetail] = useState<any>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [supDetail, setSupDetail] = useState<any>(null)
 
   useEffect(() => { fetchCustomers(); fetchSuppliers() }, [fetchCustomers, fetchSuppliers])
 
@@ -36,6 +37,21 @@ export default function ManagementPage() {
     try {
       const res = await fetch(`/api/customers/${c.id}`, { headers: { Authorization: `Bearer ${token}` } })
       if (res.ok) setDetail(await res.json())
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  const openSupplierDetail = async (s: Supplier) => {
+    setSupDetail({ ...s, products: null })
+    setDetailLoading(true)
+    try {
+      const res = await fetch(`/api/products?limit=500`, { headers: { Authorization: `Bearer ${token}` } })
+      if (res.ok) {
+        const data = await res.json()
+        const linked = (data.products || []).filter((p: any) => (p.supplier || '') === s.name)
+        setSupDetail({ ...s, products: linked })
+      }
     } finally {
       setDetailLoading(false)
     }
@@ -107,19 +123,21 @@ export default function ManagementPage() {
           {sups.length === 0 && <Empty label="No suppliers yet" />}
           {sups.map((s) => (
             <div key={s.id} className="bg-card rounded-2xl border border-border p-3.5 shadow-sm">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center text-foreground shrink-0"><Truck size={15} /></div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">{s.name}</p>
-                    <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Phone size={9} /> {s.phone || 'No phone'}</p>
+              <button onClick={() => openSupplierDetail(s)} className="w-full text-left">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center text-foreground shrink-0"><Truck size={15} /></div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{s.name}</p>
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Phone size={9} /> {s.phone || 'No phone'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-secondary border border-border text-[10px] font-bold text-foreground shrink-0">
+                    <Package size={11} /> {s.linkedProducts || 0}
                   </div>
                 </div>
-                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-secondary border border-border text-[10px] font-bold text-foreground shrink-0">
-                  <Package size={11} /> {s.linkedProducts || 0}
-                </div>
-              </div>
-              {s.address && <p className="text-[11px] text-muted-foreground mt-2 flex items-center gap-1.5"><MapPin size={11} /> {s.address}</p>}
+                {s.address && <p className="text-[11px] text-muted-foreground mt-2 flex items-center gap-1.5"><MapPin size={11} /> {s.address}</p>}
+              </button>
               <RowActions
                 onEdit={() => setEdit({ kind: 'supplier', item: s })}
                 onDelete={async () => { if (confirm(`Delete supplier "${s.name}"?`)) await deleteSupplier(s.id) }}
@@ -151,7 +169,42 @@ export default function ManagementPage() {
       {detail && (
         <ClientDetailSheet detail={detail} loading={detailLoading} onClose={() => setDetail(null)} />
       )}
+
+      {supDetail && (
+        <SupplierDetailSheet detail={supDetail} loading={detailLoading} onClose={() => setSupDetail(null)} />
+      )}
     </div>
+  )
+}
+
+function SupplierDetailSheet({ detail, loading, onClose }: { detail: any; loading: boolean; onClose: () => void }) {
+  return (
+    <Sheet title={detail.name} onClose={onClose}>
+      {detail.phone && <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5"><Phone size={12} /> {detail.phone}</p>}
+      {detail.address && <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1.5"><MapPin size={12} /> {detail.address}</p>}
+
+      <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mb-2">Linked Products</p>
+      {loading || !detail.products ? (
+        <div className="py-8 flex justify-center"><Loader2 className="animate-spin text-primary" size={20} /></div>
+      ) : detail.products.length === 0 ? (
+        <p className="text-xs text-muted-foreground py-6 text-center">No products linked to this supplier yet</p>
+      ) : (
+        <div className="space-y-2">
+          {detail.products.map((p: any) => (
+            <div key={p.id} className="flex items-center justify-between bg-card border border-border rounded-xl p-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <Package size={14} className="text-muted-foreground shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-foreground truncate">{p.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{p.category} · {p.productType === 'WEIGHTED' ? `${p.stock} kg` : `${p.stock} units`}</p>
+                </div>
+              </div>
+              <span className="text-sm font-bold tabular-nums shrink-0 text-foreground">{formatCurrency(p.sellingPrice)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Sheet>
   )
 }
 

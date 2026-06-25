@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Store, MapPin, Hash, Phone, Save } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
+import { NumberField } from '@/components/ui/number-field'
 import { cn } from '@/lib/utils'
 import { LANGUAGES, useT } from '@/lib/i18n'
 
@@ -15,6 +16,9 @@ export default function SettingsPage() {
     nis: '',
     rc: '',
     phone: '',
+    taxEnabled: true,
+    defaultTaxRate: '19',
+    pricesIncludeTax: false,
     cashierPassword: ''
   })
   
@@ -37,6 +41,9 @@ export default function SettingsPage() {
         nis: settings.nis || '',
         rc: settings.rc || '',
         phone: settings.phone,
+        taxEnabled: settings.taxEnabled !== false,
+        defaultTaxRate: String(settings.defaultTaxRate ?? 19),
+        pricesIncludeTax: !!settings.pricesIncludeTax,
         cashierPassword: settings.cashierPassword || ''
       })
     }
@@ -46,7 +53,7 @@ export default function SettingsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSaving(true)
-    await updateSettings(formData)
+    await updateSettings({ ...formData, defaultTaxRate: parseFloat(formData.defaultTaxRate) || 0 })
     setIsSaving(false)
   }
 
@@ -100,6 +107,61 @@ export default function SettingsPage() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Tax (TVA) Settings */}
+        <div className="bg-card p-4 rounded-2xl border border-border shadow-sm space-y-4">
+          <div>
+            <h3 className="text-sm font-bold tracking-tight text-foreground">Tax (TVA) Settings</h3>
+            <p className="text-[11px] text-muted-foreground">Configure tax once — applied to all products automatically.</p>
+          </div>
+
+          <label className="flex items-center justify-between gap-3 cursor-pointer">
+            <span className="text-sm font-medium text-foreground">Enable TVA</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={formData.taxEnabled}
+              onClick={() => setFormData({ ...formData, taxEnabled: !formData.taxEnabled })}
+              className={cn('relative h-6 w-11 rounded-full transition-colors', formData.taxEnabled ? 'bg-primary' : 'bg-secondary border border-border')}
+            >
+              <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform', formData.taxEnabled ? 'translate-x-[22px]' : 'translate-x-0.5')} />
+            </button>
+          </label>
+
+          {formData.taxEnabled && (
+            <>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Default TVA rate (%)</label>
+                <NumberField
+                  value={formData.defaultTaxRate}
+                  onValueChange={(v) => setFormData({ ...formData, defaultTaxRate: v })}
+                  placeholder="19"
+                  className="h-11 rounded-xl"
+                />
+              </div>
+
+              <label className="flex items-center justify-between gap-3 cursor-pointer">
+                <span className="text-sm font-medium text-foreground">Prices include TVA</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={formData.pricesIncludeTax}
+                  onClick={() => setFormData({ ...formData, pricesIncludeTax: !formData.pricesIncludeTax })}
+                  className={cn('relative h-6 w-11 rounded-full transition-colors', formData.pricesIncludeTax ? 'bg-primary' : 'bg-secondary border border-border')}
+                >
+                  <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform', formData.pricesIncludeTax ? 'translate-x-[22px]' : 'translate-x-0.5')} />
+                </button>
+              </label>
+              <p className="text-[11px] text-muted-foreground -mt-1">
+                {formData.pricesIncludeTax ? 'Selling prices already contain TVA; it is extracted on each sale.' : 'TVA is added on top of selling prices at checkout.'}
+              </p>
+            </>
+          )}
+
+          <Button onClick={handleSubmit} disabled={isSaving} className="w-full h-11 rounded-xl text-sm font-semibold">
+            <Save size={15} className="mr-2" /> {isSaving ? 'Saving…' : 'Save Tax Settings'}
+          </Button>
         </div>
 
         <div className="space-y-5">

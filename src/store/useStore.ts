@@ -20,6 +20,9 @@ export interface StoreSettings {
   nis: string
   rc: string
   phone: string
+  taxEnabled: boolean
+  defaultTaxRate: number
+  pricesIncludeTax: boolean
   cashierPassword?: string | null
 }
 

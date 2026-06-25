@@ -16,7 +16,7 @@ export default function BillingPage() {
     <div className="flex flex-col gap-3 animate-in fade-in duration-300 font-sans">
       {/* Compact POS header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold tracking-tight text-foreground">Billing</h1>
+        <h1 className="text-xl font-bold tracking-tight text-foreground">Cart</h1>
         <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <User size={13} className="opacity-65" />
           <span className="text-foreground font-semibold truncate max-w-[140px]">{user?.name || 'Administrator'}</span>
