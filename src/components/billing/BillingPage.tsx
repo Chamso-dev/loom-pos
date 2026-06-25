@@ -28,6 +28,7 @@ export default function BillingPage() {
     if (ok) {
       const product = useStore.getState().products.find((p) => p.barcode === value)
       scanBeep()
+      navigator.vibrate?.(60) // haptic confirmation where supported
       setFlash({ id: now, name: product?.name || 'Added' })
       setTimeout(() => setFlash((f) => (f && f.id === now ? null : f)), 950)
     }
