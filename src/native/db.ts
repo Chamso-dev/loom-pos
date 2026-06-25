@@ -6,7 +6,6 @@
  * so the POS works fully offline with no server.
  */
 import { CapacitorSQLite, SQLiteConnection, SQLiteDBConnection } from '@capacitor-community/sqlite';
-import bcrypt from 'bcryptjs';
 
 const DB_NAME = 'loompos';
 const sqlite = new SQLiteConnection(CapacitorSQLite);
@@ -135,19 +134,12 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-/** Seeds the default admin account and store settings on first launch. */
+/**
+ * Seeds store settings on first launch. There is intentionally NO default admin
+ * account: onboarding is via the Sign Up screen, where the first account created
+ * on the device automatically becomes ADMIN.
+ */
 async function seedDefaults(): Promise<void> {
-  const admin = await query<{ c: number }>(`SELECT COUNT(*) AS c FROM User WHERE employeeId = ?`, ['admin']);
-  if ((admin[0]?.c ?? 0) === 0) {
-    const hashed = await bcrypt.hash('admin123', 10);
-    const ts = nowIso();
-    await run(
-      `INSERT INTO User (id, employeeId, name, role, phone, password, isActive, createdAt, updatedAt)
-       VALUES (?, ?, ?, 'ADMIN', NULL, ?, 1, ?, ?)`,
-      [crypto.randomUUID(), 'admin', 'System Admin', hashed, ts, ts]
-    );
-  }
-
   const settings = await query<{ c: number }>(`SELECT COUNT(*) AS c FROM StoreSettings`);
   if ((settings[0]?.c ?? 0) === 0) {
     await run(

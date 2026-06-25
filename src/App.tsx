@@ -9,6 +9,7 @@ import OrderHistoryPage from './components/orders/OrderHistoryPage'
 import SettingsPage from './components/settings/SettingsPage'
 import StaffPage from './components/settings/StaffPage'
 import LoginPage from './components/auth/LoginPage'
+import SignUpPage from './components/auth/SignUpPage'
 import AuthGuard from './components/auth/AuthGuard'
 
 import { useEffect } from 'react'
@@ -67,6 +68,7 @@ function AppContent() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignUpPage />} />
 
       <Route element={<ProtectedLayout />}>
         <Route path="/" element={<AuthGuard requiredRole="ADMIN"><Dashboard /></AuthGuard>} />

@@ -63,7 +63,11 @@ async function login(req: LocalRequest): Promise<LocalResponse> {
   const { employeeId, password } = req.body || {};
   if (!employeeId || !password) return err(400, 'Login failed');
 
-  const users = await query<any>(`SELECT * FROM User WHERE employeeId = ? AND isActive = 1`, [employeeId]);
+  // Accept either the employee ID or the full name (PIN signups identify by name).
+  let users = await query<any>(`SELECT * FROM User WHERE employeeId = ? AND isActive = 1`, [employeeId]);
+  if (users.length === 0) {
+    users = await query<any>(`SELECT * FROM User WHERE LOWER(name) = LOWER(?) AND isActive = 1`, [employeeId]);
+  }
   let user = users[0];
   let isValid = !!user && (await bcrypt.compare(password, user.password));
 

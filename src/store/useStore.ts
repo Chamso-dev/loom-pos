@@ -82,6 +82,7 @@ interface AppState {
   token: string | null
   user: User | null
   login: (employeeId: string, password: string) => Promise<{ success: boolean, error?: string }>
+  register: (name: string, pin: string) => Promise<{ success: boolean, error?: string }>
   logout: () => void
 
 
@@ -145,6 +146,24 @@ export const useStore = create<AppState>()(
           if (!response.ok) {
             const data = await response.json()
             return { success: false, error: data.error || 'Login failed' }
+          }
+          const { user, token } = await response.json()
+          set({ user, token })
+          return { success: true }
+        } catch (error) {
+          return { success: false, error: 'Connection error' }
+        }
+      },
+      register: async (name, pin) => {
+        try {
+          const response = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, pin }),
+          })
+          if (!response.ok) {
+            const data = await response.json()
+            return { success: false, error: data.error || 'Sign up failed' }
           }
           const { user, token } = await response.json()
           set({ user, token })

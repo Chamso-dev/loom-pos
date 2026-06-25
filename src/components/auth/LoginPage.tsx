@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -80,10 +80,10 @@ export default function LoginPage() {
 
             <div className="space-y-3">
                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-0.5">Employee Identifier</label>
-                  <Input 
-                    type="text" 
-                    placeholder="Enter your ID (e.g., admin)" 
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-0.5">Full Name or Employee ID</label>
+                  <Input
+                    type="text"
+                    placeholder="Your name or ID"
                     value={employeeId}
                     onChange={(e) => setEmployeeId(e.target.value)}
                     className="h-10 bg-accent/10 border-border rounded-md px-3 text-sm text-foreground focus:ring-1 focus:ring-primary focus:border-primary transition-all"
@@ -92,7 +92,7 @@ export default function LoginPage() {
                </div>
                
                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-0.5">Security Keyphrase</label>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-0.5">PIN / Password</label>
                   <div className="relative group">
                     <Input 
                       type={showPassword ? "text" : "password"} 
@@ -131,8 +131,9 @@ export default function LoginPage() {
 
           <div className="mt-6 flex flex-col items-center gap-3">
             <div className="w-full h-px bg-border"></div>
-            <p className="text-[9px] uppercase tracking-wider font-semibold text-muted-foreground opacity-60">
-               Encryption Active
+            <p className="text-xs text-muted-foreground">
+              New here?{' '}
+              <Link to="/signup" className="font-semibold text-primary hover:underline">Create an account</Link>
             </p>
           </div>
         </div>
