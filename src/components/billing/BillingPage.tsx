@@ -77,7 +77,7 @@ export default function BillingPage() {
 
       {/* Scanner card. On native this is a transparent "window" onto the ML Kit
           camera that runs behind the UI; the rest of the page stays opaque. */}
-      <EmbeddedScanner onDetect={handleDetect} feedback={feedback} cartEmpty={isEmpty} />
+      <EmbeddedScanner onDetect={handleDetect} feedback={feedback} cartEmpty={isEmpty} paused={!!receipt} />
 
       {/* Manual / HID fallback search */}
       <ScannerInput />

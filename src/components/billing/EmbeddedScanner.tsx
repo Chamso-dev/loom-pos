@@ -20,6 +20,9 @@ interface EmbeddedScannerProps {
   feedback?: ScanFeedback | null
   /** Show the "Your cart is empty" hint inside the card until the first scan. */
   cartEmpty?: boolean
+  /** Temporarily release the camera (e.g. while the receipt modal is open) without
+   *  losing the ON/OFF state — it resumes when un-paused. */
+  paused?: boolean
   className?: string
 }
 
@@ -58,14 +61,24 @@ async function tuneTrackForBarcodes(track: MediaStreamTrack) {
  *
  * When OFF, the camera is fully released so it never drains the battery.
  */
+interface Hole { top: number; bottom: number; left: number; right: number }
+
 /**
- * Full-screen opaque mask with a transparent hole that tracks the scanner
- * card, so only the card reveals the ML Kit camera behind the WebView. Rendered
- * at z-index:-1 (behind all app UI, in front of the camera) via a body portal,
- * so it never covers the cart content and never bleeds at the screen edges.
+ * Opaque scrim that covers the ENTIRE viewport except a transparent hole over
+ * the scanner card — the only spot the ML Kit camera (behind the transparent
+ * WebView) shows through.
+ *
+ * Structural design (not a z-index hack): four fixed bars (top/left/right/
+ * bottom) that always tile the whole viewport minus the hole. Because each bar
+ * is anchored to a viewport edge, coverage is complete no matter where the card
+ * scrolls — unlike a single box-shadow, whose finite spread left camera bleeding
+ * at the far edge once the card scrolled away. Rendered via a body portal so it
+ * is fully detached from the scrollable content / app layout, and sits at
+ * z-index:-1 (behind the app UI, in front of the native camera) so it never
+ * covers the cart content.
  */
 function CameraWindowMask({ cardRef }: { cardRef: React.RefObject<HTMLDivElement | null> }) {
-  const [rect, setRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null)
+  const [hole, setHole] = useState<Hole | null>(null)
 
   useEffect(() => {
     let raf = 0
@@ -73,18 +86,18 @@ function CameraWindowMask({ cardRef }: { cardRef: React.RefObject<HTMLDivElement
       const el = cardRef.current
       if (el) {
         const r = el.getBoundingClientRect()
-        // Shrink the hole to whole pixels strictly INSIDE the card border, so
-        // the opaque mask always overlaps the card edge — no sub-pixel camera
-        // slivers, on any density or aspect ratio. ceil top/left, floor
-        // right/bottom guarantees integer bounds within the card.
-        const top = Math.ceil(r.top + 1)
-        const left = Math.ceil(r.left + 1)
-        const width = Math.max(0, Math.floor(r.right - 1) - left)
-        const height = Math.max(0, Math.floor(r.bottom - 1) - top)
-        setRect((prev) =>
-          prev && prev.top === top && prev.left === left && prev.width === width && prev.height === height
+        const vw = window.innerWidth
+        const vh = window.innerHeight
+        // Clamp to the viewport and shrink 1px inward (whole pixels) so the
+        // bars always overlap the card border — no sub-pixel camera slivers.
+        const top = Math.min(vh, Math.max(0, Math.ceil(r.top + 1)))
+        const left = Math.min(vw, Math.max(0, Math.ceil(r.left + 1)))
+        const bottom = Math.min(vh, Math.max(0, Math.floor(r.bottom - 1)))
+        const right = Math.min(vw, Math.max(0, Math.floor(r.right - 1)))
+        setHole((prev) =>
+          prev && prev.top === top && prev.bottom === bottom && prev.left === left && prev.right === right
             ? prev
-            : { top, left, width, height },
+            : { top, bottom, left, right },
         )
       }
       raf = requestAnimationFrame(tick)
@@ -93,18 +106,24 @@ function CameraWindowMask({ cardRef }: { cardRef: React.RefObject<HTMLDivElement
     return () => cancelAnimationFrame(raf)
   }, [cardRef])
 
-  if (!rect) return null
+  if (!hole) return null
+  const bar = 'scan-scrim-bar'
   return createPortal(
-    <div
-      aria-hidden
-      className="scan-window-mask"
-      style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }}
-    />,
+    <div aria-hidden>
+      {/* Top */}
+      <div className={bar} style={{ top: 0, left: 0, right: 0, height: hole.top }} />
+      {/* Bottom */}
+      <div className={bar} style={{ top: hole.bottom, left: 0, right: 0, bottom: 0 }} />
+      {/* Left (between top and bottom bars) */}
+      <div className={bar} style={{ top: hole.top, left: 0, width: hole.left, height: Math.max(0, hole.bottom - hole.top) }} />
+      {/* Right */}
+      <div className={bar} style={{ top: hole.top, left: hole.right, right: 0, height: Math.max(0, hole.bottom - hole.top) }} />
+    </div>,
     document.body,
   )
 }
 
-export default function EmbeddedScanner({ onDetect, feedback, cartEmpty, className }: EmbeddedScannerProps) {
+export default function EmbeddedScanner({ onDetect, feedback, cartEmpty, paused, className }: EmbeddedScannerProps) {
   const native = isMlkitAvailable()
   const cardRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -117,6 +136,9 @@ export default function EmbeddedScanner({ onDetect, feedback, cartEmpty, classNa
   const [active, setActive] = useState(false)
   const [status, setStatus] = useState<Status>('off')
   const [justReady, setJustReady] = useState(false)
+
+  // The camera actually runs only when toggled on AND not paused (e.g. receipt).
+  const running = active && !paused
 
   const stop = useCallback(() => {
     // ML Kit
@@ -131,7 +153,7 @@ export default function EmbeddedScanner({ onDetect, feedback, cartEmpty, classNa
   }, [])
 
   useEffect(() => {
-    if (!active) {
+    if (!running) {
       stop()
       setStatus('off')
       return
@@ -193,7 +215,7 @@ export default function EmbeddedScanner({ onDetect, feedback, cartEmpty, classNa
 
     if (native) startNative(); else startWeb()
     return () => { cancelled = true; stop() }
-  }, [active, native, stop])
+  }, [running, native, stop])
 
   // Safety net: release the camera if the component unmounts while active.
   useEffect(() => stop, [stop])
