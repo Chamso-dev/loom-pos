@@ -97,8 +97,23 @@ export default function EmbeddedScanner({ onDetect, children, className }: Embed
   }, [])
 
   return (
-    <div className={cn('relative mx-auto w-full max-w-sm aspect-[4/3] rounded-2xl overflow-hidden border border-border bg-zinc-900 shadow-sm', className)}>
-      <video ref={videoRef} muted playsInline autoPlay className="absolute inset-0 w-full h-full object-cover" />
+    <div
+      className={cn(
+        // Strictly bounded small card. Fixed height + capped width so the
+        // preview is always a small centered rectangle — never full-screen.
+        // overflow-hidden + paint/size containment clip the <video> to the box.
+        'relative mx-auto w-full max-w-[320px] h-44 sm:h-52 rounded-2xl border border-border bg-zinc-900 shadow-sm isolate overflow-hidden',
+        className,
+      )}
+      style={{ contain: 'layout paint size' }}
+    >
+      <video
+        ref={videoRef}
+        muted
+        playsInline
+        autoPlay
+        className="absolute inset-0 h-full w-full object-cover"
+      />
 
       {/* subtle darken for overlay legibility */}
       <div className="absolute inset-0 bg-black/15 pointer-events-none" />
