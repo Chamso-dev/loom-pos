@@ -7,10 +7,14 @@ import EmbeddedScanner, { type ScanFeedback } from './EmbeddedScanner'
 import ScannerInput from './ScannerInput'
 import CartList from './CartList'
 import BillingSummary from './BillingSummary'
+import PrintReceiptPortal from './PrintReceiptPortal'
 
 export default function BillingPage() {
   const { fetchProducts, user, addByBarcode, cart } = useStore()
   const [feedback, setFeedback] = useState<ScanFeedback | null>(null)
+  // Receipt is owned here (not in BillingSummary) so it persists after the sale
+  // clears the cart and unmounts the basket section.
+  const [receipt, setReceipt] = useState<{ order: any; type: 'A4' | 'Thermal' } | null>(null)
   const lastRef = useRef<{ value: string; t: number }>({ value: '', t: 0 })
   const clearRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -93,7 +97,7 @@ export default function BillingPage() {
               <LayoutGrid size={12} className="opacity-45" /> Active Basket ({cart.length})
             </h3>
             <CartList />
-            <BillingSummary />
+            <BillingSummary onComplete={(order, type) => setReceipt({ order, type })} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -102,6 +106,17 @@ export default function BillingPage() {
         <p className="text-center text-[11px] text-muted-foreground flex items-center justify-center gap-1.5 py-2">
           <ShoppingBag size={13} className="opacity-50" /> Scan an item or search to start a sale
         </p>
+      )}
+
+      {/* Receipt modal — owned at page level so it survives clearCart() and is
+          controlled only by explicit open/close state, never the scan/cart
+          lifecycle. Renders topmost (Camera → Overlay → Receipt). */}
+      {receipt && (
+        <PrintReceiptPortal
+          order={receipt.order}
+          type={receipt.type}
+          onClose={() => setReceipt(null)}
+        />
       )}
     </div>
   )

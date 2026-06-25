@@ -5,14 +5,21 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { useStore } from '@/store/useStore'
 import { formatCurrency, cn } from '@/lib/utils'
 import { PAYMENT_METHODS } from '@/lib/payments'
-import PrintReceiptPortal from './PrintReceiptPortal'
 import CustomerPicker, { type BillingCustomer } from './CustomerPicker'
 
-export default function BillingSummary() {
+interface BillingSummaryProps {
+  /**
+   * Called once an order is created. The parent (BillingPage) owns the receipt
+   * so it survives the cart being cleared — otherwise clearing the cart unmounts
+   * this component and the receipt would flash and vanish.
+   */
+  onComplete: (order: any, type: 'A4' | 'Thermal') => void
+}
+
+export default function BillingSummary({ onComplete }: BillingSummaryProps) {
   // ... existing logic ...
   const { cart, clearCart, user, settings } = useStore()
   const [receiptType, setReceiptType] = useState<'A4' | 'Thermal'>('Thermal')
-  const [lastOrder, setLastOrder] = useState<any>(null)
   const [customer, setCustomer] = useState<BillingCustomer>({ customerId: null, name: '', mobile: '' })
   const [isProcessing, setIsProcessing] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH')
@@ -78,7 +85,9 @@ export default function BillingSummary() {
       }
 
       const orderData = await response.json()
-      setLastOrder(orderData)
+      // Hand the receipt to the parent BEFORE clearing the cart, so it owns the
+      // receipt and it stays open after this component unmounts.
+      onComplete(orderData, receiptType)
       setCustomer({ customerId: null, name: '', mobile: '' })
       setPaymentMethod('CASH')
       clearCart()
@@ -197,15 +206,6 @@ export default function BillingSummary() {
         </Button>
       </CardFooter>
       </Card>
-
-      {/* Actual Print Portal */}
-      {lastOrder && (
-        <PrintReceiptPortal
-          order={lastOrder}
-          type={receiptType}
-          onClose={() => setLastOrder(null)}
-        />
-      )}
     </>
   )
 }

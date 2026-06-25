@@ -73,10 +73,18 @@ function CameraWindowMask({ cardRef }: { cardRef: React.RefObject<HTMLDivElement
       const el = cardRef.current
       if (el) {
         const r = el.getBoundingClientRect()
+        // Shrink the hole to whole pixels strictly INSIDE the card border, so
+        // the opaque mask always overlaps the card edge — no sub-pixel camera
+        // slivers, on any density or aspect ratio. ceil top/left, floor
+        // right/bottom guarantees integer bounds within the card.
+        const top = Math.ceil(r.top + 1)
+        const left = Math.ceil(r.left + 1)
+        const width = Math.max(0, Math.floor(r.right - 1) - left)
+        const height = Math.max(0, Math.floor(r.bottom - 1) - top)
         setRect((prev) =>
-          prev && prev.top === r.top && prev.left === r.left && prev.width === r.width && prev.height === r.height
+          prev && prev.top === top && prev.left === left && prev.width === width && prev.height === height
             ? prev
-            : { top: r.top, left: r.left, width: r.width, height: r.height },
+            : { top, left, width, height },
         )
       }
       raf = requestAnimationFrame(tick)
