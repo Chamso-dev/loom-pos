@@ -110,11 +110,12 @@
   border: 1px solid var(--color-border);
 }
 
-/* Stronger frosted glass used by the mobile app bar + bottom navigation. */
+/* Stronger frosted glass used by the mobile app bar + bottom navigation.
+   Kept fairly opaque so page content never visually bleeds through. */
 @utility glass-nav {
-  background-color: oklch(var(--color-card) / 0.72);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background-color: oklch(var(--color-card) / 0.86);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
 }
 
 /* --- Mobile safe-area helpers (notches + gesture nav bars) --- */

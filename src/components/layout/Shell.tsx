@@ -7,6 +7,14 @@ interface ShellProps {
   children: React.ReactNode
 }
 
+/**
+ * Mobile app shell. A fixed full-height (100dvh) flex column with exactly one
+ * bounded scroll region (`main`) sandwiched between the top app bar and the
+ * bottom tab bar. Because the nav bars are flex siblings — not `fixed` overlays
+ * over the document — content can never scroll underneath them, and the scroll
+ * region always reaches its true end. This is the standard native-app shell
+ * pattern (Square / Shopify POS, Linear, Revolut).
+ */
 export default function Shell({ children }: ShellProps) {
   const { theme } = useStore()
 
@@ -27,10 +35,10 @@ export default function Shell({ children }: ShellProps) {
   }, [theme])
 
   return (
-    <div className="min-h-screen bg-background font-sans selection:bg-primary/20 selection:text-primary">
+    <div className="h-[100dvh] flex flex-col overflow-hidden bg-background font-sans selection:bg-primary/20 selection:text-primary">
       <Header />
-      <main className="relative z-10 pb-nav">
-        <div className="px-4 pt-4">
+      <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain custom-scrollbar">
+        <div className="px-4 pt-4 pb-8">
           {children}
         </div>
       </main>

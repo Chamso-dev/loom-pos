@@ -30,7 +30,7 @@ export default function BottomNav() {
   })
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-50 pb-safe glass-nav border-t border-border/60">
+    <nav className="shrink-0 z-40 pb-safe glass-nav border-t border-border/70 shadow-[0_-8px_24px_-14px_rgba(0,0,0,0.35)]">
       <div className="flex items-stretch justify-around px-1.5 pt-1.5 pb-1">
         {items.map((item) => {
           const isActive = location.pathname === item.href

@@ -53,7 +53,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 pt-safe glass-nav border-b border-border/60 font-sans">
+      <header className="shrink-0 z-40 pt-safe glass-nav border-b border-border/70 font-sans">
         <div className="h-14 flex items-center justify-between px-4">
           <button onClick={() => navigate('/')} className="font-bold text-lg tracking-tight active:scale-95 transition-transform">
             {renderBrand()}
