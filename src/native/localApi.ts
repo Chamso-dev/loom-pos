@@ -724,6 +724,39 @@ async function analyticsDashboard(): Promise<LocalResponse> {
     .filter((p) => p.days <= 7)
     .sort((a, b) => a.days - b.days);
 
+  // --- Sales trend: last 7 days vs the 7 days before that ---
+  const d7 = new Date(now - 7 * 86400000).toISOString();
+  const d14 = new Date(now - 14 * 86400000).toISOString();
+  const this7 = (await query<any>(`SELECT COALESCE(SUM(totalAmount),0) AS v FROM "Order" WHERE date >= ? AND status != 'REFUNDED'`, [d7]))[0]?.v ?? 0;
+  const prev7 = (await query<any>(`SELECT COALESCE(SUM(totalAmount),0) AS v FROM "Order" WHERE date >= ? AND date < ? AND status != 'REFUNDED'`, [d14, d7]))[0]?.v ?? 0;
+  const trendPct = prev7 > 0 ? ((this7 - prev7) / prev7) * 100 : this7 > 0 ? 100 : 0;
+  const salesTrend = {
+    current: round1(this7),
+    previous: round1(prev7),
+    pct: Math.round(trendPct),
+    direction: trendPct > 2 ? 'up' : trendPct < -2 ? 'down' : 'flat',
+  };
+
+  // --- Inventory health score (0-100): penalise low stock, expiry, dead stock ---
+  const d30 = new Date(now - 30 * 86400000).toISOString();
+  const soldRecentRows = await query<any>(
+    `SELECT DISTINCT oi.productId AS pid FROM OrderItem oi JOIN "Order" o ON o.id = oi.orderId WHERE o.date >= ? AND o.status != 'REFUNDED'`,
+    [d30]
+  );
+  const soldRecent = new Set(soldRecentRows.map((r) => r.pid));
+  const totalP = products.length || 1;
+  const deadCount = products.filter((p) => (p.stock || 0) > 0 && !soldRecent.has(p.id)).length;
+  const expiredOrSoon = expiring.length;
+  const lowRatio = lowStock.length / totalP;
+  const expiryRatio = expiredOrSoon / totalP;
+  const deadRatio = deadCount / totalP;
+  const healthScore = Math.max(0, Math.min(100, Math.round(100 - (lowRatio * 40 + expiryRatio * 30 + deadRatio * 30))));
+  const inventoryHealth = {
+    score: products.length ? healthScore : 100,
+    label: healthScore >= 80 ? 'Excellent' : healthScore >= 60 ? 'Good' : healthScore >= 40 ? 'Fair' : 'Poor',
+    deadStock: deadCount,
+  };
+
   const totalCustomers = (await query<{ c: number }>(`SELECT COUNT(*) AS c FROM Customer`))[0]?.c ?? 0;
   const totalSuppliers = (await query<{ c: number }>(`SELECT COUNT(*) AS c FROM Supplier`))[0]?.c ?? 0;
   const recent = await query<any>(
@@ -743,6 +776,8 @@ async function analyticsDashboard(): Promise<LocalResponse> {
     expiry: { count: expiring.length, items: expiring.slice(0, 3) },
     totalCustomers,
     totalSuppliers,
+    salesTrend,
+    inventoryHealth,
     recent,
   });
 }

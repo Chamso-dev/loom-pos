@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  TrendingUp, DollarSign, ShoppingBag, Boxes, RotateCcw, Crown, Coins,
-  PackageX, CalendarClock, Users, Truck, Receipt, Clock, ChevronRight, Sparkles,
+  TrendingUp, TrendingDown, DollarSign, ShoppingBag, Boxes, RotateCcw, Crown, Coins,
+  PackageX, CalendarClock, Users, Truck, Receipt, Clock, ChevronRight, Sparkles, HeartPulse,
 } from 'lucide-react'
 import { formatCurrency, cn } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -41,7 +41,7 @@ export default function Dashboard() {
   const s = d || {}
 
   return (
-    <div className="space-y-4 font-sans pb-2">
+    <div className="space-y-4 font-sans pb-2 stagger">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -113,6 +113,33 @@ export default function Dashboard() {
         <Stat label="Total Suppliers" value={s.totalSuppliers ?? 0} icon={Truck} tone="slate" onClick={() => navigate('/management')} />
       </div>
 
+      {/* INSIGHTS: sales trend + inventory health */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-card p-3.5 rounded-2xl border border-border shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Sales Trend (7d)</p>
+            <div className={cn('p-1.5 rounded-lg', s.salesTrend?.direction === 'up' ? TONES.emerald : s.salesTrend?.direction === 'down' ? TONES.red : TONES.slate)}>
+              {s.salesTrend?.direction === 'down' ? <TrendingDown size={15} /> : <TrendingUp size={15} />}
+            </div>
+          </div>
+          <p className={cn('text-xl font-bold tabular-nums mt-1.5', s.salesTrend?.direction === 'up' ? 'text-emerald-500' : s.salesTrend?.direction === 'down' ? 'text-red-500' : 'text-foreground')}>
+            {s.salesTrend?.pct > 0 ? '+' : ''}{s.salesTrend?.pct ?? 0}%
+          </p>
+          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{formatCurrency(s.salesTrend?.current || 0)} vs {formatCurrency(s.salesTrend?.previous || 0)}</p>
+        </div>
+
+        <div className="bg-card p-3.5 rounded-2xl border border-border shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Inventory Health</p>
+            <div className={cn('p-1.5 rounded-lg', healthTone(s.inventoryHealth?.score))}><HeartPulse size={15} /></div>
+          </div>
+          <p className={cn('text-xl font-bold tabular-nums mt-1.5', healthText(s.inventoryHealth?.score))}>
+            {s.inventoryHealth?.score ?? 100}<span className="text-xs text-muted-foreground font-semibold">/100</span>
+          </p>
+          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{s.inventoryHealth?.label || 'Excellent'} · {s.inventoryHealth?.deadStock ?? 0} dead</p>
+        </div>
+      </div>
+
       {/* BOTTOM: recent transactions */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -149,6 +176,15 @@ export default function Dashboard() {
       {showEOD && <EndOfDaySummary summary={{ revenue: s.todayRevenue, orders: s.recent?.length, gst: 0, paymentBreakdown: [] }} onClose={() => setShowEOD(false)} />}
     </div>
   )
+}
+
+function healthTone(score?: number): string {
+  const v = score ?? 100
+  return v >= 80 ? TONES.emerald : v >= 60 ? TONES.blue : v >= 40 ? TONES.amber : TONES.red
+}
+function healthText(score?: number): string {
+  const v = score ?? 100
+  return v >= 80 ? 'text-emerald-500' : v >= 60 ? 'text-blue-500' : v >= 40 ? 'text-amber-500' : 'text-red-500'
 }
 
 const TONES: Record<string, string> = {
