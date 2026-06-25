@@ -56,8 +56,11 @@ export default function InventoryTable({
       </label>
 
       {products.map((product) => {
-        const isLowStock = product.stock < 10
+        const isWeighted = product.productType === 'WEIGHTED'
+        const isLowStock = product.stock < (isWeighted ? 2 : 10)
         const isSelected = selectedIds.includes(product.id)
+        const expiry = product.expiryDate ? new Date(product.expiryDate) : null
+        const daysToExpiry = expiry ? Math.ceil((expiry.getTime() - Date.now()) / 86400000) : null
 
         return (
           <div
@@ -91,7 +94,17 @@ export default function InventoryTable({
                   <span className="text-[9px] bg-secondary px-1.5 py-0.5 rounded border border-border text-muted-foreground font-mono">
                     SKU: {product.sku}
                   </span>
-                  <span className="text-[9px] text-muted-foreground font-mono truncate">{product.barcode}</span>
+                  {isWeighted && <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase">Weighed</span>}
+                  {daysToExpiry !== null && (
+                    <span className={cn(
+                      'text-[9px] px-1.5 py-0.5 rounded font-bold uppercase border',
+                      daysToExpiry < 0 ? 'bg-destructive/10 text-destructive border-destructive/20'
+                        : daysToExpiry <= 7 ? 'bg-orange-500/10 text-orange-500 border-orange-500/20'
+                        : 'bg-secondary text-muted-foreground border-border',
+                    )}>
+                      {daysToExpiry < 0 ? 'Expired' : daysToExpiry === 0 ? 'Expires today' : `${daysToExpiry}d left`}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between gap-2 mt-2.5">
@@ -101,7 +114,7 @@ export default function InventoryTable({
                       ? 'bg-destructive/10 text-destructive border-destructive/20'
                       : 'bg-secondary text-foreground border-border',
                   )}>
-                    {product.stock} units
+                    {isWeighted ? `${product.stock} kg` : `${product.stock} units`}
                     {isLowStock && <span className="uppercase ml-0.5">· Low</span>}
                   </div>
 

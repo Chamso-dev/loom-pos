@@ -71,11 +71,15 @@ export interface CartItem {
   name: string
   sku: string
   size?: string | null
-  price: number
-  quantity: number
+  price: number // unit price, or price-per-KG for weighted
+  quantity: number // unit count, or weight in KG for weighted
   gst: number
   stock: number // To prevent over-selling
+  productType?: 'UNIT' | 'WEIGHTED'
+  step?: number // increment: 1 for unit, minimum sell weight for weighted
 }
+
+const round3 = (n: number) => Math.round(n * 1000) / 1000
 
 interface AppState {
   // Auth State
@@ -178,12 +182,16 @@ export const useStore = create<AppState>()(
       // Cart
       cart: [],
       addToCart: (product) => set((state) => {
+        const isWeighted = product.productType === 'WEIGHTED'
+        const step = isWeighted
+          ? (product.minSellWeight && product.minSellWeight > 0 ? product.minSellWeight : 0.25)
+          : 1
         const existingItem = state.cart.find((i) => i.productId === product.id)
         if (existingItem) {
           return {
             cart: state.cart.map((i) =>
               i.productId === product.id
-                ? { ...i, quantity: Math.min(i.stock, i.quantity + 1) }
+                ? { ...i, quantity: Math.min(i.stock, round3(i.quantity + (i.step ?? 1))) }
                 : i
             ),
           }
@@ -195,9 +203,11 @@ export const useStore = create<AppState>()(
           sku: product.sku,
           size: product.size,
           price: product.sellingPrice,
-          quantity: 1,
+          quantity: isWeighted ? Math.min(product.stock, step) : 1,
           gst: product.gst,
-          stock: product.stock
+          stock: product.stock,
+          productType: isWeighted ? 'WEIGHTED' : 'UNIT',
+          step,
         }
         return { cart: [...state.cart, newItem] }
       }),
@@ -227,9 +237,11 @@ export const useStore = create<AppState>()(
         cart: state.cart.filter((i) => i.productId !== productId),
       })),
       updateQuantity: (productId, quantity) => set((state) => ({
-        cart: state.cart.map((i) =>
-          i.productId === productId ? { ...i, quantity: Math.min(i.stock, Math.max(1, quantity)) } : i
-        ),
+        cart: state.cart.map((i) => {
+          if (i.productId !== productId) return i
+          const min = i.step ?? 1
+          return { ...i, quantity: round3(Math.min(i.stock, Math.max(min, quantity))) }
+        }),
       })),
       clearCart: () => set({ cart: [] }),
 
