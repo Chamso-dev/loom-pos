@@ -1,48 +1,30 @@
 import { formatCurrency, cn } from '@/lib/utils'
 import { format } from 'date-fns'
-import { QRCodeSVG } from 'qrcode.react'
 import { useStore } from '@/store/useStore'
-
-const PaymentQR = ({ amount, size = 60 }: { amount: number, size?: number }) => {
-  const { settings } = useStore()
-  const upiId = settings?.upiId || 'store@upi'
-  const storeName = settings?.name || 'LOOMPOS'
-  const upiLink = `upi://pay?pa=${upiId}&pn=${storeName.replace(/\s/g, '')}&am=${amount}&cu=INR`
-
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <div className="p-1 bg-white border border-gray-100 rounded shadow-sm">
-        <QRCodeSVG value={upiLink} size={size} level="M" />
-      </div>
-      <span className="text-[7px] uppercase font-bold text-gray-400">Scan to Pay</span>
-    </div>
-  )
-}
 
 interface ReceiptProps {
   order: any // Type from Prisma Order with items and products
 }
 
+const FALLBACK_STORE = { name: 'My Store', address: '', nif: '', nis: '', rc: '', phone: '' }
+
 export const A4Invoice = ({ order }: ReceiptProps) => {
   const { settings } = useStore()
-  const store = settings || {
-    name: 'LOOMPOS',
-    address: '123 Trend Avenue, Fashion District',
-    gstin: '27AAAAA0000A1Z5',
-    phone: '+91 98765 43210'
-  }
+  const store: any = settings || FALLBACK_STORE
 
   return (
     <div className="bg-white text-black p-12 max-w-[800px] mx-auto min-h-[1100px] flex flex-col font-sans">
       {/* Header */}
       <div className="flex justify-between items-start mb-12 border-b-2 border-black pb-8">
         <div>
-          <h1 className="text-4xl font-black tracking-tighter uppercase mb-2">TAX INVOICE</h1>
+          <h1 className="text-4xl font-black tracking-tighter uppercase mb-2">FACTURE</h1>
           <div className="text-sm space-y-1">
             <p className="font-bold text-lg">{store.name}</p>
             <p className="whitespace-pre-wrap">{store.address}</p>
-            <p>GSTIN: {store.gstin}</p>
-            <p>Phone: {store.phone}</p>
+            {store.nif && <p>NIF: {store.nif}</p>}
+            {store.nis && <p>NIS: {store.nis}</p>}
+            {store.rc && <p>RC: {store.rc}</p>}
+            {store.phone && <p>Tél: {store.phone}</p>}
           </div>
         </div>
 
@@ -79,7 +61,7 @@ export const A4Invoice = ({ order }: ReceiptProps) => {
               <th className="py-4">Item Description</th>
               <th className="py-4 text-center">Qty</th>
               <th className="py-4 text-right">Price</th>
-              <th className="py-4 text-center">GST %</th>
+              <th className="py-4 text-center">TVA %</th>
               <th className="py-4 text-right">Amount</th>
             </tr>
           </thead>
@@ -88,7 +70,7 @@ export const A4Invoice = ({ order }: ReceiptProps) => {
               <tr key={idx} className="border-b border-gray-100 italic">
                 <td className="py-4">
                   <p className="font-bold not-italic">{item.product.name}</p>
-                  <p className="text-xs opacity-60 uppercase font-mono">{item.product.sku} | {item.product.size || 'N/A'}</p>
+                  <p className="text-xs opacity-60 uppercase font-mono">{item.product.category}{item.product.size ? ` | ${item.product.size}` : ''}</p>
                 </td>
                 <td className="py-4 text-center">{item.quantity}</td>
                 <td className="py-4 text-right">{formatCurrency(item.price)}</td>
@@ -109,7 +91,7 @@ export const A4Invoice = ({ order }: ReceiptProps) => {
               <span>{formatCurrency(order.totalAmount - order.gstAmount)}</span>
             </div>
             <div className="flex justify-between text-sm pb-3 border-b border-gray-100">
-              <span className="opacity-60">Total GST</span>
+              <span className="opacity-60">Total TVA</span>
               <span>{formatCurrency(order.gstAmount)}</span>
             </div>
             <div className="flex justify-between text-xl font-black tracking-tighter">
@@ -127,10 +109,9 @@ export const A4Invoice = ({ order }: ReceiptProps) => {
               <p>2. No exchange without receipt.</p>
               <p>3. Subject to local jurisdiction.</p>
             </div>
-            <PaymentQR amount={order.totalAmount} size={70} />
           </div>
           <div className="text-center border-t border-black w-48 pt-2">
-            <p className="text-xs font-bold uppercase">Authorized Signatory</p>
+            <p className="text-xs font-bold uppercase">Cachet &amp; Signature</p>
           </div>
         </div>
       </div>
@@ -140,20 +121,16 @@ export const A4Invoice = ({ order }: ReceiptProps) => {
 
 export const ThermalReceipt = ({ order }: ReceiptProps) => {
   const { settings } = useStore()
-  const store = settings || {
-    name: 'LOOMPOS',
-    address: '123 Trend Avenue, Fashion District',
-    gstin: '27AAAAA0000A1Z5',
-    phone: '+91 98765 43210'
-  }
+  const store: any = settings || FALLBACK_STORE
 
   return (
     <div className="bg-white text-black p-4 w-[80mm] mx-auto font-mono text-xs leading-tight">
       <div className="text-center mb-4 space-y-1">
         <h2 className="text-lg font-bold uppercase tracking-tighter">{store.name}</h2>
-        <p className="whitespace-pre-wrap">{store.address}</p>
-        <p>GSTIN: {store.gstin}</p>
-        <p>Ph: {store.phone}</p>
+        {store.address && <p className="whitespace-pre-wrap">{store.address}</p>}
+        {store.nif && <p>NIF: {store.nif}</p>}
+        {store.rc && <p>RC: {store.rc}</p>}
+        {store.phone && <p>Tél: {store.phone}</p>}
       </div>
 
 
@@ -171,7 +148,7 @@ export const ThermalReceipt = ({ order }: ReceiptProps) => {
              </div>
              <div className="flex justify-between opacity-70 text-[10px]">
                 <span>{item.quantity} x {formatCurrency(item.price)}</span>
-                <span>GST: {item.product.gst}%</span>
+                <span>TVA: {item.product.gst}%</span>
              </div>
           </div>
         ))}
@@ -183,7 +160,7 @@ export const ThermalReceipt = ({ order }: ReceiptProps) => {
             <span>{formatCurrency(order.totalAmount - order.gstAmount)}</span>
          </div>
          <div className="flex justify-between">
-            <span>TOTAL GST</span>
+            <span>TOTAL TVA</span>
             <span>{formatCurrency(order.gstAmount)}</span>
          </div>
          <div className="flex justify-between text-lg font-bold">
@@ -192,14 +169,9 @@ export const ThermalReceipt = ({ order }: ReceiptProps) => {
          </div>
       </div>
 
-      <div className="mt-4 text-center border-t border-dashed border-black pt-4 space-y-4">
-         <div className="flex justify-center">
-            <PaymentQR amount={order.totalAmount} size={100} />
-         </div>
-         <div className="space-y-1">
-            <p className="uppercase tracking-widest font-bold text-[10px]">Thank You!</p>
-            <p className="text-[9px]">Visit again for more trends</p>
-         </div>
+      <div className="mt-4 text-center border-t border-dashed border-black pt-4 space-y-1">
+         <p className="uppercase tracking-widest font-bold text-[10px]">Merci !</p>
+         <p className="text-[9px]">Merci de votre visite</p>
       </div>
     </div>
   )

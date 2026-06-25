@@ -90,11 +90,12 @@ model Supplier {
 model StoreSettings {
   id              String   @id @default(cuid())
 
-  name            String   @default("LOOMPOS")
-  address         String   @default("123 Trend Avenue, Mumbai")
-  gstin           String   @default("27AAAAA0000A1Z5")
-  upiId           String   @default("store@upi")
-  phone           String   @default("+91 98765 43210")
+  name            String   @default("My Store")
+  address         String   @default("")
+  nif             String   @default("") // Numéro d'Identification Fiscale
+  nis             String   @default("") // Numéro d'Identification Statistique
+  rc              String   @default("") // Registre de Commerce
+  phone           String   @default("")
   cashierPassword String?
   updatedAt       DateTime @default(now()) @updatedAt
 }

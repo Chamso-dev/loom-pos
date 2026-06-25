@@ -1,8 +1,9 @@
 import React from 'react'
 import { formatCurrency, cn } from '@/lib/utils'
-import { CheckCircle2, Printer, Download, X, Wallet, QrCode, CreditCard } from 'lucide-react'
+import { CheckCircle2, Printer, Download, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { format } from 'date-fns'
+import { PAYMENT_METHODS } from '@/lib/payments'
 
 interface EODProps {
   summary: any
@@ -38,19 +39,15 @@ export default function EndOfDaySummary({ summary, onClose }: EODProps) {
           <div className="space-y-2.5">
              <h4 className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider pl-0.5">Payment Breakdown</h4>
              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: 'Cash', icon: Wallet, method: 'CASH', color: 'text-emerald-500', bg: 'bg-emerald-500/5 border-emerald-500/10' },
-                  { label: 'Digital', icon: QrCode, method: 'UPI', color: 'text-primary', bg: 'bg-primary/5 border-primary/10' },
-                  { label: 'Card', icon: CreditCard, method: 'CARD', color: 'text-blue-500', bg: 'bg-blue-500/5 border-blue-500/10' },
-                ].map((m) => {
-                  const amount = summary?.paymentBreakdown?.find((p: any) => p.paymentMethod === m.method)?._sum?.totalAmount || 0
+                {PAYMENT_METHODS.map((m) => {
+                  const amount = summary?.paymentBreakdown?.find((p: any) => p.paymentMethod === m.code)?._sum?.totalAmount || 0
                   return (
-                    <div key={m.method} className={cn("p-4 rounded-lg border space-y-2", m.bg)}>
-                       <div className={cn("w-7 h-7 rounded flex items-center justify-center border border-border bg-card", m.color)}>
+                    <div key={m.code} className="p-4 rounded-lg border border-border bg-secondary/30 space-y-2">
+                       <div className="w-7 h-7 rounded flex items-center justify-center border border-border bg-card text-muted-foreground">
                           <m.icon size={14} />
                        </div>
                        <div>
-                          <p className="text-[9px] text-muted-foreground uppercase font-semibold">{m.label}</p>
+                          <p className="text-[9px] text-muted-foreground uppercase font-semibold truncate">{m.label}</p>
                           <p className="text-sm font-bold text-foreground">{formatCurrency(amount)}</p>
                        </div>
                     </div>

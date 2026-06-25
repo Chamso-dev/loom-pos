@@ -11,7 +11,9 @@ import { format } from 'date-fns';
 interface ReceiptStore {
   name?: string;
   address?: string;
-  gstin?: string;
+  nif?: string;
+  nis?: string;
+  rc?: string;
   phone?: string;
 }
 
@@ -121,8 +123,9 @@ export function buildReceiptEscPos(
       if (part.trim()) b.line(part.trim());
     }
   }
-  if (s.gstin) b.line('GSTIN: ' + s.gstin);
-  if (s.phone) b.line('Ph: ' + s.phone);
+  if (s.nif) b.line('NIF: ' + s.nif);
+  if (s.rc) b.line('RC: ' + s.rc);
+  if (s.phone) b.line('Tel: ' + s.phone);
 
   b.align('left').rule();
   b.line('Inv : ' + order.invoiceNo);

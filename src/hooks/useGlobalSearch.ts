@@ -34,7 +34,7 @@ export function useGlobalSearch() {
         const formattedProducts: SearchResult[] = (productsData.products || []).map((p: any) => ({
           id: p.id,
           title: p.name,
-          subtitle: `${p.sku} • Stock: ${p.stock}`,
+          subtitle: `${p.category} • Stock: ${p.stock}`,
           type: 'product',
           data: p
         }))

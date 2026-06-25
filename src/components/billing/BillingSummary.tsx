@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react'
-import { Printer, Receipt, Wallet, CreditCard, QrCode, FileText } from 'lucide-react'
+import { Printer, Receipt, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { useStore } from '@/store/useStore'
 import { formatCurrency, cn } from '@/lib/utils'
+import { PAYMENT_METHODS } from '@/lib/payments'
 import PrintReceiptPortal from './PrintReceiptPortal'
-import PaymentModal from './PaymentModal'
 import CustomerPicker, { type BillingCustomer } from './CustomerPicker'
 
 export default function BillingSummary() {
@@ -14,7 +14,6 @@ export default function BillingSummary() {
   const [receiptType, setReceiptType] = useState<'A4' | 'Thermal'>('Thermal')
   const [lastOrder, setLastOrder] = useState<any>(null)
   const [customer, setCustomer] = useState<BillingCustomer>({ customerId: null, name: '', mobile: '' })
-  const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH')
 
@@ -44,11 +43,7 @@ export default function BillingSummary() {
 
   const handleCheckout = () => {
     if (cart.length === 0) return
-    if (paymentMethod === 'UPI') {
-      setShowPaymentModal(true)
-    } else {
-      completeOrder(paymentMethod)
-    }
+    completeOrder(paymentMethod)
   }
 
   const completeOrder = async (method: string) => {
@@ -83,7 +78,6 @@ export default function BillingSummary() {
       const orderData = await response.json()
       setLastOrder(orderData)
       setCustomer({ customerId: null, name: '', mobile: '' })
-      setShowPaymentModal(false)
       setPaymentMethod('CASH')
       clearCart()
     } catch (error: any) {
@@ -145,7 +139,7 @@ export default function BillingSummary() {
             {gstGroups.length > 0 ? (
               gstGroups.map(group => (
                 <div key={group.rate} className="flex justify-between text-[11px] text-muted-foreground">
-                  <span>GST ({group.rate}%)</span>
+                  <span>TVA ({group.rate}%)</span>
                   <span>{formatCurrency(group.amount)}</span>
                 </div>
               ))
@@ -168,39 +162,20 @@ export default function BillingSummary() {
         <div className="space-y-2 pt-2">
            <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Payment Method</span>
            <div className="grid grid-cols-3 gap-2">
-             <Button 
-               variant="outline" 
-               onClick={() => setPaymentMethod('CASH')}
-               className={cn(
-                 "flex-col h-12 gap-1 border transition-all rounded-md cursor-pointer",
-                 paymentMethod === 'CASH' ? "bg-secondary border-foreground text-foreground" : "border-border text-muted-foreground hover:text-foreground"
-               )}
-             >
-                 <Wallet size={14} />
-                 <span className="text-[8px] uppercase font-bold">Cash</span>
-             </Button>
-             <Button 
-               variant="outline" 
-               onClick={() => setPaymentMethod('UPI')}
-               className={cn(
-                 "flex-col h-12 gap-1 border transition-all rounded-md cursor-pointer",
-                 paymentMethod === 'UPI' ? "bg-secondary border-foreground text-foreground" : "border-border text-muted-foreground hover:text-foreground"
-               )}
-             >
-                 <QrCode size={14} />
-                 <span className="text-[8px] uppercase font-bold">UPI</span>
-             </Button>
-             <Button 
-               variant="outline" 
-               onClick={() => setPaymentMethod('CARD')}
-               className={cn(
-                 "flex-col h-12 gap-1 border transition-all rounded-md cursor-pointer",
-                 paymentMethod === 'CARD' ? "bg-secondary border-foreground text-foreground" : "border-border text-muted-foreground hover:text-foreground"
-               )}
-             >
-                 <CreditCard size={14} />
-                 <span className="text-[8px] uppercase font-bold">Card</span>
-             </Button>
+             {PAYMENT_METHODS.map((m) => (
+               <Button
+                 key={m.code}
+                 variant="outline"
+                 onClick={() => setPaymentMethod(m.code)}
+                 className={cn(
+                   "flex-col h-14 gap-1 border transition-all rounded-xl cursor-pointer",
+                   paymentMethod === m.code ? "bg-secondary border-foreground text-foreground" : "border-border text-muted-foreground hover:text-foreground"
+                 )}
+               >
+                 <m.icon size={15} />
+                 <span className="text-[8px] uppercase font-bold leading-none text-center">{m.label}</span>
+               </Button>
+             ))}
            </div>
         </div>
       </CardContent>
@@ -223,21 +198,10 @@ export default function BillingSummary() {
 
       {/* Actual Print Portal */}
       {lastOrder && (
-        <PrintReceiptPortal 
-          order={lastOrder} 
-          type={receiptType} 
-          onClose={() => setLastOrder(null)} 
-        />
-      )}
-
-      {/* Payment Selection Modal */}
-      {showPaymentModal && (
-        <PaymentModal
-          amount={total}
-          method={paymentMethod}
-          onConfirm={() => completeOrder(paymentMethod)}
-          onCancel={() => setShowPaymentModal(false)}
-          isProcessing={isProcessing}
+        <PrintReceiptPortal
+          order={lastOrder}
+          type={receiptType}
+          onClose={() => setLastOrder(null)}
         />
       )}
     </>

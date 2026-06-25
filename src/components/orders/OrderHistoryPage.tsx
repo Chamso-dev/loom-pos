@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { formatCurrency, cn } from '@/lib/utils'
 import { format, startOfDay, subDays, formatISO } from 'date-fns'
 import { useStore } from '@/store/useStore'
+import { PAYMENT_METHODS, paymentIcon, paymentLabel } from '@/lib/payments'
 import PrintReceiptPortal from '../billing/PrintReceiptPortal'
 
 export default function OrderHistoryPage() {
@@ -192,12 +193,8 @@ export default function OrderHistoryPage() {
   }
 
   const getPaymentIcon = (method: string) => {
-    switch (method) {
-      case 'CASH': return <Wallet size={14} className="text-emerald-500" />
-      case 'UPI': return <QrCode size={14} className="text-primary" />
-      case 'CARD': return <CreditCard size={14} className="text-blue-500" />
-      default: return null
-    }
+    const Icon = paymentIcon(method)
+    return <Icon size={14} className="text-muted-foreground" />
   }
 
   const hasActiveFilters = !!(startDate || endDate || selectedMethods.length > 0)
@@ -273,7 +270,7 @@ export default function OrderHistoryPage() {
                 </div>
                 <div className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary border border-border rounded-full shrink-0">
                   {getPaymentIcon(order.paymentMethod)}
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-foreground">{order.paymentMethod}</span>
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-foreground">{paymentLabel(order.paymentMethod)}</span>
                 </div>
               </div>
               <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
@@ -341,18 +338,18 @@ export default function OrderHistoryPage() {
 
               <div className="space-y-2">
                 <span className="text-xs font-semibold text-muted-foreground">Payment Method</span>
-                <div className="grid grid-cols-3 gap-2">
-                  {['CASH', 'UPI', 'CARD'].map(m => (
+                <div className="grid grid-cols-2 gap-2">
+                  {PAYMENT_METHODS.map(({ code, label }) => (
                     <button
-                      key={m}
-                      onClick={() => toggleMethod(m)}
+                      key={code}
+                      onClick={() => toggleMethod(code)}
                       className={cn(
                         'flex items-center justify-center gap-1.5 h-11 rounded-xl border transition-all text-xs font-medium',
-                        selectedMethods.includes(m) ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border text-muted-foreground',
+                        selectedMethods.includes(code) ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border text-muted-foreground',
                       )}
                     >
-                      {selectedMethods.includes(m) && <Check size={12} />}
-                      {m}
+                      {selectedMethods.includes(code) && <Check size={12} />}
+                      {label}
                     </button>
                   ))}
                 </div>
@@ -402,7 +399,7 @@ export default function OrderHistoryPage() {
                        <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">Payment Mode</p>
                        <div className="flex items-center gap-1.5">
                           {getPaymentIcon(selectedOrder.paymentMethod)}
-                          <p className="font-semibold text-sm uppercase text-foreground">{selectedOrder.paymentMethod}</p>
+                          <p className="font-semibold text-sm text-foreground">{paymentLabel(selectedOrder.paymentMethod)}</p>
                        </div>
                     </div>
                  </div>
@@ -441,7 +438,7 @@ export default function OrderHistoryPage() {
                        <span>{formatCurrency(selectedOrder.totalAmount - selectedOrder.gstAmount)}</span>
                     </div>
                     <div className="flex justify-between text-xs text-muted-foreground border-b border-border/20 pb-1.5">
-                       <span>Total GST</span>
+                       <span>Total TVA</span>
                        <span>{formatCurrency(selectedOrder.gstAmount)}</span>
                     </div>
                     <div className="flex justify-between items-center pt-1.5">

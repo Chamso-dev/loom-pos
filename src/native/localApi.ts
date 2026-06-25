@@ -613,13 +613,13 @@ async function updateSettings(req: LocalRequest): Promise<LocalResponse> {
   const existing = (await query<any>(`SELECT * FROM StoreSettings LIMIT 1`))[0];
   if (existing) {
     await run(
-      `UPDATE StoreSettings SET name = ?, address = ?, gstin = ?, upiId = ?, phone = ?, cashierPassword = ?, updatedAt = ? WHERE id = ?`,
-      [d.name, d.address, d.gstin, d.upiId, d.phone, cashierPassword ?? existing.cashierPassword ?? null, nowIso(), existing.id]
+      `UPDATE StoreSettings SET name = ?, address = ?, nif = ?, nis = ?, rc = ?, phone = ?, cashierPassword = ?, updatedAt = ? WHERE id = ?`,
+      [d.name, d.address, d.nif ?? '', d.nis ?? '', d.rc ?? '', d.phone, cashierPassword ?? existing.cashierPassword ?? null, nowIso(), existing.id]
     );
   } else {
     await run(
-      `INSERT INTO StoreSettings (id, name, address, gstin, upiId, phone, cashierPassword, updatedAt) VALUES ('1', ?, ?, ?, ?, ?, ?, ?)`,
-      [d.name, d.address, d.gstin, d.upiId, d.phone, cashierPassword ?? null, nowIso()]
+      `INSERT INTO StoreSettings (id, name, address, nif, nis, rc, phone, cashierPassword, updatedAt) VALUES ('1', ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [d.name, d.address, d.nif ?? '', d.nis ?? '', d.rc ?? '', d.phone, cashierPassword ?? null, nowIso()]
     );
   }
   return getSettings();

@@ -5,8 +5,10 @@ import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
 import { LogIn, ShieldAlert, Loader2, User, KeyRound, Eye, EyeOff } from 'lucide-react'
 import { AuthShell, AuthField, authItem } from './AuthShell'
+import { useT } from '@/lib/i18n'
 
 export default function LoginPage() {
+  const t = useT()
   const [employeeId, setEmployeeId] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -34,7 +36,7 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthShell subtitle="Welcome back. Sign in to continue.">
+    <AuthShell subtitle={t('auth.welcome')}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <AnimatePresence>
           {error && (

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import Header from './Header'
 import BottomNav from './BottomNav'
 import { useStore } from '@/store/useStore'
+import { applyLanguageDir } from '@/lib/i18n'
 
 interface ShellProps {
   children: React.ReactNode
@@ -16,7 +17,10 @@ interface ShellProps {
  * pattern (Square / Shopify POS, Linear, Revolut).
  */
 export default function Shell({ children }: ShellProps) {
-  const { theme } = useStore()
+  const { theme, language } = useStore()
+
+  // Apply text direction (RTL for Arabic) on mount and language change.
+  useEffect(() => { applyLanguageDir(language) }, [language])
 
   // Apply theme (dark / light / system).
   useEffect(() => {

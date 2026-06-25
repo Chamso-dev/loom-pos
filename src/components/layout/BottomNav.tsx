@@ -3,14 +3,15 @@ import { LayoutDashboard, Package, ShoppingCart, History, Settings, Contact } fr
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store/useStore'
+import { useT } from '@/lib/i18n'
 
 const NAV_ITEMS = [
-  { icon: LayoutDashboard, label: 'Home', href: '/', roles: ['ADMIN'] },
-  { icon: Package, label: 'Stock', href: '/inventory', roles: ['ADMIN', 'CASHIER'] },
-  { icon: ShoppingCart, label: 'Billing', href: '/billing', roles: ['ADMIN', 'CASHIER'] },
-  { icon: History, label: 'Orders', href: '/orders', roles: ['ADMIN', 'CASHIER'] },
-  { icon: Contact, label: 'Manage', href: '/management', roles: ['ADMIN'] },
-  { icon: Settings, label: 'Settings', href: '/settings', roles: ['ADMIN'] },
+  { icon: LayoutDashboard, key: 'nav.home', href: '/', roles: ['ADMIN'] },
+  { icon: Package, key: 'nav.stock', href: '/inventory', roles: ['ADMIN', 'CASHIER'] },
+  { icon: ShoppingCart, key: 'nav.billing', href: '/billing', roles: ['ADMIN', 'CASHIER'] },
+  { icon: History, key: 'nav.orders', href: '/orders', roles: ['ADMIN', 'CASHIER'] },
+  { icon: Contact, key: 'nav.manage', href: '/management', roles: ['ADMIN'] },
+  { icon: Settings, key: 'nav.settings', href: '/settings', roles: ['ADMIN'] },
 ]
 
 /**
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
 export default function BottomNav() {
   const location = useLocation()
   const { user } = useStore()
+  const t = useT()
 
   const items = NAV_ITEMS.filter((item) => {
     if (!user) return false
@@ -38,7 +40,7 @@ export default function BottomNav() {
             <Link
               key={item.href}
               to={item.href}
-              aria-label={item.label}
+              aria-label={t(item.key)}
               aria-current={isActive ? 'page' : undefined}
               className="relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 min-h-[52px] select-none touch-manipulation active:scale-95 transition-transform"
             >
@@ -64,7 +66,7 @@ export default function BottomNav() {
                     isActive ? 'text-primary' : 'text-muted-foreground',
                   )}
                 >
-                  {item.label}
+                  {t(item.key)}
                 </span>
               </span>
             </Link>

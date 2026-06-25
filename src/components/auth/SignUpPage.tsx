@@ -5,8 +5,10 @@ import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
 import { UserPlus, ShieldAlert, Loader2, User, KeyRound, Eye, EyeOff } from 'lucide-react'
 import { AuthShell, AuthField, authItem } from './AuthShell'
+import { useT } from '@/lib/i18n'
 
 export default function SignUpPage() {
+  const t = useT()
   const [name, setName] = useState('')
   const [pin, setPin] = useState('')
   const [showPin, setShowPin] = useState(false)
@@ -35,7 +37,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <AuthShell subtitle="Create your account to get started.">
+    <AuthShell subtitle={t('auth.create')}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <AnimatePresence>
           {error && (

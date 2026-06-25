@@ -182,7 +182,7 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
             )}
 
             <div className="space-y-1.5">
-              <Label>GST (%)</Label>
+              <Label>TVA (%)</Label>
               <Input type="number" value={form.gst} onChange={(e) => set('gst', num(e.target.value))} className="h-11 text-sm" />
             </div>
 
@@ -195,13 +195,6 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
               <Label>Expiry Date</Label>
               <Input type="date" value={form.expiryDate} onChange={(e) => set('expiryDate', e.target.value)} className="h-11 text-sm" />
             </div>
-
-            {!product && (
-              <div className="space-y-1.5">
-                <Label>SKU</Label>
-                <Input value={form.sku} onChange={(e) => set('sku', e.target.value)} required className="h-11 text-sm" />
-              </div>
-            )}
           </CardContent>
 
           <CardFooter className="flex gap-2 border-t border-border/40 pt-4 pb-4 px-4 shrink-0">

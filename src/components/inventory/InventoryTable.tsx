@@ -86,14 +86,16 @@ export default function InventoryTable({
                   </div>
                   <div className="text-right shrink-0">
                     <p className="font-bold text-foreground text-sm tabular-nums">{formatCurrency(product.sellingPrice)}</p>
-                    <p className="text-[9px] text-muted-foreground mt-0.5">GST {product.gst}%</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">TVA {product.gst}%</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  <span className="text-[9px] bg-secondary px-1.5 py-0.5 rounded border border-border text-muted-foreground font-mono">
-                    SKU: {product.sku}
-                  </span>
+                  {product.barcode && (
+                    <span className="text-[9px] bg-secondary px-1.5 py-0.5 rounded border border-border text-muted-foreground font-mono">
+                      {product.barcode}
+                    </span>
+                  )}
                   {isWeighted && <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase">Weighed</span>}
                   {daysToExpiry !== null && (
                     <span className={cn(

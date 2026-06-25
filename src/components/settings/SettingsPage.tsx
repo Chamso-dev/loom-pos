@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react'
-import { Store, MapPin, Hash, Phone, CreditCard, Save } from 'lucide-react'
+import { Store, MapPin, Hash, Phone, Save } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { LANGUAGES, useT } from '@/lib/i18n'
 
 export default function SettingsPage() {
-  const { settings, updateSettings, user, changePassword } = useStore()
+  const { settings, updateSettings, user, changePassword, language, setLanguage } = useStore()
+  const t = useT()
   const [formData, setFormData] = useState({
     name: '',
     address: '',
-    gstin: '',
-    upiId: '',
+    nif: '',
+    nis: '',
+    rc: '',
     phone: '',
     cashierPassword: ''
   })
@@ -30,8 +33,9 @@ export default function SettingsPage() {
       setFormData({
         name: settings.name,
         address: settings.address,
-        gstin: settings.gstin,
-        upiId: settings.upiId,
+        nif: settings.nif || '',
+        nis: settings.nis || '',
+        rc: settings.rc || '',
         phone: settings.phone,
         cashierPassword: settings.cashierPassword || ''
       })
@@ -78,6 +82,26 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-5">
+        {/* Language */}
+        <div className="bg-card p-4 rounded-2xl border border-border shadow-sm space-y-2.5">
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('settings.language')}</label>
+          <div className="grid grid-cols-3 gap-2">
+            {LANGUAGES.map((l) => (
+              <button
+                key={l.code}
+                type="button"
+                onClick={() => setLanguage(l.code)}
+                className={cn(
+                  'h-11 rounded-xl border text-sm font-semibold transition-all active:scale-[0.98]',
+                  language === l.code ? 'bg-primary/10 border-primary/40 text-primary' : 'bg-card border-border text-muted-foreground',
+                )}
+              >
+                {l.native}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="space-y-5">
           <form onSubmit={handleSubmit} className="space-y-5 bg-card p-4 rounded-2xl border border-border shadow-sm">
             <div className="grid grid-cols-1 gap-6">
@@ -113,52 +137,66 @@ export default function SettingsPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {/* GSTIN */}
+                {/* NIF */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">GSTIN</label>
+                  <label className="text-xs font-medium text-muted-foreground">NIF</label>
                   <div className="relative group">
                     <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="text"
-                      value={formData.gstin}
-                      onChange={(e) => setFormData({ ...formData, gstin: e.target.value })}
-                      className="w-full bg-background border border-border h-10 pl-10 pr-4 rounded-md text-sm focus:outline-none focus:border-border transition-all"
-                      placeholder="Enter GSTIN"
-                      required
+                      value={formData.nif}
+                      onChange={(e) => setFormData({ ...formData, nif: e.target.value })}
+                      className="w-full bg-background border border-border h-11 pl-10 pr-4 rounded-xl text-sm focus:outline-none focus:border-primary transition-all font-mono"
+                      placeholder="Numéro d'Identification Fiscale"
                     />
                   </div>
                 </div>
 
                 {/* Phone */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Contact Phone</label>
+                  <label className="text-xs font-medium text-muted-foreground">Phone Number</label>
                   <div className="relative group">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="text"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full bg-background border border-border h-10 pl-10 pr-4 rounded-md text-sm focus:outline-none focus:border-border transition-all"
-                      placeholder="Enter phone number"
-                      required
+                      className="w-full bg-background border border-border h-11 pl-10 pr-4 rounded-xl text-sm focus:outline-none focus:border-primary transition-all"
+                      placeholder="0X XX XX XX XX"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* UPI ID */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">UPI ID for Payments</label>
-                <div className="relative group">
-                  <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    value={formData.upiId}
-                    onChange={(e) => setFormData({ ...formData, upiId: e.target.value })}
-                    className="w-full bg-background border border-border h-10 pl-10 pr-4 rounded-md text-sm focus:outline-none focus:border-border transition-all font-mono"
-                    placeholder="Enter UPI ID (e.g. store@upi)"
-                    required
-                  />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {/* NIS */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">NIS</label>
+                  <div className="relative group">
+                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={formData.nis}
+                      onChange={(e) => setFormData({ ...formData, nis: e.target.value })}
+                      className="w-full bg-background border border-border h-11 pl-10 pr-4 rounded-xl text-sm focus:outline-none focus:border-primary transition-all font-mono"
+                      placeholder="Numéro d'Identification Statistique"
+                    />
+                  </div>
+                </div>
+
+                {/* RC */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">RC</label>
+                  <div className="relative group">
+                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={formData.rc}
+                      onChange={(e) => setFormData({ ...formData, rc: e.target.value })}
+                      className="w-full bg-background border border-border h-11 pl-10 pr-4 rounded-xl text-sm focus:outline-none focus:border-primary transition-all font-mono"
+                      placeholder="Registre de Commerce"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -278,8 +316,8 @@ export default function SettingsPage() {
                 <p className="font-medium whitespace-pre-wrap text-foreground/80">{formData.address}</p>
               </div>
               <div>
-                <p className="text-[10px] uppercase text-muted-foreground font-medium mb-1">GST Number</p>
-                <p className="font-mono font-semibold text-foreground">{formData.gstin}</p>
+                <p className="text-[10px] uppercase text-muted-foreground font-medium mb-1">NIF</p>
+                <p className="font-mono font-semibold text-foreground">{formData.nif || '—'}</p>
               </div>
             </div>
           </div>

@@ -16,8 +16,9 @@ export interface StoreSettings {
   id: string
   name: string
   address: string
-  gstin: string
-  upiId: string
+  nif: string
+  nis: string
+  rc: string
   phone: string
   cashierPassword?: string | null
 }
@@ -101,6 +102,10 @@ interface AppState {
   // Appearance State
   theme: 'dark' | 'light' | 'system'
   setTheme: (theme: 'dark' | 'light' | 'system') => void
+
+  // Language (Algeria: French default, with Arabic RTL + English)
+  language: 'fr' | 'ar' | 'en'
+  setLanguage: (lang: 'fr' | 'ar' | 'en') => void
 
   // Inventory State
   products: Product[]
@@ -259,6 +264,15 @@ export const useStore = create<AppState>()(
       // Appearance
       theme: 'system',
       setTheme: (theme) => set({ theme }),
+
+      language: 'en',
+      setLanguage: (language) => {
+        set({ language })
+        if (typeof document !== 'undefined') {
+          document.documentElement.lang = language
+          document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr'
+        }
+      },
 
       // Inventory
       products: [],
@@ -539,7 +553,7 @@ export const useStore = create<AppState>()(
 
     {
       name: 'loom-pos-storage',
-      partialize: (state) => ({ user: state.user, cart: state.cart, theme: state.theme }),
+      partialize: (state) => ({ user: state.user, cart: state.cart, theme: state.theme, language: state.language }),
     }
   )
 )

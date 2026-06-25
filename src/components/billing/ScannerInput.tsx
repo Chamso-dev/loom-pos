@@ -245,7 +245,7 @@ export default function ScannerInput() {
                 <span className={cn(
                   "text-[10px] mt-0.5 font-mono",
                   index === activeIndex ? "text-accent-foreground/80" : "text-muted-foreground"
-                )}>{product.sku}</span>
+                )}>{product.category}{product.barcode ? ` · ${product.barcode}` : ''}</span>
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className={cn(

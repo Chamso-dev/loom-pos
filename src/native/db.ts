@@ -82,10 +82,11 @@ CREATE TABLE IF NOT EXISTS Supplier (
 );
 CREATE TABLE IF NOT EXISTS StoreSettings (
   id TEXT PRIMARY KEY,
-  name TEXT NOT NULL DEFAULT 'LOOMPOS',
+  name TEXT NOT NULL DEFAULT 'My Store',
   address TEXT NOT NULL DEFAULT '',
-  gstin TEXT NOT NULL DEFAULT '',
-  upiId TEXT NOT NULL DEFAULT '',
+  nif TEXT NOT NULL DEFAULT '',
+  nis TEXT NOT NULL DEFAULT '',
+  rc TEXT NOT NULL DEFAULT '',
   phone TEXT NOT NULL DEFAULT '',
   cashierPassword TEXT,
   updatedAt TEXT NOT NULL
@@ -128,6 +129,10 @@ async function migrateSchema(): Promise<void> {
   await addColumn('Order', 'status', `TEXT NOT NULL DEFAULT 'COMPLETED'`);
   await addColumn('Order', 'refundedAt', 'TEXT');
   await addColumn('Order', 'customerId', 'TEXT');
+  // Algeria localization: replace GSTIN/UPI with NIF/NIS/RC.
+  await addColumn('StoreSettings', 'nif', `TEXT NOT NULL DEFAULT ''`);
+  await addColumn('StoreSettings', 'nis', `TEXT NOT NULL DEFAULT ''`);
+  await addColumn('StoreSettings', 'rc', `TEXT NOT NULL DEFAULT ''`);
 }
 
 function nowIso(): string {
@@ -143,8 +148,8 @@ async function seedDefaults(): Promise<void> {
   const settings = await query<{ c: number }>(`SELECT COUNT(*) AS c FROM StoreSettings`);
   if ((settings[0]?.c ?? 0) === 0) {
     await run(
-      `INSERT INTO StoreSettings (id, name, address, gstin, upiId, phone, cashierPassword, updatedAt)
-       VALUES ('1', 'LOOMPOS', '123 Trend Avenue, Mumbai', '27AAAAA0000A1Z5', 'store@upi', '+91 98765 43210', NULL, ?)`,
+      `INSERT INTO StoreSettings (id, name, address, nif, nis, rc, phone, cashierPassword, updatedAt)
+       VALUES ('1', 'My Store', '', '', '', '', '', NULL, ?)`,
       [nowIso()]
     );
   }
