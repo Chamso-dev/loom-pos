@@ -29,13 +29,38 @@ export interface Product {
   sku: string
   barcode: string
   category: string
+  productType?: 'UNIT' | 'WEIGHTED'
   size?: string | null
   color?: string | null
   costPrice: number
   sellingPrice: number
   gst: number
   stock: number
+  minSellWeight?: number | null
   supplier?: string | null
+  expiryDate?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Customer {
+  id: string
+  name: string
+  phone?: string | null
+  notes?: string | null
+  totalOrders?: number
+  totalSpent?: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Supplier {
+  id: string
+  name: string
+  phone?: string | null
+  address?: string | null
+  notes?: string | null
+  linkedProducts?: number
   createdAt: string
   updatedAt: string
 }

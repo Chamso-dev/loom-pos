@@ -30,13 +30,16 @@ CREATE TABLE IF NOT EXISTS Product (
   sku TEXT UNIQUE NOT NULL,
   barcode TEXT UNIQUE NOT NULL,
   category TEXT NOT NULL,
+  productType TEXT NOT NULL DEFAULT 'UNIT',
   size TEXT,
   color TEXT,
   costPrice REAL NOT NULL,
   sellingPrice REAL NOT NULL,
   gst REAL NOT NULL DEFAULT 0,
-  stock INTEGER NOT NULL DEFAULT 0,
+  stock REAL NOT NULL DEFAULT 0,
+  minSellWeight REAL,
   supplier TEXT,
+  expiryDate TEXT,
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL
 );
@@ -47,16 +50,36 @@ CREATE TABLE IF NOT EXISTS "Order" (
   totalAmount REAL NOT NULL,
   gstAmount REAL NOT NULL,
   paymentMethod TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'COMPLETED',
+  refundedAt TEXT,
   customerName TEXT,
   customerMobile TEXT,
+  customerId TEXT,
   userId TEXT
 );
 CREATE TABLE IF NOT EXISTS OrderItem (
   id TEXT PRIMARY KEY,
   orderId TEXT NOT NULL,
   productId TEXT NOT NULL,
-  quantity INTEGER NOT NULL,
+  quantity REAL NOT NULL,
   price REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS Customer (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  phone TEXT,
+  notes TEXT,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS Supplier (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  phone TEXT,
+  address TEXT,
+  notes TEXT,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS StoreSettings (
   id TEXT PRIMARY KEY,
@@ -83,7 +106,29 @@ export async function initDatabase(): Promise<void> {
 
   await db.open();
   await db.execute(SCHEMA);
+  await migrateSchema();
   await seedDefaults();
+}
+
+/**
+ * Additive migration for devices that already have an older database. SQLite
+ * only supports ADD COLUMN, which is all we need — every new column is nullable
+ * or has a default, so existing rows stay valid.
+ */
+async function migrateSchema(): Promise<void> {
+  const addColumn = async (table: string, column: string, decl: string) => {
+    const info = await query<{ name: string }>(`PRAGMA table_info("${table}")`);
+    if (!info.some((c) => c.name === column)) {
+      await db!.execute(`ALTER TABLE "${table}" ADD COLUMN ${column} ${decl};`);
+    }
+  };
+
+  await addColumn('Product', 'productType', `TEXT NOT NULL DEFAULT 'UNIT'`);
+  await addColumn('Product', 'minSellWeight', 'REAL');
+  await addColumn('Product', 'expiryDate', 'TEXT');
+  await addColumn('Order', 'status', `TEXT NOT NULL DEFAULT 'COMPLETED'`);
+  await addColumn('Order', 'refundedAt', 'TEXT');
+  await addColumn('Order', 'customerId', 'TEXT');
 }
 
 function nowIso(): string {

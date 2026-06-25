@@ -15,8 +15,12 @@ model Order {
   totalAmount    Float
   gstAmount      Float
   paymentMethod  String
+  status         String      @default("COMPLETED") // COMPLETED | REFUNDED
+  refundedAt     DateTime?
   customerName   String?
   customerMobile String?
+  customerId     String?
+  customer       Customer?   @relation(fields: [customerId], references: [id])
   userId         String?
   processedBy    User?       @relation(fields: [userId], references: [id])
   items          OrderItem[]
@@ -38,23 +42,48 @@ model OrderItem {
 
 
 model Product {
-  id           String      @id @default(cuid())
+  id            String      @id @default(cuid())
 
-  name         String
-  sku          String      @unique
-  barcode      String      @unique
-  category     String
-  size         String?
-  color        String?
-  costPrice    Float
-  sellingPrice Float
-  gst          Float       @default(0)
-  stock        Int         @default(0)
-  supplier     String?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @default(now()) @updatedAt
-  items        OrderItem[]
+  name          String
+  sku           String      @unique
+  barcode       String      @unique
+  category      String
+  productType   String      @default("UNIT") // UNIT | WEIGHTED
+  size          String?
+  color         String?
+  costPrice     Float       // purchase price (per unit, or per KG for weighted)
+  sellingPrice  Float       // selling price (per unit, or per KG for weighted)
+  gst           Float       @default(0)
+  stock         Float       @default(0) // units, or KG for weighted (supports fractions)
+  minSellWeight Float?      // weighted only: smallest sellable weight (KG)
+  supplier      String?
+  expiryDate    DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @default(now()) @updatedAt
+  items         OrderItem[]
 
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+
+  name      String
+  phone     String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  orders    Order[]
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+
+  name      String
+  phone     String?
+  address   String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
 

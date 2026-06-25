@@ -96,6 +96,40 @@ async function changePassword(req: LocalRequest): Promise<LocalResponse> {
   return ok({ message: 'Password changed successfully' });
 }
 
+/**
+ * Self-service sign up with Full Name + PIN. The very first account created on
+ * a device becomes ADMIN; everyone after is a CASHIER. The PIN is stored only
+ * as a bcrypt hash (reusing the password column).
+ */
+async function register(req: LocalRequest): Promise<LocalResponse> {
+  const name = String(req.body?.name || '').trim();
+  const pin = String(req.body?.pin || '').trim();
+  if (!name) return err(400, 'Full name is required');
+  if (!/^\d{4,8}$/.test(pin)) return err(400, 'PIN must be 4 to 8 digits');
+
+  const userCount = (await query<{ c: number }>(`SELECT COUNT(*) AS c FROM User`))[0]?.c ?? 0;
+  const role = userCount === 0 ? 'ADMIN' : 'CASHIER';
+
+  // Derive a unique employeeId from the name.
+  const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 16) || 'user';
+  let employeeId = base;
+  for (let i = 1; (await query<any>(`SELECT id FROM User WHERE employeeId = ?`, [employeeId])).length > 0; i++) {
+    employeeId = `${base}-${i}`;
+  }
+
+  const ts = nowIso();
+  const id = uuid();
+  const hashed = await bcrypt.hash(pin, 10);
+  await run(
+    `INSERT INTO User (id, employeeId, name, role, phone, password, isActive, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, NULL, ?, 1, ?, ?)`,
+    [id, employeeId, name, role, hashed, ts, ts]
+  );
+  const user = (await query<any>(`SELECT * FROM User WHERE id = ?`, [id]))[0];
+  const token = encodeToken({ id: user.id, role: user.role, employeeId: user.employeeId });
+  return ok({ user: toUser(user), token }, 201);
+}
+
 // ---- Authorization guards ----------------------------------------------
 
 async function getAdmin(req: LocalRequest): Promise<any | null> {
@@ -227,7 +261,7 @@ async function listProducts(req: LocalRequest): Promise<LocalResponse> {
   return ok({ products, total, page, limit, hasMore: skip + products.length < total });
 }
 
-const PRODUCT_FIELDS = ['name', 'sku', 'barcode', 'category', 'size', 'color', 'costPrice', 'sellingPrice', 'gst', 'stock', 'supplier'];
+const PRODUCT_FIELDS = ['name', 'sku', 'barcode', 'category', 'productType', 'size', 'color', 'costPrice', 'sellingPrice', 'gst', 'stock', 'minSellWeight', 'supplier', 'expiryDate'];
 
 async function createProduct(req: LocalRequest): Promise<LocalResponse> {
   if (!(await authorizeAdminOrKey(req))) return err(403, 'Forbidden: Admin verification required');
@@ -236,11 +270,12 @@ async function createProduct(req: LocalRequest): Promise<LocalResponse> {
   const id = uuid();
   try {
     await run(
-      `INSERT INTO Product (id, name, sku, barcode, category, size, color, costPrice, sellingPrice, gst, stock, supplier, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO Product (id, name, sku, barcode, category, productType, size, color, costPrice, sellingPrice, gst, stock, minSellWeight, supplier, expiryDate, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        id, d.name, d.sku, d.barcode, d.category, d.size ?? null, d.color ?? null,
-        d.costPrice, d.sellingPrice, d.gst ?? 0, d.stock ?? 0, d.supplier ?? null, ts, ts,
+        id, d.name, d.sku, d.barcode, d.category, d.productType === 'WEIGHTED' ? 'WEIGHTED' : 'UNIT',
+        d.size ?? null, d.color ?? null, d.costPrice, d.sellingPrice, d.gst ?? 0, d.stock ?? 0,
+        d.minSellWeight ?? null, d.supplier ?? null, d.expiryDate ?? null, ts, ts,
       ]
     );
   } catch {
@@ -288,9 +323,12 @@ async function fetchIntelInput(): Promise<IntelligenceInput> {
     `SELECT id, name, sku, category, supplier, costPrice, sellingPrice, gst, stock, createdAt FROM Product`
   );
   const orders = await query<any>(
-    `SELECT id, date, totalAmount, gstAmount, customerName, customerMobile FROM "Order"`
+    `SELECT id, date, totalAmount, gstAmount, customerName, customerMobile FROM "Order" WHERE status != 'REFUNDED'`
   );
-  const items = await query<any>(`SELECT orderId, productId, quantity, price FROM OrderItem`);
+  const items = await query<any>(
+    `SELECT oi.orderId, oi.productId, oi.quantity, oi.price
+     FROM OrderItem oi JOIN "Order" o ON o.id = oi.orderId WHERE o.status != 'REFUNDED'`
+  );
   return { products, orders, items };
 }
 
@@ -346,11 +384,11 @@ async function createOrder(req: LocalRequest): Promise<LocalResponse> {
       const invoiceNo = `INV-${(count + 1).toString().padStart(4, '0')}`;
       const id = uuid();
       await run(
-        `INSERT INTO "Order" (id, invoiceNo, date, totalAmount, gstAmount, paymentMethod, customerName, customerMobile, userId)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO "Order" (id, invoiceNo, date, totalAmount, gstAmount, paymentMethod, status, customerName, customerMobile, customerId, userId)
+         VALUES (?, ?, ?, ?, ?, ?, 'COMPLETED', ?, ?, ?, ?)`,
         [
           id, invoiceNo, nowIso(), d.totalAmount, d.gstAmount ?? 0, d.paymentMethod,
-          d.customerName ?? null, d.customerMobile ?? null, d.userId ?? null,
+          d.customerName ?? null, d.customerMobile ?? null, d.customerId ?? null, d.userId ?? null,
         ],
         false
       );
@@ -435,6 +473,126 @@ async function getOrder(orderId: string): Promise<LocalResponse> {
   return ok(order);
 }
 
+/**
+ * Refunds an order: restocks every line item and marks the order REFUNDED.
+ * Profit/revenue analytics exclude refunded orders, so the reversal is
+ * reflected automatically. Idempotent — refunding twice is a no-op error.
+ */
+async function refundOrder(req: LocalRequest, orderId: string): Promise<LocalResponse> {
+  if (!(await authorizeAdminOrKey(req))) return err(403, 'Forbidden: Admin verification required');
+  try {
+    await transaction(async () => {
+      const order = (await query<any>(`SELECT * FROM "Order" WHERE id = ?`, [orderId]))[0];
+      if (!order) throw new Error('Order not found');
+      if (order.status === 'REFUNDED') throw new Error('Order already refunded');
+
+      const items = await query<any>(`SELECT productId, quantity FROM OrderItem WHERE orderId = ?`, [orderId]);
+      for (const item of items) {
+        await run(`UPDATE Product SET stock = stock + ? WHERE id = ?`, [item.quantity, item.productId], false);
+      }
+      await run(`UPDATE "Order" SET status = 'REFUNDED', refundedAt = ? WHERE id = ?`, [nowIso(), orderId], false);
+    });
+  } catch (e: any) {
+    return err(400, e?.message || 'Failed to refund order');
+  }
+  return ok(await buildOrderWithItems(orderId));
+}
+
+// ---- Customers ----------------------------------------------------------
+
+async function listCustomers(): Promise<LocalResponse> {
+  const rows = await query<any>(
+    `SELECT c.*,
+       (SELECT COUNT(*) FROM "Order" o WHERE o.customerId = c.id AND o.status != 'REFUNDED') AS totalOrders,
+       (SELECT COALESCE(SUM(o.totalAmount), 0) FROM "Order" o WHERE o.customerId = c.id AND o.status != 'REFUNDED') AS totalSpent
+     FROM Customer c ORDER BY c.name ASC`
+  );
+  return ok(rows);
+}
+
+async function getCustomer(id: string): Promise<LocalResponse> {
+  const customer = (await query<any>(`SELECT * FROM Customer WHERE id = ?`, [id]))[0];
+  if (!customer) return err(404, 'Customer not found');
+  const orders = await query<any>(
+    `SELECT id, invoiceNo, date, totalAmount, status, paymentMethod FROM "Order" WHERE customerId = ? ORDER BY date DESC`,
+    [id]
+  );
+  const totalSpent = orders.filter((o) => o.status !== 'REFUNDED').reduce((s, o) => s + o.totalAmount, 0);
+  return ok({ ...customer, orders, totalOrders: orders.filter((o) => o.status !== 'REFUNDED').length, totalSpent });
+}
+
+async function createCustomer(req: LocalRequest): Promise<LocalResponse> {
+  const d = req.body || {};
+  if (!d.name) return err(400, 'Customer name is required');
+  const ts = nowIso();
+  const id = uuid();
+  await run(
+    `INSERT INTO Customer (id, name, phone, notes, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)`,
+    [id, d.name, d.phone ?? null, d.notes ?? null, ts, ts]
+  );
+  return ok((await query<any>(`SELECT * FROM Customer WHERE id = ?`, [id]))[0], 201);
+}
+
+async function updateCustomer(req: LocalRequest, id: string): Promise<LocalResponse> {
+  const d = req.body || {};
+  const fields: string[] = [];
+  const params: any[] = [];
+  for (const f of ['name', 'phone', 'notes']) {
+    if (d[f] !== undefined) { fields.push(`${f} = ?`); params.push(d[f]); }
+  }
+  if (fields.length === 0) return err(400, 'Nothing to update');
+  fields.push('updatedAt = ?'); params.push(nowIso());
+  await run(`UPDATE Customer SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
+  return ok((await query<any>(`SELECT * FROM Customer WHERE id = ?`, [id]))[0]);
+}
+
+async function deleteCustomer(id: string): Promise<LocalResponse> {
+  await run(`UPDATE "Order" SET customerId = NULL WHERE customerId = ?`, [id]);
+  await run(`DELETE FROM Customer WHERE id = ?`, [id]);
+  return ok(null, 204);
+}
+
+// ---- Suppliers ----------------------------------------------------------
+
+async function listSuppliers(): Promise<LocalResponse> {
+  const rows = await query<any>(
+    `SELECT s.*,
+       (SELECT COUNT(*) FROM Product p WHERE p.supplier = s.name) AS linkedProducts
+     FROM Supplier s ORDER BY s.name ASC`
+  );
+  return ok(rows);
+}
+
+async function createSupplier(req: LocalRequest): Promise<LocalResponse> {
+  const d = req.body || {};
+  if (!d.name) return err(400, 'Supplier name is required');
+  const ts = nowIso();
+  const id = uuid();
+  await run(
+    `INSERT INTO Supplier (id, name, phone, address, notes, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [id, d.name, d.phone ?? null, d.address ?? null, d.notes ?? null, ts, ts]
+  );
+  return ok((await query<any>(`SELECT * FROM Supplier WHERE id = ?`, [id]))[0], 201);
+}
+
+async function updateSupplier(req: LocalRequest, id: string): Promise<LocalResponse> {
+  const d = req.body || {};
+  const fields: string[] = [];
+  const params: any[] = [];
+  for (const f of ['name', 'phone', 'address', 'notes']) {
+    if (d[f] !== undefined) { fields.push(`${f} = ?`); params.push(d[f]); }
+  }
+  if (fields.length === 0) return err(400, 'Nothing to update');
+  fields.push('updatedAt = ?'); params.push(nowIso());
+  await run(`UPDATE Supplier SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
+  return ok((await query<any>(`SELECT * FROM Supplier WHERE id = ?`, [id]))[0]);
+}
+
+async function deleteSupplier(id: string): Promise<LocalResponse> {
+  await run(`DELETE FROM Supplier WHERE id = ?`, [id]);
+  return ok(null, 204);
+}
+
 // ---- Settings -----------------------------------------------------------
 
 async function getSettings(): Promise<LocalResponse> {
@@ -475,11 +633,11 @@ async function analyticsSummary(): Promise<LocalResponse> {
   const today = startOfTodayIso();
   const agg = (await query<any>(
     `SELECT COALESCE(SUM(totalAmount), 0) AS revenue, COALESCE(SUM(gstAmount), 0) AS gst, COUNT(*) AS orders
-     FROM "Order" WHERE date >= ?`,
+     FROM "Order" WHERE date >= ? AND status != 'REFUNDED'`,
     [today]
   ))[0];
   const breakdown = await query<any>(
-    `SELECT paymentMethod, SUM(totalAmount) AS total FROM "Order" WHERE date >= ? GROUP BY paymentMethod`,
+    `SELECT paymentMethod, SUM(totalAmount) AS total FROM "Order" WHERE date >= ? AND status != 'REFUNDED' GROUP BY paymentMethod`,
     [today]
   );
   return ok({
@@ -494,7 +652,7 @@ async function analyticsSales(): Promise<LocalResponse> {
   const since = new Date();
   since.setDate(since.getDate() - 7);
   since.setHours(0, 0, 0, 0);
-  const orders = await query<any>(`SELECT date, totalAmount FROM "Order" WHERE date >= ? ORDER BY date ASC`, [since.toISOString()]);
+  const orders = await query<any>(`SELECT date, totalAmount FROM "Order" WHERE date >= ? AND status != 'REFUNDED' ORDER BY date ASC`, [since.toISOString()]);
   const daily: Record<string, number> = {};
   for (const o of orders) {
     const day = String(o.date).split('T')[0];
@@ -512,6 +670,7 @@ export async function handleLocalRequest(req: LocalRequest): Promise<LocalRespon
   const { method, path } = req;
   try {
     if (path === '/api/auth/login' && method === 'POST') return await login(req);
+    if (path === '/api/auth/register' && method === 'POST') return await register(req);
     if (path === '/api/auth/change-password' && method === 'POST') return await changePassword(req);
 
     if (path === '/api/users' && method === 'GET') return await listUsers(req);
@@ -531,7 +690,19 @@ export async function handleLocalRequest(req: LocalRequest): Promise<LocalRespon
 
     if (path === '/api/orders' && method === 'POST') return await createOrder(req);
     if (path === '/api/orders' && method === 'GET') return await listOrders(req);
+    if ((m = path.match(/^\/api\/orders\/([^/]+)\/refund$/)) && method === 'POST') return await refundOrder(req, m[1]);
     if ((m = path.match(/^\/api\/orders\/([^/]+)$/)) && method === 'GET') return await getOrder(m[1]);
+
+    if (path === '/api/customers' && method === 'GET') return await listCustomers();
+    if (path === '/api/customers' && method === 'POST') return await createCustomer(req);
+    if ((m = path.match(/^\/api\/customers\/([^/]+)$/)) && method === 'GET') return await getCustomer(m[1]);
+    if ((m = path.match(/^\/api\/customers\/([^/]+)$/)) && method === 'PUT') return await updateCustomer(req, m[1]);
+    if ((m = path.match(/^\/api\/customers\/([^/]+)$/)) && method === 'DELETE') return await deleteCustomer(m[1]);
+
+    if (path === '/api/suppliers' && method === 'GET') return await listSuppliers();
+    if (path === '/api/suppliers' && method === 'POST') return await createSupplier(req);
+    if ((m = path.match(/^\/api\/suppliers\/([^/]+)$/)) && method === 'PUT') return await updateSupplier(req, m[1]);
+    if ((m = path.match(/^\/api\/suppliers\/([^/]+)$/)) && method === 'DELETE') return await deleteSupplier(m[1]);
 
     if (path === '/api/settings' && method === 'GET') return await getSettings();
     if (path === '/api/settings' && method === 'PUT') return await updateSettings(req);
