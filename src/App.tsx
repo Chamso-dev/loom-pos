@@ -7,7 +7,7 @@ import BillingPage from './components/billing/BillingPage'
 import Dashboard from './components/dashboard/Dashboard'
 import OrderHistoryPage from './components/orders/OrderHistoryPage'
 import SettingsPage from './components/settings/SettingsPage'
-import StaffPage from './components/settings/StaffPage'
+import ManagementPage from './components/settings/ManagementPage'
 import LoginPage from './components/auth/LoginPage'
 import SignUpPage from './components/auth/SignUpPage'
 import AuthGuard from './components/auth/AuthGuard'
@@ -76,7 +76,7 @@ function AppContent() {
         <Route path="/billing" element={<BillingPage />} />
         <Route path="/orders" element={<OrderHistoryPage />} />
         <Route path="/settings" element={<AuthGuard requiredRole="ADMIN"><SettingsPage /></AuthGuard>} />
-        <Route path="/staff" element={<AuthGuard requiredRole="ADMIN"><StaffPage /></AuthGuard>} />
+        <Route path="/management" element={<AuthGuard requiredRole="ADMIN"><ManagementPage /></AuthGuard>} />
       </Route>
     </Routes>
   )

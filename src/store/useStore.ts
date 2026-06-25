@@ -121,6 +121,15 @@ interface AppState {
   customers: Customer[]
   fetchCustomers: () => Promise<void>
   addCustomer: (data: { name: string; phone?: string | null; notes?: string | null }) => Promise<Customer | null>
+  updateCustomer: (id: string, data: { name?: string; phone?: string | null; notes?: string | null }) => Promise<boolean>
+  deleteCustomer: (id: string) => Promise<boolean>
+
+  // Suppliers State
+  suppliers: Supplier[]
+  fetchSuppliers: () => Promise<void>
+  addSupplier: (data: { name: string; phone?: string | null; address?: string | null; notes?: string | null }) => Promise<Supplier | null>
+  updateSupplier: (id: string, data: any) => Promise<boolean>
+  deleteSupplier: (id: string) => Promise<boolean>
 
   // Billing / refunds
   refundOrder: (id: string) => Promise<{ success: boolean; error?: string }>
@@ -129,13 +138,7 @@ interface AppState {
   lowStockProducts: Product[]
   fetchLowStockAlerts: () => Promise<void>
 
-  // Users State (Admin)
-  users: User[]
-  fetchUsers: () => Promise<void>
-  addUser: (userData: any) => Promise<void>
-  updateUser: (id: string, userData: any) => Promise<void>
-  requestResetToken: (staffId: string, adminPassword?: string) => Promise<{ success: boolean, resetToken?: string, token?: string, error?: string }>
-  resetStaffPassword: (staffId: string, token: string, newPassword: string) => Promise<{ success: boolean, error?: string }>
+  // Account
   changePassword: (employeeId: string, currentPassword: string, newPassword: string) => Promise<{ success: boolean, error?: string }>
 }
 
@@ -448,92 +451,70 @@ export const useStore = create<AppState>()(
         }
       },
 
-      // Users (Admin)
-      users: [],
-      fetchUsers: async () => {
+      // Management: customer mutations (list/add live in the Customers section above)
+      updateCustomer: async (id, data) => {
         try {
-          const response = await fetch('/api/users', {
-            headers: { 'Authorization': `Bearer ${get().token}` }
-          })
-          if (!response.ok) throw new Error('Failed to fetch users')
-          const users = await response.json()
-          set({ users })
-        } catch (error) {
-          console.error('Failed to fetch users:', error)
-        }
-      },
-      addUser: async (userData) => {
-        try {
-          const response = await fetch('/api/users', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${get().token}` },
-            body: JSON.stringify(userData),
-          })
-          if (!response.ok) throw new Error('Failed to add user')
-          const newUser = await response.json()
-          set((state) => ({ users: [newUser, ...state.users] }))
-        } catch (error) {
-          console.error('Failed to add user:', error)
-        }
-      },
-      updateUser: async (id, userData) => {
-        try {
-          const response = await fetch(`/api/users/${id}`, {
+          const res = await fetch(`/api/customers/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${get().token}` },
-            body: JSON.stringify(userData),
+            body: JSON.stringify(data),
           })
-          if (!response.ok) throw new Error('Failed to update user')
-          const updatedUser = await response.json()
-          set((state) => ({
-            users: state.users.map((u) => (u.id === id ? updatedUser : u)),
-          }))
-        } catch (error) {
-          console.error('Failed to update user:', error)
-        }
+          if (!res.ok) return false
+          await get().fetchCustomers()
+          return true
+        } catch { return false }
       },
-      requestResetToken: async (staffId, adminPassword) => {
-        const adminUser = get().user;
-        const token = get().token;
-        if (!adminUser || adminUser.role !== 'ADMIN' || !token) {
-          return { success: false, error: 'Unauthorized: Admin access required' };
-        }
+      deleteCustomer: async (id) => {
+        try {
+          const res = await fetch(`/api/customers/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${get().token}` } })
+          if (!res.ok && res.status !== 204) return false
+          set((state) => ({ customers: state.customers.filter((c) => c.id !== id) }))
+          return true
+        } catch { return false }
+      },
 
+      // Management: suppliers
+      suppliers: [],
+      fetchSuppliers: async () => {
         try {
-          const response = await fetch(`/api/users/${staffId}/reset-token`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
-          });
-          
-          if (!response.ok) {
-            const data = await response.json();
-            return { success: false, error: data.error || 'Verification failed' };
-          }
-          
-          const { token: resetToken } = await response.json();
-          return { success: true, resetToken };
-        } catch (error) {
-          return { success: false, error: 'Connection failure' };
-        }
+          const res = await fetch('/api/suppliers', { headers: { 'Authorization': `Bearer ${get().token}` } })
+          if (res.ok) set({ suppliers: await res.json() })
+        } catch (e) { console.error('Failed to fetch suppliers', e) }
       },
-      resetStaffPassword: async (staffId, resetToken, newPassword) => {
+      addSupplier: async (data) => {
         try {
-          const response = await fetch(`/api/users/${staffId}/reset-password`, {
+          const res = await fetch('/api/suppliers', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${get().token}` },
-            body: JSON.stringify({ token: resetToken, newPassword })
-          });
-          
-          if (!response.ok) {
-            const data = await response.json();
-            return { success: false, error: data.error || 'Failed to reset password' };
-          }
-          
-          return { success: true };
-        } catch (error) {
-          return { success: false, error: 'Connection failure' };
-        }
+            body: JSON.stringify(data),
+          })
+          if (!res.ok) return null
+          const created = await res.json()
+          await get().fetchSuppliers()
+          return created
+        } catch { return null }
       },
+      updateSupplier: async (id, data) => {
+        try {
+          const res = await fetch(`/api/suppliers/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${get().token}` },
+            body: JSON.stringify(data),
+          })
+          if (!res.ok) return false
+          await get().fetchSuppliers()
+          return true
+        } catch { return false }
+      },
+      deleteSupplier: async (id) => {
+        try {
+          const res = await fetch(`/api/suppliers/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${get().token}` } })
+          if (!res.ok && res.status !== 204) return false
+          set((state) => ({ suppliers: state.suppliers.filter((s) => s.id !== id) }))
+          return true
+        } catch { return false }
+      },
+
       changePassword: async (employeeId, currentPassword, newPassword) => {
         try {
           const response = await fetch('/api/auth/change-password', {

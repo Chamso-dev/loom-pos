@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Package, ShoppingCart, History, Settings, Users } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingCart, History, Settings, Contact } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store/useStore'
@@ -9,7 +9,7 @@ const NAV_ITEMS = [
   { icon: Package, label: 'Stock', href: '/inventory', roles: ['ADMIN', 'CASHIER'] },
   { icon: ShoppingCart, label: 'Billing', href: '/billing', roles: ['ADMIN', 'CASHIER'] },
   { icon: History, label: 'Orders', href: '/orders', roles: ['ADMIN', 'CASHIER'] },
-  { icon: Users, label: 'Staff', href: '/staff', roles: ['ADMIN'] },
+  { icon: Contact, label: 'Manage', href: '/management', roles: ['ADMIN'] },
   { icon: Settings, label: 'Settings', href: '/settings', roles: ['ADMIN'] },
 ]
 
