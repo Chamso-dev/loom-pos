@@ -39,9 +39,9 @@ export default function Shell({ children }: ShellProps) {
   }, [theme])
 
   return (
-    <div className="h-[100dvh] flex flex-col overflow-hidden bg-background font-sans selection:bg-primary/20 selection:text-primary">
+    <div className="app-shell h-[100dvh] flex flex-col overflow-hidden bg-background font-sans selection:bg-primary/20 selection:text-primary">
       <Header />
-      <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain custom-scrollbar">
+      <main className="app-main flex-1 min-h-0 overflow-y-auto overscroll-y-contain custom-scrollbar">
         <div className="px-4 pt-4 pb-8">
           {children}
         </div>
