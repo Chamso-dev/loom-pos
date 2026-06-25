@@ -177,16 +177,6 @@
 }
 
 @layer utilities {
-  /* Live scanner: make the app see-through so the native camera (rendered
-     behind the webview) is visible. The basket UI floats on top. */
-  html.scanner-active,
-  html.scanner-active body,
-  html.scanner-active #root,
-  html.scanner-active .app-shell,
-  html.scanner-active .app-main {
-    background-color: transparent !important;
-  }
-
   @keyframes scan-flash {
     0% { opacity: 0; }
     25% { opacity: 1; }
