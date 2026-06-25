@@ -668,6 +668,89 @@ async function analyticsSales(): Promise<LocalResponse> {
   return ok(result);
 }
 
+/**
+ * Single aggregate for the business dashboard: today's profit/revenue/units,
+ * stock + refunds, best-seller & most-profitable products, low-stock & expiry
+ * alerts, customer/supplier counts, and recent transactions.
+ */
+async function analyticsDashboard(): Promise<LocalResponse> {
+  const today = startOfTodayIso();
+  const now = Date.now();
+
+  const products = await query<any>(`SELECT id, name, productType, costPrice, sellingPrice, stock, expiryDate FROM Product`);
+  const productMap = new Map<string, any>(products.map((p) => [p.id, p]));
+
+  const todayOrders = await query<any>(`SELECT id, totalAmount FROM "Order" WHERE date >= ? AND status != 'REFUNDED'`, [today]);
+  const todayIds = new Set(todayOrders.map((o) => o.id));
+  const todayRevenue = todayOrders.reduce((s, o) => s + o.totalAmount, 0);
+
+  const refunds = (await query<any>(`SELECT COUNT(*) AS c, COALESCE(SUM(totalAmount), 0) AS amt FROM "Order" WHERE refundedAt >= ?`, [today]))[0];
+
+  // All non-refunded line items (all-time) for ranking + today's slice.
+  const items = await query<any>(
+    `SELECT oi.productId, oi.quantity, oi.price, oi.orderId
+     FROM OrderItem oi JOIN "Order" o ON o.id = oi.orderId WHERE o.status != 'REFUNDED'`
+  );
+
+  let todayProfit = 0;
+  let productsSoldToday = 0;
+  const agg = new Map<string, { qty: number; profit: number }>();
+  for (const it of items) {
+    const cost = productMap.get(it.productId)?.costPrice ?? 0;
+    const lineProfit = (it.price - cost) * it.quantity;
+    if (todayIds.has(it.orderId)) {
+      todayProfit += lineProfit;
+      productsSoldToday += it.quantity;
+    }
+    const a = agg.get(it.productId) || { qty: 0, profit: 0 };
+    a.qty += it.quantity;
+    a.profit += lineProfit;
+    agg.set(it.productId, a);
+  }
+
+  let bestSelling: any = null;
+  let mostProfitable: any = null;
+  for (const [pid, a] of agg) {
+    const p = productMap.get(pid);
+    if (!p) continue;
+    if (!bestSelling || a.qty > bestSelling.qty) bestSelling = { id: pid, name: p.name, qty: round1(a.qty) };
+    if (!mostProfitable || a.profit > mostProfitable.profit) mostProfitable = { id: pid, name: p.name, profit: a.profit };
+  }
+
+  const lowStock = products.filter((p) => p.stock < (p.productType === 'WEIGHTED' ? 2 : 10));
+  const expiring = products
+    .filter((p) => p.expiryDate)
+    .map((p) => ({ id: p.id, name: p.name, days: Math.ceil((new Date(p.expiryDate).getTime() - now) / 86400000) }))
+    .filter((p) => p.days <= 7)
+    .sort((a, b) => a.days - b.days);
+
+  const totalCustomers = (await query<{ c: number }>(`SELECT COUNT(*) AS c FROM Customer`))[0]?.c ?? 0;
+  const totalSuppliers = (await query<{ c: number }>(`SELECT COUNT(*) AS c FROM Supplier`))[0]?.c ?? 0;
+  const recent = await query<any>(
+    `SELECT id, invoiceNo, date, totalAmount, status, paymentMethod, customerName FROM "Order" ORDER BY date DESC LIMIT 8`
+  );
+
+  return ok({
+    todayProfit,
+    todayRevenue,
+    productsSoldToday: round1(productsSoldToday),
+    totalStock: round1(products.reduce((s, p) => s + (p.stock || 0), 0)),
+    totalProducts: products.length,
+    refundsToday: { count: refunds?.c ?? 0, amount: refunds?.amt ?? 0 },
+    bestSelling,
+    mostProfitable,
+    lowStock: { count: lowStock.length, items: lowStock.slice(0, 3).map((p) => ({ id: p.id, name: p.name, stock: round1(p.stock), weighted: p.productType === 'WEIGHTED' })) },
+    expiry: { count: expiring.length, items: expiring.slice(0, 3) },
+    totalCustomers,
+    totalSuppliers,
+    recent,
+  });
+}
+
+function round1(n: number): number {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
+
 // ---- Router -------------------------------------------------------------
 
 export async function handleLocalRequest(req: LocalRequest): Promise<LocalResponse> {
@@ -711,6 +794,7 @@ export async function handleLocalRequest(req: LocalRequest): Promise<LocalRespon
     if (path === '/api/settings' && method === 'GET') return await getSettings();
     if (path === '/api/settings' && method === 'PUT') return await updateSettings(req);
 
+    if (path === '/api/analytics/dashboard' && method === 'GET') return await analyticsDashboard();
     if (path === '/api/analytics/summary' && method === 'GET') return await analyticsSummary();
     if (path === '/api/analytics/sales' && method === 'GET') return await analyticsSales();
     if (path === '/api/analytics/intelligence' && method === 'GET') return await analyticsIntelligence();
