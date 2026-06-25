@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { LayoutGrid, User, ShoppingBag } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useStore } from '@/store/useStore'
+import { productDisplayName } from '@/lib/utils'
 import { scanBeep } from '@/native/liveScanner'
 import EmbeddedScanner, { type ScanFeedback } from './EmbeddedScanner'
 import ScannerInput from './ScannerInput'
@@ -48,11 +49,12 @@ export default function BillingPage() {
     const ok = await addByBarcode(value)
     if (ok) {
       const product = useStore.getState().products.find((p) => p.barcode === value)
-      console.log('[scanner] product added to cart:', product?.name ?? value)
+      const label = product ? productDisplayName(product.name, product.size) : ''
+      console.log('[scanner] product added to cart:', label || value)
       scanBeep()
       navigator.vibrate?.(60) // haptic confirmation where supported
       showFeedback(
-        { id: now, variant: 'success', text: product?.name ? `Added · ${product.name}` : 'Product Added To Cart' },
+        { id: now, variant: 'success', text: label ? `Added · ${label}` : 'Product Added To Cart' },
         1100,
       )
     } else {

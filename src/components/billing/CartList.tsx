@@ -1,6 +1,6 @@
 import { Trash2, Minus, Plus, ShoppingBag } from 'lucide-react'
 import { useStore } from '@/store/useStore'
-import { formatCurrency, cn } from '@/lib/utils'
+import { formatCurrency, cn, productDisplayName } from '@/lib/utils'
 
 export default function CartList() {
   const { cart, removeFromCart, updateQuantity } = useStore()
@@ -24,7 +24,7 @@ export default function CartList() {
           <div key={item.id} className="bg-card border border-border rounded-2xl p-3.5 shadow-sm">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground truncate tracking-tight">{item.name}</p>
+                <p className="text-sm font-semibold text-foreground truncate tracking-tight">{productDisplayName(item.name, item.size)}</p>
                 <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                   <span className="text-[9px] bg-secondary px-1.5 py-0.5 rounded border border-border font-mono text-muted-foreground">{item.sku}</span>
                   {isWeighted && <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase">Weighed</span>}

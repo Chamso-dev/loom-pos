@@ -1,4 +1,4 @@
-import { formatCurrency, cn } from '@/lib/utils'
+import { formatCurrency, cn, productDisplayName } from '@/lib/utils'
 import { format } from 'date-fns'
 import { useStore } from '@/store/useStore'
 
@@ -69,8 +69,8 @@ export const A4Invoice = ({ order }: ReceiptProps) => {
             {order.items.map((item: any, idx: number) => (
               <tr key={idx} className="border-b border-gray-100 italic">
                 <td className="py-4">
-                  <p className="font-bold not-italic">{item.product.name}</p>
-                  <p className="text-xs opacity-60 uppercase font-mono">{item.product.category}{item.product.size ? ` | ${item.product.size}` : ''}</p>
+                  <p className="font-bold not-italic">{productDisplayName(item.product.name, item.product.size)}</p>
+                  <p className="text-xs opacity-60 uppercase font-mono">{item.product.category}</p>
                 </td>
                 <td className="py-4 text-center">{item.quantity}</td>
                 <td className="py-4 text-right">{formatCurrency(item.price)}</td>
@@ -143,7 +143,7 @@ export const ThermalReceipt = ({ order }: ReceiptProps) => {
         {order.items.map((item: any, idx: number) => (
           <div key={idx} className="mb-2">
              <div className="flex justify-between font-bold">
-                <span>{item.product.name}</span>
+                <span>{productDisplayName(item.product.name, item.product.size)}</span>
                 <span>{formatCurrency(item.price * item.quantity)}</span>
              </div>
              <div className="flex justify-between opacity-70 text-[10px]">

@@ -2,7 +2,7 @@ import { type Product, useStore } from '@/store/useStore'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Edit2, Trash2, Tag } from 'lucide-react'
 import BarcodeView from './BarcodeView'
-import { cn, formatCurrency } from '@/lib/utils'
+import { cn, formatCurrency, productDisplayName } from '@/lib/utils'
 
 interface InventoryTableProps {
   products: Product[]
@@ -81,7 +81,7 @@ export default function InventoryTable({
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-semibold text-foreground text-sm tracking-tight truncate">{product.name}</p>
+                    <p className="font-semibold text-foreground text-sm tracking-tight truncate">{productDisplayName(product.name, product.size)}</p>
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">{product.category}</p>
                   </div>
                   <div className="text-right shrink-0">

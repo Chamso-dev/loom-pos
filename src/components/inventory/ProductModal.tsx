@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { NumberField, toNum } from '@/components/ui/number-field'
 import { useStore, type Product } from '@/store/useStore'
 import { X, Save, RefreshCw, Package, Scale, Camera, Truck } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, productDisplayName } from '@/lib/utils'
 import { isCameraScanSupported, scanBarcode } from '@/native/scanner'
 
 interface ProductModalProps {
@@ -17,6 +17,7 @@ interface ProductModalProps {
 
 type FormState = {
   name: string
+  size: string
   category: string
   barcode: string
   productType: 'UNIT' | 'WEIGHTED'
@@ -36,7 +37,7 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
   const defaultRate = settings?.defaultTaxRate ?? 19
 
   const blank = (): FormState => ({
-    name: '', category: '', barcode: '', productType: 'UNIT',
+    name: '', size: '', category: '', barcode: '', productType: 'UNIT',
     costPrice: '', sellingPrice: '', stock: '', minSellWeight: '0.25',
     gst: String(defaultRate), supplier: '', expiryDate: '', taxOverride: false,
   })
@@ -54,6 +55,7 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
     if (product) {
       setForm({
         name: product.name,
+        size: product.size || '',
         category: product.category,
         barcode: product.barcode || '',
         productType: product.productType === 'WEIGHTED' ? 'WEIGHTED' : 'UNIT',
@@ -104,6 +106,7 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
     const gst = !taxEnabled ? 0 : form.taxOverride ? toNum(form.gst) : defaultRate
     const payload: any = {
       name: form.name.trim(),
+      size: form.size.trim() || null,
       sku: product?.sku || `SKU-${ts}`,
       barcode: form.barcode.trim() || `BR-${ts}`,
       category: form.category.trim(),
@@ -171,6 +174,16 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Product Name</Label>
               <Input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Tomatoes" className="h-11 text-sm" />
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Size / Weight (optional)</Label>
+              <Input value={form.size} onChange={(e) => set('size', e.target.value)} placeholder="e.g. 1L, 45g, 330ml" className="h-11 text-sm" />
+              {form.size.trim() && form.name.trim() && (
+                <p className="text-[11px] text-muted-foreground">
+                  Shown as <span className="font-semibold text-foreground">{productDisplayName(form.name, form.size)}</span>
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">

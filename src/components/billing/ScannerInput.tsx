@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { ScanBarcode } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { useStore } from '@/store/useStore'
-import { cn, formatCurrency } from '@/lib/utils'
+import { cn, formatCurrency, productDisplayName } from '@/lib/utils'
 
 export default function ScannerInput() {
   const [value, setValue] = useState('')
@@ -190,7 +190,7 @@ export default function ScannerInput() {
               )}
             >
               <div className="flex flex-col min-w-0 pr-4">
-                <span className="font-semibold text-xs truncate">{product.name}</span>
+                <span className="font-semibold text-xs truncate">{productDisplayName(product.name, product.size)}</span>
                 <span className={cn(
                   "text-[10px] mt-0.5 font-mono",
                   index === activeIndex ? "text-accent-foreground/80" : "text-muted-foreground"
