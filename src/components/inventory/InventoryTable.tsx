@@ -2,7 +2,7 @@ import { type Product, useStore } from '@/store/useStore'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Edit2, Trash2, Tag } from 'lucide-react'
 import BarcodeView from './BarcodeView'
-import { cn } from '@/lib/utils'
+import { cn, formatCurrency } from '@/lib/utils'
 
 interface InventoryTableProps {
   products: Product[]
@@ -82,7 +82,7 @@ export default function InventoryTable({
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">{product.category}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="font-bold text-foreground text-sm tabular-nums">₹{product.sellingPrice.toFixed(2)}</p>
+                    <p className="font-bold text-foreground text-sm tabular-nums">{formatCurrency(product.sellingPrice)}</p>
                     <p className="text-[9px] text-muted-foreground mt-0.5">GST {product.gst}%</p>
                   </div>
                 </div>

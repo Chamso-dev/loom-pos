@@ -3,8 +3,8 @@
  * encoded, ready to hand to the native BluetoothPrinter plugin.
  *
  * Mirrors the on-screen ThermalReceipt layout, but in plain ESC/POS so it
- * prints on any 58mm/80mm SPP printer. The rupee glyph is rendered as "Rs."
- * because thermal printers don't carry it in their default code page.
+ * prints on any 58mm/80mm SPP printer. Amounts are suffixed with "DA"
+ * (Algerian Dinar) in plain ASCII to stay within the printer's code page.
  */
 import { format } from 'date-fns';
 
@@ -100,7 +100,7 @@ class EscPosBuilder {
 }
 
 function money(n: number): string {
-  return 'Rs.' + (Number(n) || 0).toFixed(2);
+  return (Number(n) || 0).toFixed(2) + ' DA';
 }
 
 export function buildReceiptEscPos(

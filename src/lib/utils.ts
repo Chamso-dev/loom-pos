@@ -5,9 +5,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Formats a monetary amount in Algerian Dinar (DA).
+ * Uses grouped thousands and 2 decimals, with an explicit "DA" suffix so the
+ * symbol is unambiguous across locales and on thermal printers.
+ */
 export function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-  }).format(amount)
+  const n = (Number(amount) || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+  return `${n} DA`
 }

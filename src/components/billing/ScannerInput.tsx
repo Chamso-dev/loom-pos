@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { ScanBarcode, Camera } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { useStore } from '@/store/useStore'
-import { cn } from '@/lib/utils'
+import { cn, formatCurrency } from '@/lib/utils'
 import { isCameraScanSupported, scanBarcode } from '@/native/scanner'
 
 export default function ScannerInput() {
@@ -260,7 +260,7 @@ export default function ScannerInput() {
                   "font-semibold text-xs transition-colors",
                   index === activeIndex ? "text-accent-foreground" : "text-primary"
                 )}>
-                  ₹{product.sellingPrice.toFixed(2)}
+                  {formatCurrency(product.sellingPrice)}
                 </span>
               </div>
             </button>

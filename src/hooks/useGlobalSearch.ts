@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { formatCurrency } from '@/lib/utils'
 
 export interface SearchResult {
   id: string
@@ -41,7 +42,7 @@ export function useGlobalSearch() {
         const formattedOrders: SearchResult[] = (ordersData.orders || []).map((o: any) => ({
           id: o.id,
           title: o.invoiceNo,
-          subtitle: `${o.customerName || 'Cash'} • ₹${o.totalAmount}`,
+          subtitle: `${o.customerName || 'Cash'} • ${formatCurrency(o.totalAmount)}`,
           type: 'order',
           data: o
         }))
