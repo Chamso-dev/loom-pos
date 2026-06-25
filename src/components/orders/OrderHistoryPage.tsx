@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { 
-  Search, Calendar, Filter, Eye, Printer, ChevronRight, 
+import {
+  Search, Calendar, Filter, Eye, Printer, ChevronRight,
   CreditCard, Wallet, QrCode, ArrowLeft, RotateCw, X, Check,
-  ChevronDown, Trash2
+  ChevronDown, Trash2, RotateCcw
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatCurrency, cn } from '@/lib/utils'
 import { format, startOfDay, subDays, formatISO } from 'date-fns'
+import { useStore } from '@/store/useStore'
 import PrintReceiptPortal from '../billing/PrintReceiptPortal'
 
 export default function OrderHistoryPage() {
@@ -172,6 +173,24 @@ export default function OrderHistoryPage() {
     setPrintType(type)
   }
 
+  const { refundOrder } = useStore()
+  const [refunding, setRefunding] = useState(false)
+
+  const handleRefund = async () => {
+    if (!selectedOrder) return
+    if (!confirm('Refund this order? Stock will be restored and it will be excluded from revenue and profit.')) return
+    setRefunding(true)
+    const res = await refundOrder(selectedOrder.id)
+    setRefunding(false)
+    if (res.success) {
+      setSelectedOrder((o: any) => (o ? { ...o, status: 'REFUNDED' } : o))
+      setFullOrderData((o: any) => (o ? { ...o, status: 'REFUNDED' } : o))
+      setOrders((prev) => prev.map((o) => (o.id === selectedOrder.id ? { ...o, status: 'REFUNDED' } : o)))
+    } else {
+      alert(res.error || 'Refund failed')
+    }
+  }
+
   const getPaymentIcon = (method: string) => {
     switch (method) {
       case 'CASH': return <Wallet size={14} className="text-emerald-500" />
@@ -239,8 +258,13 @@ export default function OrderHistoryPage() {
               className="w-full text-left bg-card rounded-2xl border border-border p-3.5 shadow-sm active:scale-[0.99] transition-transform"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold font-mono text-foreground text-sm">{order.invoiceNo}</span>
-                <span className="font-bold text-foreground tabular-nums">{formatCurrency(order.totalAmount)}</span>
+                <span className="font-semibold font-mono text-foreground text-sm flex items-center gap-1.5">
+                  {order.invoiceNo}
+                  {order.status === 'REFUNDED' && (
+                    <span className="text-[8px] bg-destructive/10 text-destructive border border-destructive/20 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Refunded</span>
+                  )}
+                </span>
+                <span className={cn('font-bold tabular-nums', order.status === 'REFUNDED' ? 'text-muted-foreground line-through' : 'text-foreground')}>{formatCurrency(order.totalAmount)}</span>
               </div>
               <div className="flex items-center justify-between gap-2 mt-1.5">
                 <div className="min-w-0">
@@ -427,14 +451,14 @@ export default function OrderHistoryPage() {
                  </div>
 
                  <div className="grid grid-cols-2 gap-2">
-                    <Button 
+                    <Button
                       variant="outline"
                       onClick={() => handleReprint('A4')}
                       className="h-9 rounded-md text-xs font-medium"
                     >
                        <Printer size={14} className="mr-1.5" /> Reprint A4
                     </Button>
-                    <Button 
+                    <Button
                       variant="default"
                       onClick={() => handleReprint('Thermal')}
                       className="h-9 rounded-md text-xs font-medium"
@@ -442,6 +466,22 @@ export default function OrderHistoryPage() {
                        <Printer size={14} className="mr-1.5" /> Reprint 80mm
                     </Button>
                  </div>
+
+                 {selectedOrder.status === 'REFUNDED' ? (
+                    <div className="mt-2 flex items-center justify-center gap-1.5 h-10 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-bold uppercase tracking-wider">
+                       <RotateCcw size={14} /> Refunded
+                    </div>
+                 ) : (
+                    <Button
+                      variant="outline"
+                      onClick={handleRefund}
+                      disabled={refunding}
+                      className="mt-2 w-full h-10 rounded-xl text-xs font-semibold border-destructive/30 text-destructive hover:bg-destructive/10"
+                    >
+                       <RotateCcw size={14} className={cn('mr-1.5', refunding && 'animate-spin')} />
+                       {refunding ? 'Processing Refund...' : 'Refund Order'}
+                    </Button>
+                 )}
               </div>
            </div>
         </div>

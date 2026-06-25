@@ -117,6 +117,14 @@ interface AppState {
   fetchSettings: () => Promise<void>
   updateSettings: (settings: Partial<StoreSettings>) => Promise<void>
 
+  // Customers State
+  customers: Customer[]
+  fetchCustomers: () => Promise<void>
+  addCustomer: (data: { name: string; phone?: string | null; notes?: string | null }) => Promise<Customer | null>
+
+  // Billing / refunds
+  refundOrder: (id: string) => Promise<{ success: boolean; error?: string }>
+
   // Notification State
   lowStockProducts: Product[]
   fetchLowStockAlerts: () => Promise<void>
@@ -384,6 +392,50 @@ export const useStore = create<AppState>()(
       },
 
       // Notifications
+      customers: [],
+      fetchCustomers: async () => {
+        try {
+          const res = await fetch('/api/customers', { headers: { 'Authorization': `Bearer ${get().token}` } })
+          if (res.ok) set({ customers: await res.json() })
+        } catch (e) {
+          console.error('Failed to fetch customers', e)
+        }
+      },
+      addCustomer: async (data) => {
+        try {
+          const res = await fetch('/api/customers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${get().token}` },
+            body: JSON.stringify(data),
+          })
+          if (!res.ok) return null
+          const created = await res.json()
+          await get().fetchCustomers()
+          return created
+        } catch (e) {
+          console.error('Failed to add customer', e)
+          return null
+        }
+      },
+
+      refundOrder: async (id) => {
+        try {
+          const res = await fetch(`/api/orders/${id}/refund`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${get().token}` },
+          })
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}))
+            return { success: false, error: data.error || 'Refund failed' }
+          }
+          // Refresh products so restocked quantities reflect immediately.
+          get().fetchProducts()
+          return { success: true }
+        } catch (e) {
+          return { success: false, error: 'Connection error' }
+        }
+      },
+
       lowStockProducts: [],
       fetchLowStockAlerts: async () => {
         try {

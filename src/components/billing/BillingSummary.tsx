@@ -6,14 +6,14 @@ import { useStore } from '@/store/useStore'
 import { formatCurrency, cn } from '@/lib/utils'
 import PrintReceiptPortal from './PrintReceiptPortal'
 import PaymentModal from './PaymentModal'
+import CustomerPicker, { type BillingCustomer } from './CustomerPicker'
 
 export default function BillingSummary() {
   // ... existing logic ...
   const { cart, clearCart, user } = useStore()
   const [receiptType, setReceiptType] = useState<'A4' | 'Thermal'>('Thermal')
   const [lastOrder, setLastOrder] = useState<any>(null)
-  const [customerName, setCustomerName] = useState('')
-  const [customerMobile, setCustomerMobile] = useState('')
+  const [customer, setCustomer] = useState<BillingCustomer>({ customerId: null, name: '', mobile: '' })
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH')
@@ -60,9 +60,10 @@ export default function BillingSummary() {
         body: JSON.stringify({
           totalAmount: total,
           gstAmount: total - subtotal,
-          paymentMethod: method, 
-          customerName: customerName || null,
-          customerMobile: customerMobile || null,
+          paymentMethod: method,
+          customerId: customer.customerId,
+          customerName: customer.name || null,
+          customerMobile: customer.mobile || null,
           userId: user?.id,
           items: cart.map(item => ({
             productId: item.productId,
@@ -81,8 +82,7 @@ export default function BillingSummary() {
 
       const orderData = await response.json()
       setLastOrder(orderData)
-      setCustomerName('')
-      setCustomerMobile('')
+      setCustomer({ customerId: null, name: '', mobile: '' })
       setShowPaymentModal(false)
       setPaymentMethod('CASH')
       clearCart()
@@ -130,25 +130,9 @@ export default function BillingSummary() {
         </CardHeader>
       
       <CardContent className="p-4 space-y-4 custom-scrollbar">
-        {/* Customer Info Inputs */}
-        <div className="space-y-2 pb-1">
-           <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Customer Info</span>
-           <div className="grid grid-cols-1 gap-2">
-             <input 
-               type="text" 
-               placeholder="Customer Name"
-               value={customerName}
-               onChange={(e) => setCustomerName(e.target.value)}
-               className="w-full bg-accent/10 border border-border px-3 py-1.5 rounded-md text-xs placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition-all"
-             />
-             <input 
-               type="text" 
-               placeholder="Mobile Number"
-               value={customerMobile}
-               onChange={(e) => setCustomerMobile(e.target.value)}
-               className="w-full bg-accent/10 border border-border px-3 py-1.5 rounded-md text-xs placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition-all"
-             />
-           </div>
+        {/* Customer selection */}
+        <div className="pb-1">
+           <CustomerPicker value={customer} onChange={setCustomer} />
         </div>
         <div className="space-y-2">
           <div className="flex justify-between text-xs text-muted-foreground uppercase tracking-wider font-semibold">
