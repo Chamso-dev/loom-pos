@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Capacitor } from '@capacitor/core'
 import { CameraOff, Loader2, ScanLine, Power, Check, X, ScanBarcode } from 'lucide-react'
 import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser'
 import { BarcodeFormat, DecodeHintType } from '@zxing/library'
 import { cn } from '@/lib/utils'
+import { isMlkitAvailable, startMlkitScan, type MlkitScanHandle } from '@/native/mlkitScanner'
 
 /** Result feedback pushed in by the parent after a product lookup. */
 export interface ScanFeedback {
@@ -17,83 +17,67 @@ interface EmbeddedScannerProps {
   onDetect: (value: string) => void
   /** Transient result banner shown over the preview (detected / added / not-found). */
   feedback?: ScanFeedback | null
+  /** Show the "Your cart is empty" hint inside the card until the first scan. */
+  cartEmpty?: boolean
   className?: string
 }
 
 type Status = 'off' | 'starting' | 'live' | 'error'
 
-// Retail-oriented symbologies + QR/DataMatrix. ZXing decodes these reliably
-// inside the Android WebView, unlike the experimental BarcodeDetector API.
-const FORMATS = [
-  BarcodeFormat.EAN_13,
-  BarcodeFormat.EAN_8,
-  BarcodeFormat.UPC_A,
-  BarcodeFormat.UPC_E,
-  BarcodeFormat.CODE_128,
-  BarcodeFormat.CODE_39,
-  BarcodeFormat.CODE_93,
-  BarcodeFormat.ITF,
-  BarcodeFormat.CODABAR,
-  BarcodeFormat.QR_CODE,
-  BarcodeFormat.DATA_MATRIX,
+// Web-fallback (ZXing) symbologies — retail + QR/DataMatrix.
+const ZXING_FORMATS = [
+  BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E,
+  BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.CODE_93, BarcodeFormat.ITF,
+  BarcodeFormat.CODABAR, BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX,
 ]
 
-/**
- * Apply supermarket-scanner camera tuning to the live track: continuous
- * autofocus, continuous auto-exposure / white-balance, and a modest zoom to
- * help small close-range barcodes. All are applied only where the device
- * advertises support, so it degrades safely.
- */
 async function tuneTrackForBarcodes(track: MediaStreamTrack) {
   try {
     const caps: any = track.getCapabilities?.() ?? {}
     const advanced: any[] = []
-    if (Array.isArray(caps.focusMode) && caps.focusMode.includes('continuous')) {
-      advanced.push({ focusMode: 'continuous' })
-    }
-    if (Array.isArray(caps.exposureMode) && caps.exposureMode.includes('continuous')) {
-      advanced.push({ exposureMode: 'continuous' })
-    }
-    if (Array.isArray(caps.whiteBalanceMode) && caps.whiteBalanceMode.includes('continuous')) {
-      advanced.push({ whiteBalanceMode: 'continuous' })
-    }
-    // Gentle optical zoom (~1.6x, capped) makes 1D barcodes larger in-frame
-    // and noticeably easier to decode at close range.
+    if (Array.isArray(caps.focusMode) && caps.focusMode.includes('continuous')) advanced.push({ focusMode: 'continuous' })
+    if (Array.isArray(caps.exposureMode) && caps.exposureMode.includes('continuous')) advanced.push({ exposureMode: 'continuous' })
+    if (Array.isArray(caps.whiteBalanceMode) && caps.whiteBalanceMode.includes('continuous')) advanced.push({ whiteBalanceMode: 'continuous' })
     if (caps.zoom && typeof caps.zoom.min === 'number' && typeof caps.zoom.max === 'number') {
-      const target = Math.min(caps.zoom.max, Math.max(caps.zoom.min, 1.6))
-      advanced.push({ zoom: target })
+      advanced.push({ zoom: Math.min(caps.zoom.max, Math.max(caps.zoom.min, 1.6)) })
     }
     if (advanced.length) await track.applyConstraints({ advanced } as any)
-  } catch {
-    /* tuning is best-effort; ignore unsupported constraints */
-  }
+  } catch { /* best-effort */ }
 }
 
 /**
- * Self-contained, card-style live barcode scanner with an explicit ON/OFF
- * toggle. The camera preview lives INSIDE this box (an in-DOM <video>), never
- * full-screen and never behind the page. We own the MediaStream so we can
- * enable continuous autofocus/exposure and request a sharp resolution, then
- * hand the stream to ZXing for real, continuous decoding. When OFF the camera
- * is fully released so it never drains the battery in the background.
+ * Card-style live barcode scanner with an explicit ON/OFF toggle.
+ *
+ * NATIVE (Android/iOS): uses Google ML Kit, which reads barcodes reliably by
+ * decoding the platform camera directly. ML Kit shows the camera full-screen
+ * behind a transparent WebView; the `scan-window` class + index.css repaint the
+ * page opaque except this card, so it still looks like a small scanner window.
+ *
+ * WEB (browser/dev): falls back to an in-DOM <video> + ZXing decoding.
+ *
+ * When OFF, the camera is fully released so it never drains the battery.
  */
-export default function EmbeddedScanner({ onDetect, feedback, className }: EmbeddedScannerProps) {
+export default function EmbeddedScanner({ onDetect, feedback, cartEmpty, className }: EmbeddedScannerProps) {
+  const native = isMlkitAvailable()
   const videoRef = useRef<HTMLVideoElement>(null)
-  const controlsRef = useRef<IScannerControls | null>(null)
-  const streamRef = useRef<MediaStream | null>(null)
+  const zxingControlsRef = useRef<IScannerControls | null>(null)
+  const zxingStreamRef = useRef<MediaStream | null>(null)
+  const mlkitRef = useRef<MlkitScanHandle | null>(null)
   const onDetectRef = useRef(onDetect)
   onDetectRef.current = onDetect
 
   const [active, setActive] = useState(false)
   const [status, setStatus] = useState<Status>('off')
-  // Brief "Scanner Ready" pulse right after the camera goes live.
   const [justReady, setJustReady] = useState(false)
 
   const stop = useCallback(() => {
-    try { controlsRef.current?.stop() } catch { /* already stopped */ }
-    controlsRef.current = null
-    streamRef.current?.getTracks().forEach((t) => t.stop())
-    streamRef.current = null
+    // ML Kit
+    if (mlkitRef.current) { mlkitRef.current.stop().catch(() => {}); mlkitRef.current = null }
+    // ZXing
+    try { zxingControlsRef.current?.stop() } catch { /* noop */ }
+    zxingControlsRef.current = null
+    zxingStreamRef.current?.getTracks().forEach((t) => t.stop())
+    zxingStreamRef.current = null
     const v = videoRef.current
     if (v) v.srcObject = null
   }, [])
@@ -109,102 +93,98 @@ export default function EmbeddedScanner({ onDetect, feedback, className }: Embed
     setStatus('starting')
     setJustReady(false)
 
-    const start = async () => {
-      // Ensure the Android runtime camera permission is granted first.
-      if (Capacitor.isNativePlatform()) {
-        try {
-          const { BarcodeScanner } = await import('@capacitor-mlkit/barcode-scanning')
-          await BarcodeScanner.requestPermissions()
-        } catch { /* fall through; getUserMedia will prompt/fail */ }
-      }
+    const goLive = () => {
+      if (cancelled) return
+      setStatus('live')
+      setJustReady(true)
+      window.setTimeout(() => { if (!cancelled) setJustReady(false) }, 1400)
+    }
 
-      if (!navigator.mediaDevices?.getUserMedia) {
-        if (!cancelled) setStatus('error')
-        return
-      }
-
+    const startNative = async () => {
       try {
-        // Own the stream so we can tune autofocus/exposure and resolution.
+        const handle = await startMlkitScan((value) => onDetectRef.current(value))
+        if (cancelled) { handle.stop().catch(() => {}); return }
+        mlkitRef.current = handle
+        goLive()
+      } catch (err) {
+        console.warn('[scanner] ML Kit start failed:', err)
+        if (!cancelled) setStatus('error')
+      }
+    }
+
+    const startWeb = async () => {
+      if (!navigator.mediaDevices?.getUserMedia) { setStatus('error'); return }
+      try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          } as any,
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } as any,
           audio: false,
         })
         if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return }
-        streamRef.current = stream
-
+        zxingStreamRef.current = stream
         const track = stream.getVideoTracks()[0]
         if (track) await tuneTrackForBarcodes(track)
 
         const hints = new Map()
-        hints.set(DecodeHintType.POSSIBLE_FORMATS, FORMATS)
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, ZXING_FORMATS)
         hints.set(DecodeHintType.TRY_HARDER, true)
         const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 80 })
-
-        const controls = await reader.decodeFromStream(
-          stream,
-          videoRef.current!,
-          (result) => {
-            if (result) {
-              const text = result.getText()?.trim()
-              if (text) onDetectRef.current(text)
-            }
-            // Per-frame "not found" errors are expected and ignored.
-          },
-        )
+        const controls = await reader.decodeFromStream(stream, videoRef.current!, (result) => {
+          if (result) {
+            const text = result.getText()?.trim()
+            if (text) { console.log('[scanner] barcode decoded (web):', text); onDetectRef.current(text) }
+          }
+        })
         if (cancelled) { try { controls.stop() } catch { /* noop */ } return }
-        controlsRef.current = controls
-        setStatus('live')
-        setJustReady(true)
-        window.setTimeout(() => { if (!cancelled) setJustReady(false) }, 1400)
-      } catch {
+        zxingControlsRef.current = controls
+        goLive()
+      } catch (err) {
+        console.warn('[scanner] web camera start failed:', err)
         if (!cancelled) setStatus('error')
       }
     }
 
-    start()
-    return () => {
-      cancelled = true
-      stop()
-    }
-  }, [active, stop])
+    if (native) startNative(); else startWeb()
+    return () => { cancelled = true; stop() }
+  }, [active, native, stop])
 
   // Safety net: release the camera if the component unmounts while active.
   useEffect(() => stop, [stop])
 
-  // Idle (camera-status) message shown when there is no transient feedback.
   const idleMessage =
     status === 'off' ? 'Scanner is off'
       : status === 'starting' ? 'Starting camera…'
         : status === 'error' ? 'Camera unavailable — check permission or use search'
           : justReady ? 'Scanner Ready'
-            : 'Point the camera at a barcode'
+            : 'Scanning…'
+
+  // On native, the card is a transparent "window" onto the camera behind the
+  // WebView; on web it holds the <video>. Only the web card clips its contents.
+  const liveWindow = status === 'live' && native
 
   return (
     <div
       className={cn(
-        // Strictly bounded small card. Fixed height + capped width so the
-        // preview is always a small centered rectangle — never full-screen.
-        'relative mx-auto w-full max-w-[320px] h-44 sm:h-52 rounded-2xl border border-border bg-zinc-900 shadow-sm isolate overflow-hidden',
+        'relative mx-auto w-full max-w-[320px] h-44 sm:h-52 rounded-2xl border border-border shadow-sm',
+        liveWindow ? 'scan-window' : 'bg-zinc-900 overflow-hidden isolate',
         className,
       )}
-      style={{ contain: 'layout paint size' }}
+      style={liveWindow ? undefined : { contain: 'layout paint' }}
     >
-      <video
-        ref={videoRef}
-        muted
-        playsInline
-        autoPlay
-        className={cn(
-          'absolute inset-0 h-full w-full object-cover transition-opacity duration-200',
-          status === 'live' ? 'opacity-100' : 'opacity-0',
-        )}
-      />
+      {/* Web fallback preview */}
+      {!native && (
+        <video
+          ref={videoRef}
+          muted
+          playsInline
+          autoPlay
+          className={cn(
+            'absolute inset-0 h-full w-full object-cover transition-opacity duration-200',
+            status === 'live' ? 'opacity-100' : 'opacity-0',
+          )}
+        />
+      )}
 
-      {/* ON/OFF toggle pill (always visible, top-right inside the card) */}
+      {/* ON/OFF toggle pill */}
       <button
         type="button"
         onClick={() => setActive((a) => !a)}
@@ -218,11 +198,10 @@ export default function EmbeddedScanner({ onDetect, feedback, className }: Embed
         {active ? 'Scanner On' : 'Scanner Off'}
       </button>
 
+      {/* Live reticle */}
       {status === 'live' && (
         <>
-          {/* subtle darken for overlay legibility */}
-          <div className="absolute inset-0 bg-black/15 pointer-events-none" />
-          {/* reticle */}
+          {!native && <div className="absolute inset-0 bg-black/15 pointer-events-none" />}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="relative w-3/5 h-1/2">
               {[
@@ -235,6 +214,15 @@ export default function EmbeddedScanner({ onDetect, feedback, className }: Embed
             </div>
           </div>
         </>
+      )}
+
+      {/* "Your cart is empty" hint (centered, until the first product is added) */}
+      {status === 'live' && cartEmpty && !feedback && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none px-4">
+          <span className="rounded-full bg-black/45 backdrop-blur-sm px-3.5 py-1.5 text-sm font-semibold text-white">
+            Your cart is empty
+          </span>
+        </div>
       )}
 
       {/* OFF placeholder */}
@@ -252,7 +240,7 @@ export default function EmbeddedScanner({ onDetect, feedback, className }: Embed
         </button>
       )}
 
-      {/* starting spinner */}
+      {/* starting */}
       {status === 'starting' && (
         <div className="absolute inset-0 flex items-center justify-center text-white/80">
           <Loader2 size={24} className="animate-spin" />
@@ -269,7 +257,7 @@ export default function EmbeddedScanner({ onDetect, feedback, className }: Embed
         </div>
       )}
 
-      {/* Success flash on a confirmed add */}
+      {/* Success flash */}
       {feedback?.variant === 'success' && (
         <div key={feedback.id} className="absolute inset-0 z-20 bg-emerald-500/25 animate-scan-flash pointer-events-none" />
       )}

@@ -176,6 +176,30 @@
   }
 }
 
+/* --- ML Kit "camera window" mode --------------------------------------------
+   While the native ML Kit camera renders full-screen behind a transparent
+   WebView, we make the app chrome transparent and then paint everything opaque
+   again EXCEPT a small rounded window (the scanner card). The user therefore
+   sees a compact scanner card, while ML Kit still receives the whole frame.
+   The opaque repaint is a huge spread box-shadow on the card ("spotlight"),
+   clipped to the scroll area so it never covers the top/bottom nav bars. */
+html.scan-window-active,
+html.scan-window-active body,
+html.scan-window-active #root,
+html.scan-window-active .app-shell,
+html.scan-window-active .app-main {
+  background-color: transparent !important;
+}
+html.scan-window-active .glass-nav {
+  background-color: var(--color-card) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html.scan-window-active .scan-window {
+  background-color: transparent !important;
+  box-shadow: 0 0 0 100vmax var(--color-background);
+}
+
 @layer utilities {
   @keyframes scan-flash {
     0% { opacity: 0; }

@@ -30,27 +30,31 @@ export default function BillingPage() {
   }
 
   const handleDetect = async (value: string) => {
-    // De-dupe rapid repeats of the same code (camera reports it every frame).
+    // Duplicate-scan protection: ignore the same code within a 1.5s cooldown
+    // (the camera reports a held barcode on every frame).
     const now = Date.now()
     if (lastRef.current.value === value && now - lastRef.current.t < 1500) return
     lastRef.current = { value, t: now }
 
     // 1) Acknowledge the raw read immediately.
-    showFeedback({ id: now, variant: 'detected', text: 'Barcode detected' }, 1200)
+    console.log('[scanner] barcode detected:', value)
+    showFeedback({ id: now, variant: 'detected', text: 'Barcode Detected' }, 1200)
 
     // 2) Look the product up and update the cart.
     const ok = await addByBarcode(value)
     if (ok) {
       const product = useStore.getState().products.find((p) => p.barcode === value)
+      console.log('[scanner] product added to cart:', product?.name ?? value)
       scanBeep()
       navigator.vibrate?.(60) // haptic confirmation where supported
       showFeedback(
-        { id: now, variant: 'success', text: product?.name ? `Added · ${product.name}` : 'Product added to cart' },
+        { id: now, variant: 'success', text: product?.name ? `Added · ${product.name}` : 'Product Added To Cart' },
         1100,
       )
     } else {
+      console.log('[scanner] product not found in inventory:', value)
       navigator.vibrate?.([40, 40, 40]) // distinct "not found" buzz
-      showFeedback({ id: now, variant: 'error', text: 'Product not found in inventory' }, 1400)
+      showFeedback({ id: now, variant: 'error', text: 'Product Not Found' }, 1400)
     }
   }
 
@@ -67,8 +71,9 @@ export default function BillingPage() {
         </span>
       </div>
 
-      {/* Embedded scanner box (never full-screen, never a background) */}
-      <EmbeddedScanner onDetect={handleDetect} feedback={feedback} />
+      {/* Scanner card. On native this is a transparent "window" onto the ML Kit
+          camera that runs behind the UI; the rest of the page stays opaque. */}
+      <EmbeddedScanner onDetect={handleDetect} feedback={feedback} cartEmpty={isEmpty} />
 
       {/* Manual / HID fallback search */}
       <ScannerInput />
