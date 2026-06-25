@@ -7,7 +7,7 @@ import { useStore, type Product } from '@/store/useStore'
 import { X, Save, RefreshCw, Package, Scale, Camera, Truck, Loader2, Sparkles } from 'lucide-react'
 import { cn, productDisplayName } from '@/lib/utils'
 import { isCameraScanSupported, scanBarcode } from '@/native/scanner'
-import { enrichBarcode } from '@/lib/barcodeLookup'
+import { identifyBarcode, AUTOFILL_CONFIDENCE, type EnrichedProduct } from '@/lib/barcodeLookup'
 
 interface ProductModalProps {
   product?: Product | null
@@ -48,6 +48,7 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
   const [scanning, setScanning] = useState(false)
   const [enriching, setEnriching] = useState(false)
   const [enrichNote, setEnrichNote] = useState('')
+  const [candidates, setCandidates] = useState<EnrichedProduct[]>([])
   const [supplierOpen, setSupplierOpen] = useState(false)
 
   useEffect(() => {
@@ -77,6 +78,7 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
     setError('')
     setEnrichNote('')
     setEnriching(false)
+    setCandidates([])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product, isOpen])
 
@@ -101,18 +103,28 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
       return next
     })
 
+  // Fill the form from one identified product.
+  const applyCandidate = (c: EnrichedProduct, note?: string) => {
+    fillIfEmpty({ name: c.name, size: c.size || '', category: c.category || '' })
+    setCandidates([])
+    setEnrichNote(note ?? `Selected: ${productDisplayName(c.name, c.size)}`)
+  }
+
   /**
    * After a barcode is captured: local catalogue takes priority (instant,
-   * offline); otherwise enrich from the online database (cached, only when
-   * online). Always falls back to the plain manual form with the barcode filled.
+   * offline); otherwise identify across online databases (cached, only when
+   * online). High-confidence top match auto-fills; a low-confidence ambiguous
+   * result shows a shortlist to pick from. Always degrades to the plain manual
+   * form with the barcode pre-filled.
    */
   const enrich = async (barcode: string) => {
     const code = barcode.trim()
     set('barcode', code)
     setEnrichNote('')
+    setCandidates([])
     if (!code) return
 
-    // 1) Local priority — already in inventory (or cached as a product).
+    // 1) Local priority — already in inventory.
     const local = products.find((p) => p.barcode === code)
     if (local) {
       fillIfEmpty({
@@ -125,15 +137,18 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
       return
     }
 
-    // 2) Online enrichment (async, cached, offline-safe).
+    // 2) Automatic multi-source identification (async, cached, offline-safe).
     setEnriching(true)
     try {
-      const info = await enrichBarcode(code)
-      if (info) {
-        fillIfEmpty({ name: info.name, size: info.size || '', category: info.category || '' })
-        setEnrichNote(`Found online: ${productDisplayName(info.name, info.size)}`)
-      } else {
+      const matches = await identifyBarcode(code)
+      if (matches.length === 0) {
         setEnrichNote('No online match — enter details manually')
+      } else if (matches.length === 1 || matches[0].confidence >= AUTOFILL_CONFIDENCE) {
+        applyCandidate(matches[0], `Found: ${productDisplayName(matches[0].name, matches[0].size)}`)
+      } else {
+        // Ambiguous: let the user pick from the ranked shortlist.
+        setCandidates(matches.slice(0, 5))
+        setEnrichNote('Multiple matches — choose the right product')
       }
     } finally {
       setEnriching(false)
@@ -270,6 +285,34 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
                   <Sparkles size={12} className="opacity-70" /> {enrichNote}
                 </p>
               ) : null}
+
+              {/* Low-confidence shortlist: tap a match to fill the form. */}
+              {candidates.length > 1 && (
+                <div className="mt-1.5 flex flex-col gap-1.5 rounded-xl border border-border bg-secondary/40 p-1.5">
+                  {candidates.map((c, i) => (
+                    <button
+                      key={`${c.source}-${i}`}
+                      type="button"
+                      onClick={() => applyCandidate(c)}
+                      className="flex items-center gap-2.5 rounded-lg bg-card border border-border px-2.5 py-2 text-left transition-colors hover:bg-accent active:scale-[0.99]"
+                    >
+                      {c.image ? (
+                        <img src={c.image} alt="" className="h-8 w-8 shrink-0 rounded object-cover bg-muted" loading="lazy" />
+                      ) : (
+                        <div className="h-8 w-8 shrink-0 rounded bg-muted flex items-center justify-center">
+                          <Package size={14} className="text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-foreground truncate">{productDisplayName(c.name, c.size)}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {[c.brand, c.category].filter(Boolean).join(' · ') || c.source}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5">

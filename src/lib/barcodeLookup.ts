@@ -1,13 +1,19 @@
 /**
- * Online product enrichment for first-time inventory entry.
+ * Automatic product identification for first-time inventory entry.
  *
  * Strictly offline-first: this is the ONLY place the app reaches the internet,
  * and only when adding a new product by barcode. Results are cached in the local
- * SQLite DB (/api/barcode-cache) so the same barcode is never fetched twice, and
- * the local product catalogue always takes priority (checked by the caller).
+ * SQLite DB (/api/barcode-cache) so a barcode is never fetched twice, and the
+ * local product catalogue always takes priority (checked by the caller).
  *
- * Source: OpenFoodFacts — a free, open product database (no API key), well suited
- * to grocery/retail barcodes. Failures degrade silently to manual entry.
+ * Identification queries several FREE, key-less, CORS-open product databases in
+ * parallel, scores every candidate by completeness, and returns them ranked best
+ * first. High-confidence top match → auto-fill; otherwise the caller shows the
+ * ranked shortlist. Any failure/timeout/offline degrades to manual entry.
+ *
+ * Sources:
+ *  - Open*Facts family (food, products, beauty, pet food) — same API shape.
+ *  - UPCitemdb trial endpoint — general retail catalogue.
  */
 
 export interface EnrichedProduct {
@@ -19,111 +25,172 @@ export interface EnrichedProduct {
   description?: string
   image?: string
   source: string
+  confidence: number
 }
 
-const OFF_TIMEOUT_MS = 7000
+const TIMEOUT_MS = 7000
+/** Top match at/above this score is filled automatically without asking. */
+export const AUTOFILL_CONFIDENCE = 0.7
 
 function normalizeSize(quantity?: string | null): string | undefined {
   const q = (quantity || '').trim()
   if (!q) return undefined
-  // "330 ml" -> "330ml", "1 L" -> "1L", keep multipacks readable.
   return q.replace(/\s+/g, ' ').replace(/(\d)\s+(?=[a-zA-Z])/g, '$1').trim() || undefined
+}
+
+function titleCase(s: string): string {
+  return s.replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 function cleanCategory(tags?: string[], categories?: string): string | undefined {
   if (Array.isArray(tags) && tags.length) {
     const last = tags[tags.length - 1] || ''
     const label = last.replace(/^[a-z]{2}:/, '').replace(/[-_]+/g, ' ').trim()
-    if (label) return label.replace(/\b\w/g, (c) => c.toUpperCase())
+    if (label) return titleCase(label)
   }
   if (categories) {
     const first = categories.split(',')[0]?.trim()
-    if (first) return first.replace(/\b\w/g, (c) => c.toUpperCase())
+    if (first) return titleCase(first)
   }
   return undefined
 }
 
-/** Read a previously cached enrichment from the local DB. */
-async function readCache(barcode: string): Promise<EnrichedProduct | null> {
-  try {
-    const res = await fetch(`/api/barcode-cache?barcode=${encodeURIComponent(barcode)}`)
-    if (!res.ok) return null
-    return (await res.json()) as EnrichedProduct
-  } catch {
-    return null
-  }
+/** Completeness-based confidence in [0,1]. */
+function scoreCandidate(c: Omit<EnrichedProduct, 'confidence'>): number {
+  let s = 0
+  if (c.name) s += 0.45
+  if (c.brand) s += 0.2
+  if (c.size) s += 0.15
+  if (c.category) s += 0.1
+  if (c.image) s += 0.1
+  return Math.min(1, s)
 }
 
-/** Persist an enrichment to the local DB so it is never refetched. */
-async function writeCache(barcode: string, data: EnrichedProduct): Promise<void> {
-  try {
-    await fetch('/api/barcode-cache', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ barcode, data }),
-    })
-  } catch {
-    /* cache write is best-effort */
-  }
-}
-
-async function fetchOpenFoodFacts(barcode: string): Promise<EnrichedProduct | null> {
+async function fetchJson(url: string): Promise<any | null> {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), OFF_TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
   try {
-    const fields = [
-      'product_name', 'product_name_fr', 'generic_name', 'brands',
-      'quantity', 'categories_tags', 'categories',
-      'image_front_small_url', 'image_url',
-    ].join(',')
-    const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json?fields=${fields}`
     const res = await fetch(url, { signal: controller.signal })
     if (!res.ok) return null
-    const json: any = await res.json()
-    if (json?.status !== 1 || !json.product) return null
-    const p = json.product
-
-    const brand = (p.brands || '').split(',')[0]?.trim() || undefined
-    const name = (p.product_name || p.product_name_fr || p.generic_name || brand || '').trim()
-    if (!name) return null
-
-    return {
-      barcode,
-      name,
-      size: normalizeSize(p.quantity),
-      brand,
-      category: cleanCategory(p.categories_tags, p.categories),
-      description: (p.generic_name || '').trim() || undefined,
-      image: p.image_front_small_url || p.image_url || undefined,
-      source: 'openfoodfacts',
-    }
+    return await res.json()
   } catch {
-    return null // network error, timeout, abort, bad JSON — fall back to manual
+    return null
   } finally {
     clearTimeout(timer)
   }
 }
 
+/** Open*Facts family — identical schema across food/products/beauty/pet hosts. */
+async function fromOpenFacts(host: string, label: string, barcode: string): Promise<EnrichedProduct | null> {
+  const fields = [
+    'product_name', 'product_name_fr', 'generic_name', 'brands',
+    'quantity', 'categories_tags', 'categories', 'image_front_small_url', 'image_url',
+  ].join(',')
+  const json = await fetchJson(`https://${host}/api/v2/product/${encodeURIComponent(barcode)}.json?fields=${fields}`)
+  if (json?.status !== 1 || !json.product) return null
+  const p = json.product
+  const brand = (p.brands || '').split(',')[0]?.trim() || undefined
+  const name = (p.product_name || p.product_name_fr || p.generic_name || brand || '').trim()
+  if (!name) return null
+  const base = {
+    barcode,
+    name,
+    size: normalizeSize(p.quantity),
+    brand,
+    category: cleanCategory(p.categories_tags, p.categories),
+    description: (p.generic_name || '').trim() || undefined,
+    image: p.image_front_small_url || p.image_url || undefined,
+    source: label,
+  }
+  return { ...base, confidence: scoreCandidate(base) }
+}
+
+/** UPCitemdb free trial — general retail catalogue (may be rate-limited). */
+async function fromUpcItemDb(barcode: string): Promise<EnrichedProduct[]> {
+  const json = await fetchJson(`https://api.upcitemdb.com/prod/trial/lookup?upc=${encodeURIComponent(barcode)}`)
+  const items: any[] = Array.isArray(json?.items) ? json.items : []
+  const out: EnrichedProduct[] = []
+  for (const it of items.slice(0, 5)) {
+    const name = (it.title || it.brand || '').trim()
+    if (!name) continue
+    const base = {
+      barcode,
+      name,
+      size: normalizeSize(it.size),
+      brand: (it.brand || '').trim() || undefined,
+      category: it.category ? titleCase(String(it.category).split('>').pop()!.trim()) : undefined,
+      description: (it.description || '').trim() || undefined,
+      image: Array.isArray(it.images) && it.images.length ? it.images[0] : undefined,
+      source: 'upcitemdb',
+    }
+    out.push({ ...base, confidence: scoreCandidate(base) })
+  }
+  return out
+}
+
+async function readCache(barcode: string): Promise<EnrichedProduct[] | null> {
+  try {
+    const res = await fetch(`/api/barcode-cache?barcode=${encodeURIComponent(barcode)}`)
+    if (!res.ok) return null
+    const data = await res.json()
+    return Array.isArray(data?.candidates) ? (data.candidates as EnrichedProduct[]) : null
+  } catch {
+    return null
+  }
+}
+
+async function writeCache(barcode: string, candidates: EnrichedProduct[]): Promise<void> {
+  try {
+    await fetch('/api/barcode-cache', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ barcode, data: { candidates } }),
+    })
+  } catch {
+    /* best-effort */
+  }
+}
+
 /**
- * Enrich a barcode for the Add-Product form.
- * 1) Local cache (instant, offline). 2) Online OpenFoodFacts (only if online),
- * cached on success. Returns null when nothing is found or the device is offline
- * — the caller then opens the plain manual form with the barcode pre-filled.
+ * Identify a product from its barcode, ranked best-first.
+ * 1) Local cache (instant, offline). 2) All online sources in parallel (only
+ * when online), scored, de-duplicated, ranked, then cached. Returns [] when the
+ * device is offline or nothing matches — the caller then falls back to manual
+ * entry with the barcode pre-filled.
  */
-export async function enrichBarcode(barcode: string): Promise<EnrichedProduct | null> {
+export async function identifyBarcode(barcode: string): Promise<EnrichedProduct[]> {
   const code = (barcode || '').trim()
-  if (!code) return null
+  if (!code) return []
 
   const cached = await readCache(code)
   if (cached) return cached
 
-  // Skip the network entirely when offline.
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) return null
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return []
 
-  const online = await fetchOpenFoodFacts(code)
-  if (online) {
-    await writeCache(code, online)
-    return online
+  const results = await Promise.allSettled([
+    fromOpenFacts('world.openfoodfacts.org', 'openfoodfacts', code),
+    fromOpenFacts('world.openproductsfacts.org', 'openproductsfacts', code),
+    fromOpenFacts('world.openbeautyfacts.org', 'openbeautyfacts', code),
+    fromOpenFacts('world.openpetfoodfacts.org', 'openpetfoodfacts', code),
+    fromUpcItemDb(code),
+  ])
+
+  const candidates: EnrichedProduct[] = []
+  for (const r of results) {
+    if (r.status !== 'fulfilled' || !r.value) continue
+    if (Array.isArray(r.value)) candidates.push(...r.value)
+    else candidates.push(r.value)
   }
-  return null
+
+  // De-duplicate by name+size, keeping the highest-scoring instance.
+  const byKey = new Map<string, EnrichedProduct>()
+  for (const c of candidates) {
+    const key = `${c.name}|${c.size ?? ''}`.toLowerCase().replace(/\s+/g, '')
+    const prev = byKey.get(key)
+    if (!prev || c.confidence > prev.confidence) byKey.set(key, c)
+  }
+  const ranked = [...byKey.values()].sort((a, b) => b.confidence - a.confidence)
+
+  if (ranked.length) await writeCache(code, ranked)
+  return ranked
 }
