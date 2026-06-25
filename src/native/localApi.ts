@@ -321,6 +321,39 @@ async function deleteProduct(req: LocalRequest, id: string): Promise<LocalRespon
   return ok(null, 204);
 }
 
+/**
+ * Local cache of online (OpenFoodFacts) barcode enrichment results, so the same
+ * barcode is never fetched from the network twice. Keeps inventory enrichment
+ * working instantly offline after the first lookup.
+ */
+async function getBarcodeCache(req: LocalRequest): Promise<LocalResponse> {
+  const barcode = (req.query.get('barcode') || '').trim();
+  if (!barcode) return err(400, 'barcode required');
+  const row = (await query<any>(`SELECT data FROM BarcodeCache WHERE barcode = ?`, [barcode]))[0];
+  if (!row) return err(404, 'not cached');
+  try {
+    return ok(JSON.parse(row.data));
+  } catch {
+    return err(404, 'not cached');
+  }
+}
+
+async function putBarcodeCache(req: LocalRequest): Promise<LocalResponse> {
+  const d = req.body || {};
+  const barcode = String(d.barcode || '').trim();
+  if (!barcode || d.data == null) return err(400, 'barcode and data required');
+  try {
+    await run(
+      `INSERT INTO BarcodeCache (barcode, data, createdAt) VALUES (?, ?, ?)
+       ON CONFLICT(barcode) DO UPDATE SET data = excluded.data`,
+      [barcode, JSON.stringify(d.data), nowIso()]
+    );
+  } catch {
+    return err(500, 'Failed to cache barcode');
+  }
+  return ok({ cached: true }, 201);
+}
+
 /** Raw rows for the intelligence engine. */
 async function fetchIntelInput(): Promise<IntelligenceInput> {
   const products = await query<any>(
@@ -818,6 +851,9 @@ export async function handleLocalRequest(req: LocalRequest): Promise<LocalRespon
     if ((m = path.match(/^\/api\/products\/([^/]+)$/)) && method === 'DELETE') return await deleteProduct(req, m[1]);
 
     if (path === '/api/inventory/low-stock' && method === 'GET') return await lowStock();
+
+    if (path === '/api/barcode-cache' && method === 'GET') return await getBarcodeCache(req);
+    if (path === '/api/barcode-cache' && method === 'POST') return await putBarcodeCache(req);
 
     if (path === '/api/orders' && method === 'POST') return await createOrder(req);
     if (path === '/api/orders' && method === 'GET') return await listOrders(req);

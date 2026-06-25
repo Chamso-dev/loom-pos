@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NumberField, toNum } from '@/components/ui/number-field'
 import { useStore, type Product } from '@/store/useStore'
-import { X, Save, RefreshCw, Package, Scale, Camera, Truck } from 'lucide-react'
+import { X, Save, RefreshCw, Package, Scale, Camera, Truck, Loader2, Sparkles } from 'lucide-react'
 import { cn, productDisplayName } from '@/lib/utils'
 import { isCameraScanSupported, scanBarcode } from '@/native/scanner'
+import { enrichBarcode } from '@/lib/barcodeLookup'
 
 interface ProductModalProps {
   product?: Product | null
@@ -32,7 +33,7 @@ type FormState = {
 }
 
 export default function ProductModal({ product, isOpen, onClose, adminKey }: ProductModalProps) {
-  const { addProduct, updateProduct, settings, suppliers, fetchSuppliers } = useStore()
+  const { addProduct, updateProduct, settings, suppliers, fetchSuppliers, products } = useStore()
   const taxEnabled = settings?.taxEnabled !== false
   const defaultRate = settings?.defaultTaxRate ?? 19
 
@@ -45,6 +46,8 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
   const [form, setForm] = useState<FormState>(blank())
   const [error, setError] = useState('')
   const [scanning, setScanning] = useState(false)
+  const [enriching, setEnriching] = useState(false)
+  const [enrichNote, setEnrichNote] = useState('')
   const [supplierOpen, setSupplierOpen] = useState(false)
 
   useEffect(() => {
@@ -72,6 +75,8 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
       setForm(blank())
     }
     setError('')
+    setEnrichNote('')
+    setEnriching(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product, isOpen])
 
@@ -85,12 +90,62 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
 
   if (!isOpen) return null
 
+  // Fill a form field only when it's still empty, so we never clobber data the
+  // user already typed (they can always edit afterwards).
+  const fillIfEmpty = (patch: Partial<FormState>) =>
+    setForm((p) => {
+      const next = { ...p }
+      for (const [k, v] of Object.entries(patch) as [keyof FormState, any][]) {
+        if (v && !String(p[k]).trim()) (next as any)[k] = v
+      }
+      return next
+    })
+
+  /**
+   * After a barcode is captured: local catalogue takes priority (instant,
+   * offline); otherwise enrich from the online database (cached, only when
+   * online). Always falls back to the plain manual form with the barcode filled.
+   */
+  const enrich = async (barcode: string) => {
+    const code = barcode.trim()
+    set('barcode', code)
+    setEnrichNote('')
+    if (!code) return
+
+    // 1) Local priority — already in inventory (or cached as a product).
+    const local = products.find((p) => p.barcode === code)
+    if (local) {
+      fillIfEmpty({
+        name: local.name,
+        size: local.size || '',
+        category: local.category,
+        productType: local.productType === 'WEIGHTED' ? 'WEIGHTED' : undefined,
+      } as Partial<FormState>)
+      setEnrichNote('Loaded from your inventory')
+      return
+    }
+
+    // 2) Online enrichment (async, cached, offline-safe).
+    setEnriching(true)
+    try {
+      const info = await enrichBarcode(code)
+      if (info) {
+        fillIfEmpty({ name: info.name, size: info.size || '', category: info.category || '' })
+        setEnrichNote(`Found online: ${productDisplayName(info.name, info.size)}`)
+      } else {
+        setEnrichNote('No online match — enter details manually')
+      }
+    } finally {
+      setEnriching(false)
+    }
+  }
+
   const scan = async () => {
     if (scanning) return
     setScanning(true)
     try {
       const res = await scanBarcode()
-      if (res.ok && res.value) set('barcode', res.value)
+      if (res.ok && res.value) await enrich(res.value)
     } finally {
       setScanning(false)
     }
@@ -206,6 +261,15 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
                   </button>
                 )}
               </div>
+              {enriching ? (
+                <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <Loader2 size={12} className="animate-spin" /> Searching product information…
+                </p>
+              ) : enrichNote ? (
+                <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <Sparkles size={12} className="opacity-70" /> {enrichNote}
+                </p>
+              ) : null}
             </div>
 
             <div className="space-y-1.5">

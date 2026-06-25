@@ -94,6 +94,11 @@ CREATE TABLE IF NOT EXISTS StoreSettings (
   cashierPassword TEXT,
   updatedAt TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS BarcodeCache (
+  barcode TEXT PRIMARY KEY,
+  data TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_product_barcode ON Product(barcode);
 CREATE INDEX IF NOT EXISTS idx_order_date ON "Order"(date);
 CREATE INDEX IF NOT EXISTS idx_orderitem_order ON OrderItem(orderId);
