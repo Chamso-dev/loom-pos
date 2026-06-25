@@ -197,6 +197,18 @@ html.scan-window-active .glass-nav {
 }
 html.scan-window-active .scan-window {
   background-color: transparent !important;
+}
+/* Full-screen opaque mask with a transparent hole for the scanner card.
+   Sits behind all app content (z-index:-1) but in front of the camera (which
+   is behind the transparent WebView), so it never covers the cart UI and never
+   leaves camera bleeding at the screen edges. The hole is positioned by JS to
+   track the card. */
+.scan-window-mask {
+  position: fixed;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 1rem;
+  background-color: transparent;
   box-shadow: 0 0 0 100vmax var(--color-background);
 }
 

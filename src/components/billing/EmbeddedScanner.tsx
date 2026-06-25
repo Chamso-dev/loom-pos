@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { CameraOff, Loader2, ScanLine, Power, Check, X, ScanBarcode } from 'lucide-react'
 import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser'
 import { BarcodeFormat, DecodeHintType } from '@zxing/library'
@@ -57,8 +58,47 @@ async function tuneTrackForBarcodes(track: MediaStreamTrack) {
  *
  * When OFF, the camera is fully released so it never drains the battery.
  */
+/**
+ * Full-screen opaque mask with a transparent hole that tracks the scanner
+ * card, so only the card reveals the ML Kit camera behind the WebView. Rendered
+ * at z-index:-1 (behind all app UI, in front of the camera) via a body portal,
+ * so it never covers the cart content and never bleeds at the screen edges.
+ */
+function CameraWindowMask({ cardRef }: { cardRef: React.RefObject<HTMLDivElement | null> }) {
+  const [rect, setRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null)
+
+  useEffect(() => {
+    let raf = 0
+    const tick = () => {
+      const el = cardRef.current
+      if (el) {
+        const r = el.getBoundingClientRect()
+        setRect((prev) =>
+          prev && prev.top === r.top && prev.left === r.left && prev.width === r.width && prev.height === r.height
+            ? prev
+            : { top: r.top, left: r.left, width: r.width, height: r.height },
+        )
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [cardRef])
+
+  if (!rect) return null
+  return createPortal(
+    <div
+      aria-hidden
+      className="scan-window-mask"
+      style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }}
+    />,
+    document.body,
+  )
+}
+
 export default function EmbeddedScanner({ onDetect, feedback, cartEmpty, className }: EmbeddedScannerProps) {
   const native = isMlkitAvailable()
+  const cardRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const zxingControlsRef = useRef<IScannerControls | null>(null)
   const zxingStreamRef = useRef<MediaStream | null>(null)
@@ -163,6 +203,7 @@ export default function EmbeddedScanner({ onDetect, feedback, cartEmpty, classNa
 
   return (
     <div
+      ref={cardRef}
       className={cn(
         'relative mx-auto w-full max-w-[320px] h-44 sm:h-52 rounded-2xl border border-border shadow-sm',
         liveWindow ? 'scan-window' : 'bg-zinc-900 overflow-hidden isolate',
@@ -170,6 +211,7 @@ export default function EmbeddedScanner({ onDetect, feedback, cartEmpty, classNa
       )}
       style={liveWindow ? undefined : { contain: 'layout paint' }}
     >
+      {liveWindow && <CameraWindowMask cardRef={cardRef} />}
       {/* Web fallback preview */}
       {!native && (
         <video
