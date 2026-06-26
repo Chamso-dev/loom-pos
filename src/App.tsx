@@ -47,7 +47,8 @@ function ProtectedLayout() {
   const location = useLocation()
 
   if (!user || !token) {
-    return <Navigate to="/login" state={{ from: location }} replace />
+    // Sign Up is the default entry point for unauthenticated users.
+    return <Navigate to="/signup" state={{ from: location }} replace />
   }
 
   return (
@@ -55,6 +56,16 @@ function ProtectedLayout() {
       <AnimatedOutlet />
     </Shell>
   )
+}
+
+/**
+ * Public auth routes (login / signup). Already-authenticated users skip them and
+ * go straight to the dashboard.
+ */
+function PublicOnly({ children }: { children: React.ReactNode }) {
+  const { user, token } = useStore()
+  if (user && token) return <Navigate to="/" replace />
+  return <>{children}</>
 }
 
 function AppContent() {
@@ -67,8 +78,8 @@ function AppContent() {
 
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignUpPage />} />
+      <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
+      <Route path="/signup" element={<PublicOnly><SignUpPage /></PublicOnly>} />
 
       <Route element={<ProtectedLayout />}>
         <Route path="/" element={<AuthGuard requiredRole="ADMIN"><Dashboard /></AuthGuard>} />
@@ -78,6 +89,9 @@ function AppContent() {
         <Route path="/settings" element={<AuthGuard requiredRole="ADMIN"><SettingsPage /></AuthGuard>} />
         <Route path="/management" element={<AuthGuard requiredRole="ADMIN"><ManagementPage /></AuthGuard>} />
       </Route>
+
+      {/* Unknown paths route through the guard (→ signup if unauthenticated). */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }

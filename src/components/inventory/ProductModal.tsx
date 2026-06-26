@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -56,6 +57,8 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
   }, [fetchSuppliers])
 
   useEffect(() => {
+    // Keep the form intact while the sheet animates out (isOpen=false).
+    if (!isOpen) return
     if (product) {
       setForm({
         name: product.name,
@@ -89,8 +92,6 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
     const q = form.supplier.toLowerCase()
     return suppliers.filter((s) => s.name.toLowerCase().includes(q))
   }, [suppliers, form.supplier])
-
-  if (!isOpen) return null
 
   // Fill a form field only when it's still empty, so we never clobber data the
   // user already typed (they can always edit afterwards).
@@ -199,8 +200,25 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-background/80 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
-      <Card className="w-full sm:max-w-2xl border border-border bg-card shadow-lg rounded-t-2xl sm:rounded-2xl animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 max-h-[92vh] flex flex-col overflow-hidden pb-safe">
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          key="backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-background/80 backdrop-blur-sm sm:p-4"
+        >
+          <motion.div
+            key="sheet"
+            initial={{ opacity: 0, y: 28, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.98 }}
+            transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+            className="w-full sm:max-w-2xl"
+          >
+            <Card className="border border-border bg-card shadow-lg rounded-t-2xl sm:rounded-2xl max-h-[92vh] flex flex-col overflow-hidden pb-safe">
         <form onSubmit={handleSubmit} className="flex flex-col min-h-0">
           <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 shrink-0">
             <CardTitle className="text-lg font-semibold">{product ? 'Edit Product' : 'Add New Product'}</CardTitle>
@@ -403,7 +421,10 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
             </Button>
           </CardFooter>
         </form>
-      </Card>
-    </div>
+            </Card>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
