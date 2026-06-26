@@ -110,11 +110,6 @@ interface AppState {
   language: 'fr' | 'ar' | 'en'
   setLanguage: (lang: 'fr' | 'ar' | 'en') => void
 
-  // Optional Anthropic API key (stored on-device only) enabling AI web-search
-  // product identification when adding inventory. Empty = use free databases.
-  aiLookupKey: string
-  setAiLookupKey: (key: string) => void
-
   // Inventory State
   products: Product[]
   isLoadingProducts: boolean
@@ -282,8 +277,6 @@ export const useStore = create<AppState>()(
         }
       },
 
-      aiLookupKey: '',
-      setAiLookupKey: (aiLookupKey) => set({ aiLookupKey }),
 
       // Inventory
       products: [],
@@ -564,7 +557,7 @@ export const useStore = create<AppState>()(
 
     {
       name: 'loom-pos-storage',
-      partialize: (state) => ({ user: state.user, cart: state.cart, theme: state.theme, language: state.language, aiLookupKey: state.aiLookupKey }),
+      partialize: (state) => ({ user: state.user, cart: state.cart, theme: state.theme, language: state.language }),
     }
   )
 )

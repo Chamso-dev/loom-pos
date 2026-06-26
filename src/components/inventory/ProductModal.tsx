@@ -33,7 +33,7 @@ type FormState = {
 }
 
 export default function ProductModal({ product, isOpen, onClose, adminKey }: ProductModalProps) {
-  const { addProduct, updateProduct, settings, suppliers, fetchSuppliers, products, aiLookupKey } = useStore()
+  const { addProduct, updateProduct, settings, suppliers, fetchSuppliers, products } = useStore()
   const taxEnabled = settings?.taxEnabled !== false
   const defaultRate = settings?.defaultTaxRate ?? 19
 
@@ -140,7 +140,7 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
     // 2) Automatic multi-source identification (async, cached, offline-safe).
     setEnriching(true)
     try {
-      const matches = await identifyBarcode(code, { aiKey: aiLookupKey })
+      const matches = await identifyBarcode(code)
       if (matches.length === 0) {
         setEnrichNote('No online match — enter details manually')
       } else if (matches.length === 1 || matches[0].confidence >= AUTOFILL_CONFIDENCE) {
@@ -278,7 +278,7 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
               </div>
               {enriching ? (
                 <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <Loader2 size={12} className="animate-spin" /> {aiLookupKey ? 'Searching the web for this product…' : 'Searching product information…'}
+                  <Loader2 size={12} className="animate-spin" /> Searching product information…
                 </p>
               ) : enrichNote ? (
                 <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">

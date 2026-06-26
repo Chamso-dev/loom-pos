@@ -29,9 +29,17 @@ export interface EnrichedProduct {
 }
 
 const TIMEOUT_MS = 7000
-const AI_TIMEOUT_MS = 22000
+const BACKEND_TIMEOUT_MS = 20000
 /** Top match at/above this score is filled automatically without asking. */
 export const AUTOFILL_CONFIDENCE = 0.7
+
+/**
+ * App-controlled identification backend (Google official Custom Search +
+ * extraction). The API key lives ONLY in the backend's environment — never on
+ * the device and never shown to the user. Configured at build time; when unset
+ * the app silently uses the key-less public databases below.
+ */
+const IDENTIFY_ENDPOINT = (import.meta.env.VITE_IDENTIFY_ENDPOINT || '').trim()
 
 function normalizeSize(quantity?: string | null): string | undefined {
   const q = (quantity || '').trim()
@@ -130,69 +138,36 @@ async function fromUpcItemDb(barcode: string): Promise<EnrichedProduct[]> {
 }
 
 /**
- * AI web search — the closest thing to "Google the barcode and read the result".
- * Uses Claude's server-side web_search tool to search manufacturer sites, large
- * retailers, supermarket pages and catalogs, then returns one normalized best
- * match. The API key is the merchant's own, stored on-device only (never bundled
- * in the app). Preferred over the raw databases when available.
+ * App-controlled backend that performs the Google web search + extraction with
+ * a server-side key. The device never sees the key. Returns one normalized best
+ * match; preferred over the raw databases. No-op when no endpoint is configured.
  */
-async function fromAiWebSearch(barcode: string, apiKey: string): Promise<EnrichedProduct | null> {
+async function fromBackend(barcode: string): Promise<EnrichedProduct | null> {
+  if (!IDENTIFY_ENDPOINT) return null
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), BACKEND_TIMEOUT_MS)
   try {
-    const prompt =
-      `Identify the exact retail product for barcode (EAN/UPC/GTIN) ${barcode}. ` +
-      `Search the web — manufacturer websites, large retailers, supermarket product pages and product catalogs. ` +
-      `Choose the single best match, preferring the official manufacturer, then large retailers, then catalogs, then other sources. ` +
-      `Reply with ONLY one JSON object and no other text: ` +
-      `{"found":true,"name":"","brand":"","category":"","size":"","image":"","description":"","confidence":0.0}. ` +
-      `"size" must be compact like 45g, 1L, 330ml. "confidence" is 0..1. If you cannot identify it, reply {"found":false}.`
-
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
+    const sep = IDENTIFY_ENDPOINT.includes('?') ? '&' : '?'
+    const res = await fetch(`${IDENTIFY_ENDPOINT}${sep}barcode=${encodeURIComponent(barcode)}`, {
       signal: controller.signal,
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        // Required for direct calls from a WebView/browser with a user-owned key.
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],
-        messages: [{ role: 'user', content: prompt }],
-      }),
     })
     if (!res.ok) return null
-    const json: any = await res.json()
-    const text: string = (Array.isArray(json?.content) ? json.content : [])
-      .filter((b: any) => b?.type === 'text')
-      .map((b: any) => b.text)
-      .join('\n')
-    // Extract the JSON object from the model's reply.
-    const start = text.indexOf('{')
-    const end = text.lastIndexOf('}')
-    if (start < 0 || end <= start) return null
-    let parsed: any
-    try { parsed = JSON.parse(text.slice(start, end + 1)) } catch { return null }
-    if (!parsed || parsed.found === false) return null
-    const name = String(parsed.name || '').trim()
+    const p: any = await res.json()
+    if (!p || p.found === false) return null
+    const name = String(p.name || '').trim()
     if (!name) return null
-
     const base = {
       barcode,
       name,
-      size: normalizeSize(parsed.size),
-      brand: String(parsed.brand || '').trim() || undefined,
-      category: parsed.category ? titleCase(String(parsed.category).trim()) : undefined,
-      description: String(parsed.description || '').trim() || undefined,
-      image: /^https?:\/\//.test(parsed.image || '') ? parsed.image : undefined,
-      source: 'ai-web',
+      size: normalizeSize(p.size),
+      brand: String(p.brand || '').trim() || undefined,
+      category: p.category ? titleCase(String(p.category).trim()) : undefined,
+      description: String(p.description || '').trim() || undefined,
+      image: /^https?:\/\//.test(p.image || '') ? p.image : undefined,
+      source: 'web',
     }
-    const reported = typeof parsed.confidence === 'number' ? parsed.confidence : 0.8
-    // AI synthesis is the preferred source — give it a small edge so it wins ties.
+    const reported = typeof p.confidence === 'number' ? p.confidence : 0.85
+    // The Google-backed result is the preferred source — small edge to win ties.
     const confidence = Math.min(1, Math.max(scoreCandidate(base), reported) + 0.1)
     return { ...base, confidence }
   } catch {
@@ -232,10 +207,7 @@ async function writeCache(barcode: string, candidates: EnrichedProduct[]): Promi
  * device is offline or nothing matches — the caller then falls back to manual
  * entry with the barcode pre-filled.
  */
-export async function identifyBarcode(
-  barcode: string,
-  opts?: { aiKey?: string },
-): Promise<EnrichedProduct[]> {
+export async function identifyBarcode(barcode: string): Promise<EnrichedProduct[]> {
   const code = (barcode || '').trim()
   if (!code) return []
 
@@ -244,16 +216,16 @@ export async function identifyBarcode(
 
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return []
 
-  const aiKey = (opts?.aiKey || '').trim()
   const tasks: Promise<EnrichedProduct | EnrichedProduct[] | null>[] = [
+    // Preferred: app-controlled Google web-search backend (server-side key).
+    fromBackend(code),
+    // Key-less public databases — automatic fallback, no config required.
     fromOpenFacts('world.openfoodfacts.org', 'openfoodfacts', code),
     fromOpenFacts('world.openproductsfacts.org', 'openproductsfacts', code),
     fromOpenFacts('world.openbeautyfacts.org', 'openbeautyfacts', code),
     fromOpenFacts('world.openpetfoodfacts.org', 'openpetfoodfacts', code),
     fromUpcItemDb(code),
   ]
-  // The "Google-like web search + AI extraction" path, when a key is configured.
-  if (aiKey) tasks.push(fromAiWebSearch(code, aiKey))
 
   const results = await Promise.allSettled(tasks)
 
