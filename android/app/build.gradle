@@ -30,6 +30,16 @@ repositories {
     }
 }
 
+// The Capgo updater transitively pulls androidx.work 2.10.x, which demands
+// compileSdk 35. Pin WorkManager to the 34-compatible 2.9.1 (stable API for the
+// background-download scheduling Capgo uses) so we stay on AGP 8.2.1 / SDK 34.
+configurations.all {
+    resolutionStrategy {
+        force 'androidx.work:work-runtime:2.9.1'
+        force 'androidx.work:work-runtime-ktx:2.9.1'
+    }
+}
+
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
