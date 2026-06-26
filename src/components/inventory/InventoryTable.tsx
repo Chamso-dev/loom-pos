@@ -2,6 +2,7 @@ import { type Product, useStore } from '@/store/useStore'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Edit2, Trash2, Tag } from 'lucide-react'
 import BarcodeView from './BarcodeView'
+import { ProductRowSkeleton } from '@/components/ui/skeleton'
 import { cn, formatCurrency, productDisplayName } from '@/lib/utils'
 
 interface InventoryTableProps {
@@ -24,11 +25,7 @@ export default function InventoryTable({
   const { isLoadingProducts } = useStore()
 
   if (isLoadingProducts && products.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-48 text-muted-foreground animate-pulse text-sm">
-        Fetching products...
-      </div>
-    )
+    return <ProductRowSkeleton rows={6} />
   }
 
   if (products.length === 0) {
@@ -43,7 +40,7 @@ export default function InventoryTable({
   const allSelected = products.length > 0 && selectedIds.length === products.length
 
   return (
-    <div className="space-y-2.5 font-sans">
+    <div className="space-y-2.5 font-sans stagger">
       {/* Select-all bar */}
       <label className="flex items-center gap-2.5 px-1 py-1 cursor-pointer">
         <Checkbox

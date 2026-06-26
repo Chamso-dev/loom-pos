@@ -6,6 +6,7 @@ import {
   ChevronDown, Trash2, RotateCcw
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency, cn } from '@/lib/utils'
 import { format, startOfDay, subDays, formatISO } from 'date-fns'
 import { useStore } from '@/store/useStore'
@@ -243,7 +244,17 @@ export default function OrderHistoryPage() {
 
       {/* Orders card list */}
       {loading && orders.length === 0 ? (
-        <div className="py-16 text-center animate-pulse text-muted-foreground text-sm font-medium">Retrieving Archives...</div>
+        <div className="space-y-2.5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="rounded-2xl border border-border bg-card p-4 shadow-sm flex items-center justify-between">
+              <div className="space-y-2">
+                <Skeleton className="h-3.5 w-32" />
+                <Skeleton className="h-2.5 w-20" />
+              </div>
+              <Skeleton className="h-6 w-20 rounded-lg" />
+            </div>
+          ))}
+        </div>
       ) : orders?.length === 0 ? (
         <div className="py-16 text-center text-muted-foreground text-sm font-medium border-2 border-dashed border-border rounded-2xl">No matching records found.</div>
       ) : (
