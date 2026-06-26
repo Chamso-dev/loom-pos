@@ -13,12 +13,6 @@ const config: CapacitorConfig = {
     CapacitorSQLite: {
       androidIsEncryption: false,
     },
-    // OTA updates are driven manually from the app against our static manifest
-    // (see src/native/liveUpdate.ts), so disable the plugin's own auto-updater.
-    CapacitorUpdater: {
-      autoUpdate: false,
-      resetWhenUpdate: true,
-    },
   },
 };
 
