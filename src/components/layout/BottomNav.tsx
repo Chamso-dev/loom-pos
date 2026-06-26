@@ -1,24 +1,15 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Package, ShoppingCart, History, Settings, Contact } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store/useStore'
 import { useT } from '@/lib/i18n'
-
-const NAV_ITEMS = [
-  { icon: LayoutDashboard, key: 'nav.home', href: '/', roles: ['ADMIN'] },
-  { icon: Package, key: 'nav.stock', href: '/inventory', roles: ['ADMIN', 'CASHIER'] },
-  { icon: ShoppingCart, key: 'nav.billing', href: '/billing', roles: ['ADMIN', 'CASHIER'] },
-  { icon: History, key: 'nav.orders', href: '/orders', roles: ['ADMIN', 'CASHIER'] },
-  { icon: Contact, key: 'nav.manage', href: '/management', roles: ['ADMIN'] },
-  { icon: Settings, key: 'nav.settings', href: '/settings', roles: ['ADMIN'] },
-]
+import { NAV_ITEMS } from './navItems'
 
 /**
- * Fixed bottom navigation bar — the app's primary navigation on phones and
- * tablets, replacing the old desktop sidebar. Same destinations, same
- * role-based visibility. Glassmorphism styling with an animated active pill,
- * and bottom safe-area padding for gesture-nav / notched devices.
+ * Bottom navigation bar — primary navigation on PHONES (hidden on md+, where
+ * the persistent Sidebar takes over). Same destinations and role-based
+ * visibility as the sidebar. Glass styling with an animated active pill and
+ * bottom safe-area padding for gesture-nav / notched devices.
  */
 export default function BottomNav() {
   const location = useLocation()
@@ -28,11 +19,11 @@ export default function BottomNav() {
   const items = NAV_ITEMS.filter((item) => {
     if (!user) return false
     if (user.role === 'ADMIN') return true
-    return item.roles.includes(user.role)
+    return (item.roles as readonly string[]).includes(user.role)
   })
 
   return (
-    <nav className="shrink-0 z-40 pb-safe glass-nav border-t border-border/70 shadow-[0_-8px_24px_-14px_rgba(0,0,0,0.35)]">
+    <nav className="md:hidden shrink-0 z-40 pb-safe glass-nav border-t border-border/70 shadow-[0_-8px_24px_-14px_rgba(0,0,0,0.35)]">
       <div className="flex items-stretch justify-around px-1.5 pt-1.5 pb-1">
         {items.map((item) => {
           const isActive = location.pathname === item.href
