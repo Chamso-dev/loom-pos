@@ -1,19 +1,13 @@
 /**
- * Automatic product identification for first-time inventory entry.
+ * Automatic product identification for first-time inventory entry, powered by
+ * the official Open Food Facts public API (no key, read-only, no auth).
  *
  * Strictly offline-first: this is the ONLY place the app reaches the internet,
- * and only when adding a new product by barcode. Results are cached in the local
+ * and only when adding a new product by barcode. Lookups are cached in the local
  * SQLite DB (/api/barcode-cache) so a barcode is never fetched twice, and the
  * local product catalogue always takes priority (checked by the caller).
  *
- * Identification queries several FREE, key-less, CORS-open product databases in
- * parallel, scores every candidate by completeness, and returns them ranked best
- * first. High-confidence top match → auto-fill; otherwise the caller shows the
- * ranked shortlist. Any failure/timeout/offline degrades to manual entry.
- *
- * Sources:
- *  - Open*Facts family (food, products, beauty, pet food) — same API shape.
- *  - UPCitemdb trial endpoint — general retail catalogue.
+ * Source order: Open Food Facts Algeria (French) → global Open Food Facts.
  */
 
 export interface EnrichedProduct {
@@ -28,18 +22,14 @@ export interface EnrichedProduct {
   confidence: number
 }
 
-const TIMEOUT_MS = 7000
-const BACKEND_TIMEOUT_MS = 20000
+const TIMEOUT_MS = 8000
 /** Top match at/above this score is filled automatically without asking. */
 export const AUTOFILL_CONFIDENCE = 0.7
 
-/**
- * App-controlled identification backend (Google official Custom Search +
- * extraction). The API key lives ONLY in the backend's environment — never on
- * the device and never shown to the user. Configured at build time; when unset
- * the app silently uses the key-less public databases below.
- */
-const IDENTIFY_ENDPOINT = (import.meta.env.VITE_IDENTIFY_ENDPOINT || '').trim()
+const OFF_FIELDS = [
+  'product_name', 'product_name_fr', 'generic_name', 'generic_name_fr', 'brands',
+  'quantity', 'categories_tags', 'categories', 'image_front_small_url', 'image_url',
+].join(',')
 
 function normalizeSize(quantity?: string | null): string | undefined {
   const q = (quantity || '').trim()
@@ -53,13 +43,15 @@ function titleCase(s: string): string {
 
 function cleanCategory(tags?: string[], categories?: string): string | undefined {
   if (Array.isArray(tags) && tags.length) {
+    // Most specific tag, dropping the language prefix (e.g. "fr:" / "en:").
     const last = tags[tags.length - 1] || ''
     const label = last.replace(/^[a-z]{2}:/, '').replace(/[-_]+/g, ' ').trim()
     if (label) return titleCase(label)
   }
   if (categories) {
-    const first = categories.split(',')[0]?.trim()
-    if (first) return titleCase(first)
+    const parts = categories.split(',').map((s) => s.trim()).filter(Boolean)
+    const last = parts[parts.length - 1]
+    if (last) return titleCase(last)
   }
   return undefined
 }
@@ -75,101 +67,47 @@ function scoreCandidate(c: Omit<EnrichedProduct, 'confidence'>): number {
   return Math.min(1, s)
 }
 
-async function fetchJson(url: string): Promise<any | null> {
+/**
+ * Look a barcode up on an Open Food Facts host. `frenchFirst` prefers the
+ * French product name (used for the Algeria/French source).
+ */
+async function fromOpenFoodFacts(
+  host: string,
+  label: string,
+  barcode: string,
+  frenchFirst: boolean,
+): Promise<EnrichedProduct | null> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
   try {
-    const res = await fetch(url, { signal: controller.signal })
+    const params = `lc=fr&cc=dz&fields=${OFF_FIELDS}`
+    const res = await fetch(
+      `https://${host}/api/v2/product/${encodeURIComponent(barcode)}.json?${params}`,
+      { signal: controller.signal },
+    )
     if (!res.ok) return null
-    return await res.json()
-  } catch {
-    return null
-  } finally {
-    clearTimeout(timer)
-  }
-}
+    const json: any = await res.json()
+    if (json?.status !== 1 || !json.product) return null
+    const p = json.product
 
-/** Open*Facts family — identical schema across food/products/beauty/pet hosts. */
-async function fromOpenFacts(host: string, label: string, barcode: string): Promise<EnrichedProduct | null> {
-  const fields = [
-    'product_name', 'product_name_fr', 'generic_name', 'brands',
-    'quantity', 'categories_tags', 'categories', 'image_front_small_url', 'image_url',
-  ].join(',')
-  const json = await fetchJson(`https://${host}/api/v2/product/${encodeURIComponent(barcode)}.json?fields=${fields}`)
-  if (json?.status !== 1 || !json.product) return null
-  const p = json.product
-  const brand = (p.brands || '').split(',')[0]?.trim() || undefined
-  const name = (p.product_name || p.product_name_fr || p.generic_name || brand || '').trim()
-  if (!name) return null
-  const base = {
-    barcode,
-    name,
-    size: normalizeSize(p.quantity),
-    brand,
-    category: cleanCategory(p.categories_tags, p.categories),
-    description: (p.generic_name || '').trim() || undefined,
-    image: p.image_front_small_url || p.image_url || undefined,
-    source: label,
-  }
-  return { ...base, confidence: scoreCandidate(base) }
-}
-
-/** UPCitemdb free trial — general retail catalogue (may be rate-limited). */
-async function fromUpcItemDb(barcode: string): Promise<EnrichedProduct[]> {
-  const json = await fetchJson(`https://api.upcitemdb.com/prod/trial/lookup?upc=${encodeURIComponent(barcode)}`)
-  const items: any[] = Array.isArray(json?.items) ? json.items : []
-  const out: EnrichedProduct[] = []
-  for (const it of items.slice(0, 5)) {
-    const name = (it.title || it.brand || '').trim()
-    if (!name) continue
-    const base = {
-      barcode,
-      name,
-      size: normalizeSize(it.size),
-      brand: (it.brand || '').trim() || undefined,
-      category: it.category ? titleCase(String(it.category).split('>').pop()!.trim()) : undefined,
-      description: (it.description || '').trim() || undefined,
-      image: Array.isArray(it.images) && it.images.length ? it.images[0] : undefined,
-      source: 'upcitemdb',
-    }
-    out.push({ ...base, confidence: scoreCandidate(base) })
-  }
-  return out
-}
-
-/**
- * App-controlled backend that performs the Google web search + extraction with
- * a server-side key. The device never sees the key. Returns one normalized best
- * match; preferred over the raw databases. No-op when no endpoint is configured.
- */
-async function fromBackend(barcode: string): Promise<EnrichedProduct | null> {
-  if (!IDENTIFY_ENDPOINT) return null
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), BACKEND_TIMEOUT_MS)
-  try {
-    const sep = IDENTIFY_ENDPOINT.includes('?') ? '&' : '?'
-    const res = await fetch(`${IDENTIFY_ENDPOINT}${sep}barcode=${encodeURIComponent(barcode)}`, {
-      signal: controller.signal,
-    })
-    if (!res.ok) return null
-    const p: any = await res.json()
-    if (!p || p.found === false) return null
-    const name = String(p.name || '').trim()
+    const brand = (p.brands || '').split(',')[0]?.trim() || undefined
+    const nameCandidates = frenchFirst
+      ? [p.product_name_fr, p.product_name, p.generic_name_fr, p.generic_name, brand]
+      : [p.product_name, p.product_name_fr, p.generic_name, p.generic_name_fr, brand]
+    const name = nameCandidates.map((n) => (n || '').trim()).find(Boolean)
     if (!name) return null
+
     const base = {
       barcode,
       name,
-      size: normalizeSize(p.size),
-      brand: String(p.brand || '').trim() || undefined,
-      category: p.category ? titleCase(String(p.category).trim()) : undefined,
-      description: String(p.description || '').trim() || undefined,
-      image: /^https?:\/\//.test(p.image || '') ? p.image : undefined,
-      source: 'web',
+      size: normalizeSize(p.quantity),
+      brand,
+      category: cleanCategory(p.categories_tags, p.categories),
+      description: (p.generic_name_fr || p.generic_name || '').trim() || undefined,
+      image: p.image_front_small_url || p.image_url || undefined,
+      source: label,
     }
-    const reported = typeof p.confidence === 'number' ? p.confidence : 0.85
-    // The Google-backed result is the preferred source — small edge to win ties.
-    const confidence = Math.min(1, Math.max(scoreCandidate(base), reported) + 0.1)
-    return { ...base, confidence }
+    return { ...base, confidence: scoreCandidate(base) }
   } catch {
     return null
   } finally {
@@ -201,11 +139,10 @@ async function writeCache(barcode: string, candidates: EnrichedProduct[]): Promi
 }
 
 /**
- * Identify a product from its barcode, ranked best-first.
- * 1) Local cache (instant, offline). 2) All online sources in parallel (only
- * when online), scored, de-duplicated, ranked, then cached. Returns [] when the
- * device is offline or nothing matches — the caller then falls back to manual
- * entry with the barcode pre-filled.
+ * Identify a product from its barcode. Order: local cache (instant, offline) →
+ * Open Food Facts Algeria (French) → global Open Food Facts. Returns [] when the
+ * device is offline or nothing matches, so the caller falls back to manual entry
+ * with the barcode pre-filled. Successful lookups are cached locally.
  */
 export async function identifyBarcode(barcode: string): Promise<EnrichedProduct[]> {
   const code = (barcode || '').trim()
@@ -216,35 +153,13 @@ export async function identifyBarcode(barcode: string): Promise<EnrichedProduct[
 
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return []
 
-  const tasks: Promise<EnrichedProduct | EnrichedProduct[] | null>[] = [
-    // Preferred: app-controlled Google web-search backend (server-side key).
-    fromBackend(code),
-    // Key-less public databases — automatic fallback, no config required.
-    fromOpenFacts('world.openfoodfacts.org', 'openfoodfacts', code),
-    fromOpenFacts('world.openproductsfacts.org', 'openproductsfacts', code),
-    fromOpenFacts('world.openbeautyfacts.org', 'openbeautyfacts', code),
-    fromOpenFacts('world.openpetfoodfacts.org', 'openpetfoodfacts', code),
-    fromUpcItemDb(code),
-  ]
+  // 1) Open Food Facts Algeria (French).
+  let match = await fromOpenFoodFacts('dz-fr.openfoodfacts.org', 'openfoodfacts-dz', code, true)
+  // 2) Global Open Food Facts.
+  if (!match) match = await fromOpenFoodFacts('world.openfoodfacts.org', 'openfoodfacts', code, false)
 
-  const results = await Promise.allSettled(tasks)
-
-  const candidates: EnrichedProduct[] = []
-  for (const r of results) {
-    if (r.status !== 'fulfilled' || !r.value) continue
-    if (Array.isArray(r.value)) candidates.push(...r.value)
-    else candidates.push(r.value)
-  }
-
-  // De-duplicate by name+size, keeping the highest-scoring instance.
-  const byKey = new Map<string, EnrichedProduct>()
-  for (const c of candidates) {
-    const key = `${c.name}|${c.size ?? ''}`.toLowerCase().replace(/\s+/g, '')
-    const prev = byKey.get(key)
-    if (!prev || c.confidence > prev.confidence) byKey.set(key, c)
-  }
-  const ranked = [...byKey.values()].sort((a, b) => b.confidence - a.confidence)
-
-  if (ranked.length) await writeCache(code, ranked)
-  return ranked
+  if (!match) return []
+  const result = [match]
+  await writeCache(code, result)
+  return result
 }

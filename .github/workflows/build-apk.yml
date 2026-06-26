@@ -33,11 +33,6 @@ jobs:
 
       - name: Build web assets
         run: npm run build
-        env:
-          # Optional: URL of the deployed identification backend (api/identify).
-          # Set repo variable IDENTIFY_ENDPOINT to enable the Google-backed
-          # lookup. When empty, the app uses the key-less public databases.
-          VITE_IDENTIFY_ENDPOINT: ${{ vars.IDENTIFY_ENDPOINT }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
