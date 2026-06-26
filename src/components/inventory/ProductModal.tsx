@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NumberField, toNum } from '@/components/ui/number-field'
+import { Switch } from '@/components/ui/switch'
 import { useStore, type Product } from '@/store/useStore'
 import { X, Save, RefreshCw, Package, Scale, Camera, Truck, Loader2, Sparkles } from 'lucide-react'
 import { cn, productDisplayName } from '@/lib/utils'
@@ -388,21 +389,17 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
             {/* Tax override (only when TVA enabled globally) */}
             {taxEnabled && (
               <div className="sm:col-span-2 rounded-xl border border-border p-3 space-y-2.5">
-                <label className="flex items-center justify-between gap-3 cursor-pointer">
+                <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-semibold text-foreground">Override TVA for this product</p>
                     <p className="text-[10px] text-muted-foreground">Otherwise the store default ({defaultRate}%) is used.</p>
                   </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={form.taxOverride}
-                    onClick={() => set('taxOverride', !form.taxOverride)}
-                    className={cn('relative h-6 w-11 rounded-full transition-colors shrink-0', form.taxOverride ? 'bg-primary' : 'bg-secondary border border-border')}
-                  >
-                    <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform', form.taxOverride ? 'translate-x-[22px]' : 'translate-x-0.5')} />
-                  </button>
-                </label>
+                  <Switch
+                    checked={form.taxOverride}
+                    onCheckedChange={(v) => set('taxOverride', v)}
+                    aria-label="Override TVA for this product"
+                  />
+                </div>
                 {form.taxOverride && (
                   <div className="space-y-1.5">
                     <Label>TVA (%)</Label>

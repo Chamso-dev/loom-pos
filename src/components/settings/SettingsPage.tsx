@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Store, MapPin, Hash, Phone, Save } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import { NumberField } from '@/components/ui/number-field'
 import { cn } from '@/lib/utils'
 import { LANGUAGES, useT } from '@/lib/i18n'
@@ -116,18 +117,14 @@ export default function SettingsPage() {
             <p className="text-[11px] text-muted-foreground">Configure tax once — applied to all products automatically.</p>
           </div>
 
-          <label className="flex items-center justify-between gap-3 cursor-pointer">
+          <div className="flex items-center justify-between gap-3">
             <span className="text-sm font-medium text-foreground">Enable TVA</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={formData.taxEnabled}
-              onClick={() => setFormData({ ...formData, taxEnabled: !formData.taxEnabled })}
-              className={cn('relative h-6 w-11 rounded-full transition-colors', formData.taxEnabled ? 'bg-primary' : 'bg-secondary border border-border')}
-            >
-              <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform', formData.taxEnabled ? 'translate-x-[22px]' : 'translate-x-0.5')} />
-            </button>
-          </label>
+            <Switch
+              checked={formData.taxEnabled}
+              onCheckedChange={(v) => setFormData({ ...formData, taxEnabled: v })}
+              aria-label="Enable TVA"
+            />
+          </div>
 
           {formData.taxEnabled && (
             <>
@@ -141,18 +138,14 @@ export default function SettingsPage() {
                 />
               </div>
 
-              <label className="flex items-center justify-between gap-3 cursor-pointer">
+              <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-medium text-foreground">Prices include TVA</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={formData.pricesIncludeTax}
-                  onClick={() => setFormData({ ...formData, pricesIncludeTax: !formData.pricesIncludeTax })}
-                  className={cn('relative h-6 w-11 rounded-full transition-colors', formData.pricesIncludeTax ? 'bg-primary' : 'bg-secondary border border-border')}
-                >
-                  <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform', formData.pricesIncludeTax ? 'translate-x-[22px]' : 'translate-x-0.5')} />
-                </button>
-              </label>
+                <Switch
+                  checked={formData.pricesIncludeTax}
+                  onCheckedChange={(v) => setFormData({ ...formData, pricesIncludeTax: v })}
+                  aria-label="Prices include TVA"
+                />
+              </div>
               <p className="text-[11px] text-muted-foreground -mt-1">
                 {formData.pricesIncludeTax ? 'Selling prices already contain TVA; it is extracted on each sale.' : 'TVA is added on top of selling prices at checkout.'}
               </p>
