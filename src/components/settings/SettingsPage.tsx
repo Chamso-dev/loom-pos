@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Store, MapPin, Hash, Phone, Save } from 'lucide-react'
+import { Store, MapPin, Hash, Phone, Save, Sparkles } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
 import { NumberField } from '@/components/ui/number-field'
@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { LANGUAGES, useT } from '@/lib/i18n'
 
 export default function SettingsPage() {
-  const { settings, updateSettings, user, changePassword, language, setLanguage } = useStore()
+  const { settings, updateSettings, user, changePassword, language, setLanguage, aiLookupKey, setAiLookupKey } = useStore()
   const t = useT()
   const [formData, setFormData] = useState({
     name: '',
@@ -107,6 +107,31 @@ export default function SettingsPage() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* AI Product Lookup (optional, on-device key) */}
+        <div className="bg-card p-4 rounded-2xl border border-border shadow-sm space-y-2.5">
+          <div className="flex items-center gap-2">
+            <Sparkles size={15} className="text-primary" />
+            <h3 className="text-sm font-bold tracking-tight text-foreground">AI Product Lookup (optional)</h3>
+          </div>
+          <p className="text-[11px] text-muted-foreground -mt-1">
+            When adding a product, scanning a barcode searches the web with AI to auto-fill its details.
+            Paste your own Anthropic API key — it's stored only on this device and used solely for product lookup.
+            Leave empty to use the free product databases.
+          </p>
+          <input
+            type="password"
+            value={aiLookupKey}
+            onChange={(e) => setAiLookupKey(e.target.value.trim())}
+            placeholder="sk-ant-…"
+            autoComplete="off"
+            spellCheck={false}
+            className="w-full h-11 px-3 rounded-xl border border-border bg-card text-sm font-mono tracking-tight focus:border-primary/60 outline-none"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            {aiLookupKey ? 'AI web search enabled.' : 'AI web search off — using free databases.'}
+          </p>
         </div>
 
         {/* Tax (TVA) Settings */}
