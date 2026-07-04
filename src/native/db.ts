@@ -99,6 +99,15 @@ CREATE TABLE IF NOT EXISTS BarcodeCache (
   data TEXT NOT NULL,
   createdAt TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS AuthSecret (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  secret TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS LoginThrottle (
+  identifier TEXT PRIMARY KEY,
+  failedCount INTEGER NOT NULL DEFAULT 0,
+  lockedUntil TEXT
+);
 CREATE INDEX IF NOT EXISTS idx_product_barcode ON Product(barcode);
 CREATE INDEX IF NOT EXISTS idx_order_date ON "Order"(date);
 CREATE INDEX IF NOT EXISTS idx_orderitem_order ON OrderItem(orderId);

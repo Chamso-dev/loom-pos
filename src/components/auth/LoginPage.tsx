@@ -65,6 +65,8 @@ export default function LoginPage() {
           error={!!error}
           required
           autoCapitalize="none"
+          autoComplete="username"
+          maxLength={60}
         />
 
         <AuthField
@@ -76,6 +78,8 @@ export default function LoginPage() {
           onChange={(e) => { setPassword(e.target.value); if (error) setError('') }}
           error={!!error}
           required
+          autoComplete="current-password"
+          maxLength={64}
           trailing={
             <button type="button" onClick={() => setShowPassword((v) => !v)} className="p-2 text-muted-foreground hover:text-foreground active:scale-90 transition-all">
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}

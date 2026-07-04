@@ -66,6 +66,8 @@ export default function SignUpPage() {
           error={!!error && !name.trim()}
           required
           autoFocus
+          autoComplete="name"
+          maxLength={60}
         />
 
         <AuthField
@@ -73,6 +75,9 @@ export default function SignUpPage() {
           icon={<KeyRound size={16} />}
           type={showPin ? 'text' : 'password'}
           inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete="new-password"
+          maxLength={8}
           placeholder="••••"
           value={pin}
           onChange={(e) => { setPin(e.target.value.replace(/\D/g, '').slice(0, 8)); if (error) setError('') }}

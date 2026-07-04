@@ -29,18 +29,97 @@ interface SessionToken {
 const ok = (body: any = {}, status = 200): LocalResponse => ({ status, body });
 const err = (status: number, message: string): LocalResponse => ({ status, body: { error: message } });
 
-function encodeToken(payload: SessionToken): string {
-  return btoa(JSON.stringify(payload));
+// ---- Session tokens (HMAC-SHA256 signed) ---------------------------------
+// Tokens are `b64url(payload).b64url(hmac)`, signed with a random per-install
+// secret persisted in SQLite. Unlike the old plain-base64 token, the payload
+// (id/role) can no longer be forged by crafting a request with an edited role.
+
+const B64URL = { to: (buf: ArrayBuffer | Uint8Array) => {
+  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  let s = '';
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}, from: (s: string) => {
+  const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+} };
+
+let signingKeyPromise: Promise<CryptoKey> | null = null;
+
+function getSigningKey(): Promise<CryptoKey> {
+  signingKeyPromise ||= (async () => {
+    let row = (await query<{ secret: string }>(`SELECT secret FROM AuthSecret WHERE id = 1`))[0];
+    if (!row) {
+      const raw = crypto.getRandomValues(new Uint8Array(32));
+      const secret = Array.from(raw, (b) => b.toString(16).padStart(2, '0')).join('');
+      await run(`INSERT OR IGNORE INTO AuthSecret (id, secret) VALUES (1, ?)`, [secret]);
+      row = (await query<{ secret: string }>(`SELECT secret FROM AuthSecret WHERE id = 1`))[0];
+    }
+    const keyBytes = new TextEncoder().encode(row.secret);
+    return crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+  })();
+  return signingKeyPromise;
 }
 
-function decodeToken(headers: Record<string, string>): SessionToken | null {
+async function signToken(payload: SessionToken): Promise<string> {
+  const key = await getSigningKey();
+  const body = B64URL.to(new TextEncoder().encode(JSON.stringify(payload)));
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body));
+  return `${body}.${B64URL.to(sig)}`;
+}
+
+async function verifyToken(headers: Record<string, string>): Promise<SessionToken | null> {
   const auth = headers['authorization'] || headers['Authorization'];
   if (!auth || !auth.startsWith('Bearer ')) return null;
+  const [body, sig] = auth.slice(7).split('.');
+  if (!body || !sig) return null;
   try {
-    return JSON.parse(atob(auth.slice(7))) as SessionToken;
+    const key = await getSigningKey();
+    const valid = await crypto.subtle.verify('HMAC', key, B64URL.from(sig), new TextEncoder().encode(body));
+    if (!valid) return null;
+    return JSON.parse(new TextDecoder().decode(B64URL.from(body))) as SessionToken;
   } catch {
     return null;
   }
+}
+
+// ---- Brute-force throttle -------------------------------------------------
+// PINs are 4-8 digits, so unthrottled guessing is the main practical attack.
+// After 5 failures for an identifier, lock with exponential backoff
+// (30s -> 60s -> ... capped at 15 min), persisted so a restart doesn't reset.
+
+const LOCK_THRESHOLD = 5;
+const LOCK_BASE_S = 30;
+const LOCK_MAX_S = 900;
+/** Valid bcrypt hash compared against when no user matches, so "unknown
+ *  account" and "wrong PIN" take the same time (no user enumeration). */
+const DUMMY_HASH = '$2b$10$5juH6UfA3WcaoO17fMcWp.hGeHCOwkS.47ubQ4DdXOcos20gWQ6yy';
+
+async function throttleRemaining(identifier: string): Promise<number> {
+  const row = (await query<any>(`SELECT lockedUntil FROM LoginThrottle WHERE identifier = ?`, [identifier]))[0];
+  if (!row?.lockedUntil) return 0;
+  return Math.max(0, Math.ceil((new Date(row.lockedUntil).getTime() - Date.now()) / 1000));
+}
+
+async function recordLoginFailure(identifier: string): Promise<void> {
+  const row = (await query<any>(`SELECT failedCount FROM LoginThrottle WHERE identifier = ?`, [identifier]))[0];
+  const count = (row?.failedCount ?? 0) + 1;
+  let lockedUntil: string | null = null;
+  if (count >= LOCK_THRESHOLD) {
+    const secs = Math.min(LOCK_BASE_S * 2 ** (count - LOCK_THRESHOLD), LOCK_MAX_S);
+    lockedUntil = new Date(Date.now() + secs * 1000).toISOString();
+  }
+  await run(
+    `INSERT INTO LoginThrottle (identifier, failedCount, lockedUntil) VALUES (?, ?, ?)
+     ON CONFLICT(identifier) DO UPDATE SET failedCount = excluded.failedCount, lockedUntil = excluded.lockedUntil`,
+    [identifier, count, lockedUntil]
+  );
+}
+
+async function clearLoginThrottle(identifier: string): Promise<void> {
+  await run(`DELETE FROM LoginThrottle WHERE identifier = ?`, [identifier]);
 }
 
 function uuid(): string {
@@ -60,8 +139,14 @@ function toUser(row: any) {
 // ---- Auth ---------------------------------------------------------------
 
 async function login(req: LocalRequest): Promise<LocalResponse> {
-  const { employeeId, password } = req.body || {};
-  if (!employeeId || !password) return err(400, 'Login failed');
+  const employeeId = String(req.body?.employeeId ?? '').trim();
+  const password = String(req.body?.password ?? '');
+  if (!employeeId || !password) return err(400, 'Invalid name or PIN');
+
+  // Locked out? Fail fast with how long remains (message reaches the UI).
+  const throttleKey = employeeId.toLowerCase();
+  const waitSecs = await throttleRemaining(throttleKey);
+  if (waitSecs > 0) return err(429, `Too many attempts. Try again in ${waitSecs}s.`);
 
   // Accept either the employee ID or the full name (PIN signups identify by name).
   let users = await query<any>(`SELECT * FROM User WHERE employeeId = ? AND isActive = 1`, [employeeId]);
@@ -69,7 +154,10 @@ async function login(req: LocalRequest): Promise<LocalResponse> {
     users = await query<any>(`SELECT * FROM User WHERE LOWER(name) = LOWER(?) AND isActive = 1`, [employeeId]);
   }
   let user = users[0];
-  let isValid = !!user && (await bcrypt.compare(password, user.password));
+  // Unknown account still pays one bcrypt compare, so response time doesn't
+  // reveal whether the account exists.
+  let isValid = await bcrypt.compare(password, user ? user.password : DUMMY_HASH);
+  if (!user) isValid = false;
 
   if (!isValid && (!user || user.role === 'CASHIER')) {
     const settings = (await query<any>(`SELECT * FROM StoreSettings LIMIT 1`))[0];
@@ -81,9 +169,13 @@ async function login(req: LocalRequest): Promise<LocalResponse> {
     }
   }
 
-  if (!user || !isValid) return err(401, 'Invalid credentials or account deactivated');
+  if (!user || !isValid) {
+    await recordLoginFailure(throttleKey);
+    return err(401, 'Invalid credentials or account deactivated');
+  }
 
-  const token = encodeToken({ id: user.id, role: user.role, employeeId: user.employeeId });
+  await clearLoginThrottle(throttleKey);
+  const token = await signToken({ id: user.id, role: user.role, employeeId: user.employeeId });
   return ok({ user: toUser(user), token });
 }
 
@@ -130,14 +222,14 @@ async function register(req: LocalRequest): Promise<LocalResponse> {
     [id, employeeId, name, role, hashed, ts, ts]
   );
   const user = (await query<any>(`SELECT * FROM User WHERE id = ?`, [id]))[0];
-  const token = encodeToken({ id: user.id, role: user.role, employeeId: user.employeeId });
+  const token = await signToken({ id: user.id, role: user.role, employeeId: user.employeeId });
   return ok({ user: toUser(user), token }, 201);
 }
 
 // ---- Authorization guards ----------------------------------------------
 
 async function getAdmin(req: LocalRequest): Promise<any | null> {
-  const session = decodeToken(req.headers);
+  const session = await verifyToken(req.headers);
   if (!session) return null;
   const user = (await query<any>(`SELECT * FROM User WHERE id = ?`, [session.id]))[0];
   if (!user || user.role !== 'ADMIN' || !user.isActive) return null;
@@ -145,7 +237,7 @@ async function getAdmin(req: LocalRequest): Promise<any | null> {
 }
 
 async function authorizeAdminOrKey(req: LocalRequest): Promise<boolean> {
-  const session = decodeToken(req.headers);
+  const session = await verifyToken(req.headers);
   if (!session) return false;
   const user = (await query<any>(`SELECT * FROM User WHERE id = ?`, [session.id]))[0];
   if (!user || !user.isActive) return false;
