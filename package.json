@@ -15,6 +15,7 @@
     "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
+    "@fontsource-variable/anek-latin": "^5.3.0",
     "@prisma/client": "^6.0.0",
     "@radix-ui/react-slot": "^1.0.2",
     "@tailwindcss/vite": "^4.2.2",

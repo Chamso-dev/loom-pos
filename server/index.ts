@@ -735,6 +735,94 @@ app.get('/api/analytics/sales', async (req, res) => {
   }
 });
 
+// Analytics: today's pace against the past week, the week by day, and today's best sellers.
+// Days use the server's local calendar, the same as /api/analytics/summary.
+app.get('/api/analytics/today', async (req, res) => {
+  try {
+    const dayKey = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const since = new Date(today);
+    since.setDate(since.getDate() - 7);
+
+    const orders = await prisma.order.findMany({
+      where: { date: { gte: since } },
+      select: { date: true, totalAmount: true },
+    });
+
+    // Sales per hour for today and for each of the previous 7 days.
+    const todayKey = dayKey(today);
+    const todayByHour: number[] = new Array(24).fill(0);
+    const pastDays: Record<string, number[]> = {};
+    const weekTotals: Record<string, { amount: number; orders: number }> = {};
+
+    for (const o of orders) {
+      const key = dayKey(o.date);
+      const hour = o.date.getHours();
+      if (key === todayKey) {
+        todayByHour[hour] += o.totalAmount;
+      } else {
+        (pastDays[key] ??= new Array(24).fill(0))[hour] += o.totalAmount;
+      }
+      const w = (weekTotals[key] ??= { amount: 0, orders: 0 });
+      w.amount += o.totalAmount;
+      w.orders += 1;
+    }
+
+    // An average day only counts past days that had at least one sale.
+    const pastDayList = Object.values(pastDays);
+    const comparedDays = pastDayList.length;
+    const averageByHour = todayByHour.map((_, h) =>
+      comparedDays ? pastDayList.reduce((sum, day) => sum + day[h], 0) / comparedDays : 0
+    );
+
+    // Last 7 days including today, oldest first, with empty days kept as zero.
+    const week = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() - (6 - i));
+      const key = dayKey(d);
+      return { date: key, amount: weekTotals[key]?.amount ?? 0, orders: weekTotals[key]?.orders ?? 0 };
+    });
+
+    const items = await prisma.orderItem.findMany({
+      where: { order: { date: { gte: today } } },
+      select: {
+        productId: true,
+        quantity: true,
+        price: true,
+        product: { select: { name: true, size: true, color: true, sku: true } },
+      },
+    });
+
+    type TopItem = { productId: string; name: string; size: string | null; color: string | null; sku: string; quantity: number; revenue: number };
+    const byProduct = new Map<string, TopItem>();
+    for (const item of items) {
+      const entry = byProduct.get(item.productId) ?? {
+        productId: item.productId,
+        name: item.product.name,
+        size: item.product.size,
+        color: item.product.color,
+        sku: item.product.sku,
+        quantity: 0,
+        revenue: 0,
+      };
+      entry.quantity += item.quantity;
+      entry.revenue += item.price * item.quantity;
+      byProduct.set(item.productId, entry);
+    }
+    const topItems = [...byProduct.values()]
+      .sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue)
+      .slice(0, 5);
+
+    res.json({ todayByHour, averageByHour, comparedDays, week, topItems, generatedAt: new Date().toISOString() });
+  } catch (error) {
+    console.error('Today analytics error:', error);
+    res.status(500).json({ error: 'Failed to fetch today analytics' });
+  }
+});
+
 const PORT = 3001;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
