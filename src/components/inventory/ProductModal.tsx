@@ -18,16 +18,15 @@ interface ProductModalProps {
 
 const newCodes = () => {
   const stamp = Date.now().toString().slice(-6)
-  return { sku: `SKU-${stamp}`, barcode: `200${stamp}` }
+  return { barcode: `200${stamp}` }
 }
 
-type Form = { name: string; sku: string; barcode: string; category: string; unit: UnitCode; size: string; color: string; supplier: string; cost: string; price: string; stock: string; taxRate: number; expiry: string }
+type Form = { name: string; barcode: string; category: string; unit: UnitCode; size: string; color: string; supplier: string; cost: string; price: string; stock: string; taxRate: number; expiry: string }
 
 const fromProduct = (p?: Product | null): Form =>
   p
     ? {
         name: p.name,
-        sku: p.sku,
         barcode: p.barcode,
         category: p.category,
         unit: (UNIT_CODES as readonly string[]).includes(p.unit) ? (p.unit as UnitCode) : 'piece',
@@ -77,7 +76,6 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
     }
     const data: ProductInput = {
       name: form.name.trim(),
-      sku: form.sku.trim(),
       barcode: form.barcode.trim(),
       category: form.category.trim(),
       unit: form.unit,
@@ -124,7 +122,7 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
         <Field
           label={
             <span className="flex items-center justify-between">
-              {t('inventory.sku')}
+              {t('inventory.barcode')}
               {!product && (
                 <button type="button" onClick={() => setForm((f) => ({ ...f, ...newCodes() }))} className="text-xs text-link flex items-center gap-1">
                   <RefreshCw size={11} /> {t('inventory.regenerate')}
@@ -132,10 +130,8 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
               )}
             </span>
           }
+          hint={t('inventory.barcodeHint')}
         >
-          <TextInput value={form.sku} onChange={(e) => set('sku', e.target.value)} required dir="ltr" className="text-start" />
-        </Field>
-        <Field label={t('inventory.barcode')}>
           <TextInput value={form.barcode} onChange={(e) => set('barcode', e.target.value)} required dir="ltr" className="text-start" inputMode="numeric" />
         </Field>
 
@@ -192,7 +188,7 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
         <Field label={t('inventory.expiry.label')} hint={t('inventory.expiry.hint')}>
           <div className="space-y-1.5">
             <div className="flex gap-2">
-              <TextInput type="date" value={form.expiry} onChange={(e) => set('expiry', e.target.value)} dir="ltr" className="text-start" />
+              <TextInput type="date" aria-label={t('inventory.expiry.label')} value={form.expiry} onChange={(e) => set('expiry', e.target.value)} dir="ltr" className="text-start" />
               {form.expiry && (
                 <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => set('expiry', '')} aria-label={t('inventory.expiry.clear')}>
                   <X size={16} />

@@ -19,7 +19,7 @@ export interface ReceiptOrder {
   customerMobile?: string | null
   customer?: { name: string; phone?: string | null; balance: number } | null
   processedBy?: { name: string } | null
-  items: Array<{ quantity: number; unit: string; price: number; taxRate: number; product: { name: string; sku: string } }>
+  items: Array<{ quantity: number; unit: string; price: number; taxRate: number; product: { name: string } }>
   payments?: Array<{ method: string; amount: number; tendered?: number | null; kind?: string }>
 }
 
@@ -214,7 +214,6 @@ export function A4Invoice({ order }: { order: ReceiptOrder }) {
             <tr key={idx} className="border-b border-gray-200">
               <td className="py-3">
                 <p className="font-semibold"><bdi>{item.product.name}</bdi></p>
-                <p className="text-xs opacity-60">{i18n.code(item.product.sku)}</p>
               </td>
               <td className="py-3 text-center">{qty(item.quantity, item.unit, true)}</td>
               <td className="py-3 text-end tabular-nums">{fixed(i18n, item.price)}</td>

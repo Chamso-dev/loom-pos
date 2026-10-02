@@ -56,7 +56,7 @@ export default function Header() {
   const handleSelect = (item: SearchResult) => {
     setIsOpen(false)
     setQuery('')
-    if (item.type === 'product') navigate(`/inventory?search=${encodeURIComponent(item.data.sku)}`)
+    if (item.type === 'product') navigate(`/inventory?search=${encodeURIComponent(item.data.barcode)}`)
     else navigate(`/orders?orderId=${item.id}`)
   }
 
@@ -133,7 +133,7 @@ export default function Header() {
                           <div className="min-w-0">
                             <p className="font-semibold text-sm text-foreground truncate"><bdi>{item.data.name}</bdi></p>
                             <p className="text-xs text-muted-foreground">
-                              {t('layout.productSubtitle', { sku: code(item.data.sku), stock: qty(item.data.stock, item.data.unit) })}
+                              {t('layout.productSubtitle', { stock: qty(item.data.stock, item.data.unit) })}
                             </p>
                           </div>
                         </button>
@@ -242,7 +242,7 @@ export default function Header() {
                       key={product.id}
                       onClick={() => {
                         setShowNotifications(false)
-                        navigate(`/inventory?search=${encodeURIComponent(product.sku)}`)
+                        navigate(`/inventory?search=${encodeURIComponent(product.barcode)}`)
                       }}
                       className="w-full flex items-center gap-3 p-2.5 rounded hover:bg-accent transition-all text-start"
                     >
@@ -252,7 +252,6 @@ export default function Header() {
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm text-foreground truncate"><bdi>{product.name}</bdi></p>
                         <p className="text-xs text-muted-foreground">
-                          {code(product.sku)}{' '}
                           <span className={cn('font-semibold', product.stock <= 0 ? 'text-red-600' : 'text-amber-700 dark:text-amber-400')}>
                             {t('layout.stockLeft', { stock: qty(product.stock, product.unit, true) })}
                           </span>

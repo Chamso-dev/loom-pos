@@ -16,7 +16,7 @@ interface TodayAnalytics {
   averageByHour: number[]
   comparedDays: number
   week: Array<{ date: string; amount: number; orders: number }>
-  topItems: Array<{ productId: string; name: string; size: string | null; color: string | null; sku: string; unit: string; quantity: number; revenue: number }>
+  topItems: Array<{ productId: string; name: string; size: string | null; color: string | null; barcode: string; unit: string; quantity: number; revenue: number }>
 }
 
 interface Bill {
@@ -209,12 +209,12 @@ export default function Dashboard() {
             <ul className="ld-list">
               {lowStockProducts.slice(0, 5).map((p) => (
                 <li key={p.id} className="ld-list-row">
-                  <Link className="ld-item-name" to={`/inventory?search=${encodeURIComponent(p.sku)}`}><bdi>{p.name}</bdi></Link>
+                  <Link className="ld-item-name" to={`/inventory?search=${encodeURIComponent(p.barcode)}`}><bdi>{p.name}</bdi></Link>
                   <span className={`ld-item-value ${p.stock <= 0 ? 'ld-stock-out' : 'ld-stock-low'}`}>
                     <span className="ld-stock-mark" aria-hidden="true" />
                     {p.stock <= 0 ? t('dashboard.soldOut') : t('dashboard.left', { qty: qty(p.stock, p.unit, true) })}
                   </span>
-                  <span className="ld-item-detail"><bdi>{[p.size, p.category].filter(Boolean).join(', ') || code(p.sku)}</bdi></span>
+                  <span className="ld-item-detail"><bdi>{[p.size, p.category].filter(Boolean).join(', ')}</bdi></span>
                 </li>
               ))}
             </ul>
@@ -232,7 +232,7 @@ export default function Dashboard() {
             <ul className="ld-list">
               {today.topItems.map((item) => (
                 <li key={item.productId} className="ld-list-row">
-                  <Link className="ld-item-name" to={`/inventory?search=${encodeURIComponent(item.sku)}`}><bdi>{item.name}</bdi></Link>
+                  <Link className="ld-item-name" to={`/inventory?search=${encodeURIComponent(item.barcode)}`}><bdi>{item.name}</bdi></Link>
                   <span className="ld-item-value">{money(item.revenue)}</span>
                   <span className="ld-item-detail">{t('dashboard.sold', { qty: qty(item.quantity, item.unit, true) })}</span>
                 </li>

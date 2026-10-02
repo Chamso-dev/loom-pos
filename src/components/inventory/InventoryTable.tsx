@@ -76,8 +76,7 @@ export default function InventoryTable({ products, loading, searching, onEdit, o
                   <ExpiryBadge value={product.expiryDate} className="mt-1" />
                 </td>
                 <td className="px-4 py-3">
-                  <p className="text-xs text-muted-foreground">{code(product.sku)}</p>
-                  <BarcodeView value={product.barcode} width={80} height={10} className="mt-1 bg-white border border-zinc-200 rounded p-1 max-w-[110px] h-7" />
+                  <BarcodeView value={product.barcode} width={80} height={10} className="bg-white border border-zinc-200 rounded p-1 max-w-[110px] h-7" />
                   <p className="text-[11px] text-muted-foreground mt-0.5">{code(product.barcode)}</p>
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">

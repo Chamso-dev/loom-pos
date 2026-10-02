@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import { useI18n } from '@/i18n'
 
 interface BarcodeLabelProps {
-  product: { name: string; sku: string; size?: string | null; sellingPrice: number; barcode: string; unit?: string }
+  product: { name: string; size?: string | null; sellingPrice: number; barcode: string; unit?: string }
   width?: number
   height?: number
   showDottedBorder?: boolean

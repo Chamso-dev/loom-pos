@@ -223,10 +223,10 @@ reportsRouter.get('/analytics/today', handle(async (_req, res) => {
 
   const items = await prisma.orderItem.findMany({
     where: { order: { date: { gte: today } } },
-    select: { productId: true, quantity: true, price: true, unit: true, product: { select: { name: true, size: true, color: true, sku: true } } },
+    select: { productId: true, quantity: true, price: true, unit: true, product: { select: { name: true, size: true, color: true, barcode: true } } },
   });
 
-  type TopItem = { productId: string; name: string; size: string | null; color: string | null; sku: string; unit: string; quantity: number; revenue: number };
+  type TopItem = { productId: string; name: string; size: string | null; color: string | null; barcode: string; unit: string; quantity: number; revenue: number };
   const byProduct = new Map<string, TopItem>();
   for (const item of items) {
     const entry = byProduct.get(item.productId) ?? {
@@ -234,7 +234,7 @@ reportsRouter.get('/analytics/today', handle(async (_req, res) => {
       name: item.product.name,
       size: item.product.size,
       color: item.product.color,
-      sku: item.product.sku,
+      barcode: item.product.barcode,
       unit: item.unit,
       quantity: 0,
       revenue: 0,

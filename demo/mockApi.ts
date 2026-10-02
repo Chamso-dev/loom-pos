@@ -430,7 +430,7 @@ function today() {
   for (const o of db.orders.filter((o) => new Date(o.date) >= start)) {
     for (const i of o.items) {
       const p = db.products.find((x) => x.id === i.productId)!
-      const e = byProduct.get(p.id) ?? { productId: p.id, name: p.name, size: p.size, color: p.color, sku: p.sku, unit: i.unit, quantity: 0, revenue: 0 }
+      const e = byProduct.get(p.id) ?? { productId: p.id, name: p.name, size: p.size, color: p.color, barcode: p.barcode, unit: i.unit, quantity: 0, revenue: 0 }
       e.quantity = roundQuantity(e.quantity + i.quantity, i.unit)
       e.revenue = roundMoney(e.revenue + i.price * i.quantity)
       byProduct.set(p.id, e)
@@ -526,7 +526,7 @@ async function route(method: string, path: string, query: URLSearchParams, body:
     }
     const data = { ...body, unit, ...(body.stock !== undefined ? { stock: roundQuantity(body.stock, unit) } : {}), updatedAt: iso(new Date()) }
     if (current) return Object.assign(current, data), [200, clone(current)]
-    const product = { id: id(), size: null, color: null, supplier: null, supplierId: null, taxRate: 0, expiryDate: null, createdAt: iso(new Date()), ...data }
+    const product = { id: id(), sku: `P-${Math.random().toString(36).slice(2, 10).toUpperCase()}`, size: null, color: null, supplier: null, supplierId: null, taxRate: 0, expiryDate: null, createdAt: iso(new Date()), ...data }
     db.products.push(product)
     return [201, clone(product)]
   }

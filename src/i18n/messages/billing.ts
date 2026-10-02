@@ -4,7 +4,7 @@ export const billing = defineMessages({
   en: {
     title: 'Cash register',
     cashier: 'Cashier: {name}',
-    scanPlaceholder: 'Scan a barcode or type a product name or SKU',
+    scanPlaceholder: 'Scan a barcode or type a product name',
     scanReady: 'Ready',
     scanNotFound: 'Not found',
     inStock: '{stock} in stock',
@@ -81,7 +81,7 @@ export const billing = defineMessages({
   ar: {
     title: 'الصندوق',
     cashier: 'أمين الصندوق: {name}',
-    scanPlaceholder: 'امسح الرمز الشريطي أو اكتب اسم المنتج أو رمزه',
+    scanPlaceholder: 'امسح الرمز الشريطي أو اكتب اسم المنتج',
     scanReady: 'جاهز',
     scanNotFound: 'غير موجود',
     inStock: 'المخزون {stock}',

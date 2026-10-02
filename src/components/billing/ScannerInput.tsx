@@ -12,11 +12,11 @@ export default function ScannerInput() {
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const { addByBarcode, products, addToCart } = useStore()
-  const { t, unitPrice, qty, code } = useI18n()
+  const { t, unitPrice, qty } = useI18n()
 
   const query = value.trim().toLowerCase()
   const filteredProducts = query
-    ? products.filter((p) => p.name.toLowerCase().includes(query) || p.sku.toLowerCase().includes(query) || p.barcode.toLowerCase().includes(query))
+    ? products.filter((p) => p.name.toLowerCase().includes(query) || p.barcode.toLowerCase().includes(query))
     : []
 
   useEffect(() => setActiveIndex(-1), [value])
@@ -68,7 +68,7 @@ export default function ScannerInput() {
     if (activeIndex >= 0 && filteredProducts[activeIndex]) return select(filteredProducts[activeIndex])
     const term = value.trim()
     if (!term) return
-    const exact = products.find((p) => p.barcode === term || p.sku === term)
+    const exact = products.find((p) => p.barcode === term)
     if (exact) return select(exact)
     if (await addByBarcode(term)) return done()
     if (filteredProducts.length > 0) return select(filteredProducts[0])
@@ -142,7 +142,7 @@ export default function ScannerInput() {
             >
               <span className="min-w-0">
                 <span className="block font-semibold text-sm truncate"><bdi>{product.name}</bdi></span>
-                <span className="block text-xs text-muted-foreground">{code(product.sku)}</span>
+                {product.size && <span className="block text-xs text-muted-foreground"><bdi>{product.size}</bdi></span>}
               </span>
               <span className="flex items-center gap-3 shrink-0">
                 <span className="text-xs text-muted-foreground">

@@ -45,7 +45,8 @@ const optionalPhone = z
 
 const productSchema = z.object({
   name: z.string().trim().min(1),
-  sku: z.string().trim().min(1),
+  // Internal code, assigned by the server when left out. The app no longer shows or asks for it.
+  sku: z.string().trim().min(1).optional(),
   barcode: z.string().trim().min(1),
   category: z.string().trim().min(1),
   unit: z.enum(UNIT_CODES).default('piece'),
@@ -246,6 +247,14 @@ const normalizeProduct = <T extends { unit?: string; stock?: number; costPrice?:
   ...(data.sellingPrice !== undefined ? { sellingPrice: roundMoney(data.sellingPrice) } : {}),
 });
 
+/** A unique internal code for a new product, e.g. P-7K2Q9XWM. */
+async function newSku(): Promise<string> {
+  for (;;) {
+    const sku = `P-${crypto.randomBytes(5).toString('hex').toUpperCase().slice(0, 8)}`;
+    if (!(await prisma.product.findUnique({ where: { sku } }))) return sku;
+  }
+}
+
 async function assertCodesFree(sku?: string, barcode?: string, exceptId?: string) {
   if (sku) {
     const p = await prisma.product.findUnique({ where: { sku } });
@@ -259,8 +268,9 @@ async function assertCodesFree(sku?: string, barcode?: string, exceptId?: string
 
 app.post('/api/products', requireAdminOrKey, handle(async (req, res) => {
   const data = normalizeProduct(productSchema.parse(req.body));
-  await assertCodesFree(data.sku, data.barcode);
-  const product = await prisma.product.create({ data: { ...data, id: crypto.randomUUID(), updatedAt: new Date() } });
+  const sku = data.sku ?? (await newSku());
+  await assertCodesFree(sku, data.barcode);
+  const product = await prisma.product.create({ data: { ...data, sku, id: crypto.randomUUID(), updatedAt: new Date() } });
   res.status(201).json(product);
 }));
 

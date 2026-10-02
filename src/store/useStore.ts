@@ -57,7 +57,8 @@ export interface Product {
   updatedAt: string
 }
 
-export type ProductInput = Omit<Product, 'id' | 'createdAt' | 'updatedAt'>
+/** The SKU is an internal code the server assigns; the app does not ask for it. */
+export type ProductInput = Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'sku'> & { sku?: string }
 
 export interface CartItem {
   id: string

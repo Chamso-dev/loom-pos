@@ -59,7 +59,7 @@ function QuantityControl({ item }: { item: CartItem }) {
 
 export default function CartList() {
   const { cart, removeFromCart } = useStore()
-  const { t, money, unitPrice, qty, code } = useI18n()
+  const { t, money, unitPrice, qty } = useI18n()
 
   if (cart.length === 0) {
     return (
@@ -85,7 +85,6 @@ export default function CartList() {
           <div className="flex-1 min-w-[10rem]">
             <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
               <span className="text-sm font-semibold text-foreground"><bdi>{item.name}</bdi></span>
-              <span className="text-[11px] bg-secondary px-1.5 py-0.5 rounded border border-border text-muted-foreground">{code(item.sku)}</span>
               {item.taxRate > 0 && (
                 <span className="text-[11px] bg-primary/10 text-link px-1.5 py-0.5 rounded font-semibold">{t('billing.taxRate', { rate: item.taxRate })}</span>
               )}
