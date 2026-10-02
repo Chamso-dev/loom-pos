@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, X } from 'lucide-react'
 import Modal from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { DecimalInput, ErrorNote, Field, SelectInput, TextInput } from '@/components/ui/field'
 import { useStore, type Product, type ProductInput } from '@/store/useStore'
 import { useI18n } from '@/i18n'
-import { formatNumber, includedTax, parseDecimal, roundMoney, TAX_RATES, UNIT_CODES, unitRule, type UnitCode } from '@/lib/domain'
+import { formatNumber, includedTax, parseDecimal, roundMoney, TAX_RATES, toExpiryDay, UNIT_CODES, unitRule, type UnitCode } from '@/lib/domain'
+import ExpiryBadge from './ExpiryBadge'
 import { cn, signTone } from '@/lib/utils'
 
 interface ProductModalProps {
@@ -20,7 +21,7 @@ const newCodes = () => {
   return { sku: `SKU-${stamp}`, barcode: `200${stamp}` }
 }
 
-type Form = { name: string; sku: string; barcode: string; category: string; unit: UnitCode; size: string; color: string; supplier: string; cost: string; price: string; stock: string; taxRate: number }
+type Form = { name: string; sku: string; barcode: string; category: string; unit: UnitCode; size: string; color: string; supplier: string; cost: string; price: string; stock: string; taxRate: number; expiry: string }
 
 const fromProduct = (p?: Product | null): Form =>
   p
@@ -37,8 +38,9 @@ const fromProduct = (p?: Product | null): Form =>
         price: formatNumber(p.sellingPrice, 2),
         stock: formatNumber(p.stock, 3),
         taxRate: p.taxRate,
+        expiry: toExpiryDay(p.expiryDate) ?? '',
       }
-    : { name: '', ...newCodes(), category: '', unit: 'piece', size: '', color: '', supplier: '', cost: '', price: '', stock: '0', taxRate: 0 }
+    : { name: '', ...newCodes(), category: '', unit: 'piece', size: '', color: '', supplier: '', cost: '', price: '', stock: '0', taxRate: 0, expiry: '' }
 
 export default function ProductModal({ product, isOpen, onClose, adminKey }: ProductModalProps) {
   const { addProduct, updateProduct } = useStore()
@@ -86,6 +88,7 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
       sellingPrice: price,
       taxRate: form.taxRate,
       stock,
+      expiryDate: form.expiry || null,
     }
     setSaving(true)
     const result = product ? await updateProduct(product.id, data, adminKey) : await addProduct(data, adminKey)
@@ -186,7 +189,20 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
         <Field label={`${t('inventory.color')} (${t('common.optional')})`}>
           <TextInput value={form.color} onChange={(e) => set('color', e.target.value)} placeholder={t('inventory.colorPlaceholder')} />
         </Field>
-        <Field label={`${t('inventory.supplier')} (${t('common.optional')})`} className="md:col-span-2">
+        <Field label={t('inventory.expiry.label')} hint={t('inventory.expiry.hint')}>
+          <div className="space-y-1.5">
+            <div className="flex gap-2">
+              <TextInput type="date" value={form.expiry} onChange={(e) => set('expiry', e.target.value)} dir="ltr" className="text-start" />
+              {form.expiry && (
+                <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => set('expiry', '')} aria-label={t('inventory.expiry.clear')}>
+                  <X size={16} />
+                </Button>
+              )}
+            </div>
+            <ExpiryBadge value={form.expiry} />
+          </div>
+        </Field>
+        <Field label={`${t('inventory.supplier')} (${t('common.optional')})`}>
           <TextInput value={form.supplier} onChange={(e) => set('supplier', e.target.value)} placeholder={t('inventory.supplierPlaceholder')} />
         </Field>
 

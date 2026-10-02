@@ -6,6 +6,7 @@ import BarcodeView from './BarcodeView'
 import { useI18n } from '@/i18n'
 import { unitRule } from '@/lib/domain'
 import { cn } from '@/lib/utils'
+import ExpiryBadge from './ExpiryBadge'
 
 interface InventoryTableProps {
   products: Product[]
@@ -72,6 +73,7 @@ export default function InventoryTable({ products, loading, searching, onEdit, o
                     <bdi>{product.category}</bdi>
                     {product.size && <bdi className="ms-2">{product.size}</bdi>}
                   </p>
+                  <ExpiryBadge value={product.expiryDate} className="mt-1" />
                 </td>
                 <td className="px-4 py-3">
                   <p className="text-xs text-muted-foreground">{code(product.sku)}</p>

@@ -10,6 +10,7 @@ import PrintLabelsModal from './PrintLabelsModal'
 import AdminVerifyModal from './AdminVerifyModal'
 import { useStore, type Product } from '@/store/useStore'
 import { useI18n } from '@/i18n'
+import { EXPIRY_SOON_DAYS } from '@/lib/domain'
 
 type Pending = { type: 'add' } | { type: 'edit'; product: Product } | { type: 'delete'; product: Product }
 
@@ -23,6 +24,7 @@ export default function InventoryPage() {
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '')
+  const [expiringOnly, setExpiringOnly] = useState(searchParams.get('expiring') === '1')
   const [page, setPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [adminKey, setAdminKey] = useState<string | undefined>()
@@ -33,9 +35,15 @@ export default function InventoryPage() {
 
   useEffect(() => {
     setPage(1)
-    const timer = setTimeout(() => fetchProducts({ page: 1, search: searchQuery }), 300)
+    const timer = setTimeout(() => fetchProducts({ page: 1, search: searchQuery, expiring: expiringOnly }), 300)
     return () => clearTimeout(timer)
-  }, [searchQuery, fetchProducts])
+  }, [searchQuery, expiringOnly, fetchProducts])
+
+  // The notifications panel links here with ?expiring=1; follow it while the page is open.
+  useEffect(() => {
+    setExpiringOnly(searchParams.get('expiring') === '1')
+    if (searchParams.has('search')) setSearchQuery(searchParams.get('search') || '')
+  }, [searchParams])
 
   const openForm = (product: Product | null, key?: string) => {
     setEditingProduct(product)
@@ -83,16 +91,22 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      <div className="relative max-w-2xl">
-        <Search className="absolute start-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-        <input
-          type="search"
-          placeholder={t('inventory.searchPlaceholder')}
-          aria-label={t('inventory.searchPlaceholder')}
-          className="w-full ps-10 pe-3 h-10 bg-card border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative w-full max-w-2xl">
+          <Search className="absolute start-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          <input
+            type="search"
+            placeholder={t('inventory.searchPlaceholder')}
+            aria-label={t('inventory.searchPlaceholder')}
+            className="w-full ps-10 pe-3 h-10 bg-card border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <label className="flex shrink-0 items-center gap-2 text-sm">
+          <input type="checkbox" checked={expiringOnly} onChange={(e) => setExpiringOnly(e.target.checked)} className="h-4 w-4 accent-primary" />
+          {t('inventory.expiry.filter', { days: EXPIRY_SOON_DAYS })}
+        </label>
       </div>
 
       {error != null && <ErrorNote>{i18n.error(error)}</ErrorNote>}
@@ -100,7 +114,7 @@ export default function InventoryPage() {
       <InventoryTable
         products={products}
         loading={isLoadingProducts}
-        searching={Boolean(searchQuery)}
+        searching={Boolean(searchQuery) || expiringOnly}
         onEdit={(product) => request({ type: 'edit', product })}
         onDelete={(product) => request({ type: 'delete', product })}
         selectedIds={selectedIds}
@@ -116,7 +130,7 @@ export default function InventoryPage() {
             disabled={isLoadingProducts}
             onClick={() => {
               setPage(page + 1)
-              fetchProducts({ page: page + 1, search: searchQuery })
+              fetchProducts({ page: page + 1, search: searchQuery, expiring: expiringOnly })
             }}
           >
             {isLoadingProducts ? t('common.loading') : t('inventory.loadMore')}

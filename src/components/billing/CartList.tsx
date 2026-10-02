@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { Trash2, Minus, Plus, ShoppingBag } from 'lucide-react'
 import { useStore, type CartItem } from '@/store/useStore'
 import { useI18n } from '@/i18n'
-import { allowsDecimal, formatNumber, parseDecimal, roundMoney, unitRule } from '@/lib/domain'
+import { allowsDecimal, expiryStatus, formatNumber, parseDecimal, roundMoney, unitRule } from '@/lib/domain'
 import { cn } from '@/lib/utils'
+import ExpiryBadge from '@/components/inventory/ExpiryBadge'
 
 /** Quantity field: typed for weights (1,5 kg), +/- buttons for counted items. */
 function QuantityControl({ item }: { item: CartItem }) {
@@ -73,7 +74,14 @@ export default function CartList() {
   return (
     <ul className="flex flex-col gap-2 lg:overflow-y-auto pe-1 custom-scrollbar font-sans">
       {cart.map((item) => (
-        <li key={item.id} className="group flex flex-wrap sm:flex-nowrap items-center gap-3 p-3 bg-card border border-border rounded-md">
+        <li
+          key={item.id}
+          className={cn(
+            'group flex flex-wrap sm:flex-nowrap items-center gap-3 p-3 bg-card border rounded-md',
+            // An expired product stays sellable, but the cashier should see it before taking payment.
+            expiryStatus(item.expiryDate)?.state === 'expired' ? 'border-loss/50' : 'border-border'
+          )}
+        >
           <div className="flex-1 min-w-[10rem]">
             <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
               <span className="text-sm font-semibold text-foreground"><bdi>{item.name}</bdi></span>
@@ -87,6 +95,7 @@ export default function CartList() {
               <span className={cn(item.stock - item.quantity <= unitRule(item.unit).lowStockAt ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground')}>
                 {t('billing.inStock', { stock: qty(item.stock, item.unit, true) })}
               </span>
+              <ExpiryBadge value={item.expiryDate} onlyWarnings />
             </div>
           </div>
 

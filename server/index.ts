@@ -10,14 +10,24 @@ import { customersRouter } from './routes/customers';
 import { suppliersRouter } from './routes/suppliers';
 import { reportsRouter } from './routes/reports';
 import {
+  addDays,
+  EXPIRY_SOON_DAYS,
   isUnitCode,
+  localDay,
   normalizeAlgerianPhone,
   PAYMENT_METHOD_CODES,
   roundMoney,
   roundQuantity,
+  toExpiryDay,
   UNIT_CODES,
   UNITS,
 } from '../src/lib/domain';
+
+/** A calendar day as the Date Prisma stores in a DATE column. */
+const dayToDate = (day: string) => new Date(`${day}T00:00:00.000Z`);
+
+/** The last expiry day that still counts as "expiring soon", from the shop's today. */
+const expiringBefore = () => dayToDate(addDays(localDay(), EXPIRY_SOON_DAYS));
 
 const app = express();
 
@@ -30,7 +40,8 @@ const optionalPhone = z
   .max(30)
   .nullish()
   .refine((v) => !v || normalizeAlgerianPhone(v) !== null, { message: 'INVALID_PHONE' })
-  .transform((v) => (v ? normalizeAlgerianPhone(v) : null));
+  // Left out of a partial update (undefined), the current phone is kept.
+  .transform((v) => (v === undefined ? undefined : v ? normalizeAlgerianPhone(v) : null));
 
 const productSchema = z.object({
   name: z.string().trim().min(1),
@@ -44,6 +55,13 @@ const productSchema = z.object({
   sellingPrice: z.number().positive(),
   taxRate: z.number().min(0).max(100).default(0),
   stock: z.number().min(0),
+  // YYYY-MM-DD; empty or null clears it. Left out, it stays as it is (undefined is passed through,
+  // since a partial update still runs this transform for a missing key).
+  expiryDate: z
+    .string()
+    .nullish()
+    .refine((v) => !v || toExpiryDay(v) !== null, { message: 'INVALID_DATE' })
+    .transform((v) => (v === undefined ? undefined : v ? dayToDate(toExpiryDay(v)!) : null)),
   supplier: z.string().optional().nullable(),
   supplierId: z.string().optional().nullable(),
 });
@@ -196,7 +214,7 @@ initializeAdmin().catch((error) => console.error('Admin setup failed', error));
 // Products
 
 app.get('/api/products', handle(async (req, res) => {
-  const { page = '1', limit = '50', search = '' } = req.query;
+  const { page = '1', limit = '50', search = '', expiring } = req.query;
   const p = Math.max(1, parseInt(String(page)) || 1);
   const l = Math.min(200, Math.max(1, parseInt(String(limit)) || 50));
 
@@ -210,10 +228,13 @@ app.get('/api/products', handle(async (req, res) => {
       { category: { contains: s, mode: 'insensitive' } },
     ];
   }
+  // Expired or expiring soon, soonest first.
+  const onlyExpiring = expiring === '1' || expiring === 'true';
+  if (onlyExpiring) where.expiryDate = { not: null, lte: expiringBefore() };
 
   const [total, products] = await Promise.all([
     prisma.product.count({ where }),
-    prisma.product.findMany({ where, skip: (p - 1) * l, take: l, orderBy: { createdAt: 'desc' } }),
+    prisma.product.findMany({ where, skip: (p - 1) * l, take: l, orderBy: onlyExpiring ? { expiryDate: 'asc' } : { createdAt: 'desc' } }),
   ]);
   res.json({ products, total, page: p, limit: l, hasMore: (p - 1) * l + products.length < total });
 }));
@@ -277,6 +298,17 @@ app.get('/api/inventory/low-stock', handle(async (_req, res) => {
       a.stock / UNITS[isUnitCode(a.unit) ? a.unit : 'piece'].lowStockAt - b.stock / UNITS[isUnitCode(b.unit) ? b.unit : 'piece'].lowStockAt
   );
   res.json(products.slice(0, 10));
+}));
+
+// Expiry: products in stock that are expired or expire within EXPIRY_SOON_DAYS, soonest first.
+app.get('/api/inventory/expiring', handle(async (_req, res) => {
+  res.json(
+    await prisma.product.findMany({
+      where: { stock: { gt: 0 }, expiryDate: { not: null, lte: expiringBefore() } },
+      orderBy: { expiryDate: 'asc' },
+      take: 20,
+    })
+  );
 }));
 
 // Settings

@@ -218,3 +218,20 @@ input:-webkit-autofill:focus-visible,
 input:autofill:focus-visible {
   box-shadow: 0 0 0 1000px var(--color-background) inset, 0 0 0 2px var(--color-ring);
 }
+
+/* Hosts that wrap the app in their own page (the claude.ai artifact viewer, some webviews) style
+   body in plain, unlayered CSS, e.g. body { color: #141413; background: #faf9f5; font: 14px ... }.
+   Unlayered rules beat Tailwind's layered base styles whatever their selector, so text inherited
+   the host's near-black colour in dark mode. Repeat the essentials unlayered, with a little more
+   specificity than the host's, so the app's theme always wins. */
+html body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font: inherit;
+}
+html[dir="rtl"] body {
+  line-height: 1.6;
+}
+html.dark {
+  color-scheme: dark;
+}

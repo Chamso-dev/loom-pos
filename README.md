@@ -26,6 +26,7 @@ LoomPOS is a single-store point of sale for groceries, supérettes and retail sh
 * **Customer credit**: put all or part of a sale on a customer's account, with an optional credit limit. Repayments settle the oldest unpaid sales first.
 * **Refunds**: refund part or all of a sale, put items back in stock or not, and cancel unpaid credit before handing money back.
 * **Units and weights**: piece, kg, g, L, mL and box. Weighed goods take decimal quantities: 1,5 kg × 250 DA/kg = 375 DA.
+* **Expiry dates** (تاريخ نهاية الصلاحية): give any product an optional expiry date. Inventory marks expired products in red and those expiring within 14 days in amber, can list only those, and the notifications panel and the till warn about them. A product is still good on its expiry day.
 * **Suppliers and purchases**: record deliveries, update stock and cost prices, and track what the shop owes each supplier.
 * **Reports**: daily or monthly sales, refunds, TVA, cost, profit, money in by payment method, expected cash, and CSV export.
 * **Arabic and English**: every screen, receipt, error and message is translated. Arabic switches the whole layout to right to left.
@@ -123,9 +124,10 @@ npm test                        # business rule tests
 | Method | Endpoint | Description | Auth |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/auth/login` | Log in, returns a JWT | None |
-| `GET` | `/api/products` | Search the catalogue | None |
+| `GET` | `/api/products` | Search the catalogue; `expiring=1` lists expired or soon-to-expire products | None |
 | `POST/PUT/DELETE` | `/api/products[/:id]` | Manage products | Manager, or cashier with manager key |
 | `GET` | `/api/inventory/low-stock` | Products below their unit's threshold | None |
+| `GET` | `/api/inventory/expiring` | In-stock products expired or expiring within 14 days | None |
 | `POST` | `/api/orders` | Create a sale with split payments, change and credit | Staff |
 | `GET` | `/api/orders[/:id]` | Sales history and details | None |
 | `POST` | `/api/orders/:id/refunds` | Refund items from a sale | Staff |

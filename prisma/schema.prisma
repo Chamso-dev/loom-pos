@@ -146,6 +146,8 @@ model Product {
   /// TVA rate included in sellingPrice: 0, 9 or 19.
   taxRate       Float          @default(0)
   stock         Float          @default(0)
+  /// Expiry date (تاريخ نهاية الصلاحية), a calendar day. Null for products that do not expire.
+  expiryDate    DateTime?      @db.Date
   supplier      String?
   supplierId    String?
   supplierRef   Supplier?      @relation(fields: [supplierId], references: [id])
@@ -153,6 +155,8 @@ model Product {
   updatedAt     DateTime       @default(now()) @updatedAt
   items         OrderItem[]
   purchaseItems PurchaseItem[]
+
+  @@index([expiryDate])
 }
 
 model Supplier {

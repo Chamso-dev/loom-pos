@@ -49,6 +49,8 @@ export interface Product {
   sellingPrice: number
   taxRate: number
   stock: number
+  /** Expiry date, YYYY-MM-DD (the server may add a midnight time). Null when it does not expire. */
+  expiryDate?: string | null
   supplier?: string | null
   supplierId?: string | null
   createdAt: string
@@ -70,6 +72,7 @@ export interface CartItem {
   costPrice: number
   /** Stock when added, to stop overselling. */
   stock: number
+  expiryDate?: string | null
 }
 
 export interface CustomerRef {
@@ -123,7 +126,7 @@ interface AppState {
   isLoadingProducts: boolean
   hasMoreProducts: boolean
   totalProducts: number
-  fetchProducts: (params?: { page?: number; search?: string }) => Promise<void>
+  fetchProducts: (params?: { page?: number; search?: string; expiring?: boolean }) => Promise<void>
   addProduct: (product: ProductInput, adminKey?: string) => Promise<Result>
   updateProduct: (id: string, product: Partial<ProductInput>, adminKey?: string) => Promise<Result>
   deleteProduct: (id: string, adminKey?: string) => Promise<Result>
@@ -135,6 +138,9 @@ interface AppState {
 
   // Notifications
   lowStockProducts: Product[]
+  /** In-stock products that are expired or expire soon, soonest first. */
+  expiringProducts: Product[]
+  /** Refreshes both low-stock and expiry alerts. */
   fetchLowStockAlerts: () => Promise<void>
 
   // Staff (admin)
@@ -215,6 +221,7 @@ export const useStore = create<AppState>()(
             taxRate: product.taxRate ?? 0,
             costPrice: product.costPrice ?? 0,
             stock: product.stock,
+            expiryDate: product.expiryDate ?? null,
           }
           return { cart: [...state.cart, item] }
         }),
@@ -260,11 +267,11 @@ export const useStore = create<AppState>()(
       hasMoreProducts: false,
       totalProducts: 0,
       fetchProducts: async (params = {}) => {
-        const { page = 1, search = '' } = params
+        const { page = 1, search = '', expiring = false } = params
         set({ isLoadingProducts: true })
         try {
           const data = await api<{ products: Product[]; total: number; hasMore: boolean }>('/products', {
-            query: { page, limit: 50, search },
+            query: { page, limit: 50, search, ...(expiring ? { expiring: '1' } : {}) },
           })
           set((state) => ({
             products: page === 1 ? data.products : [...state.products, ...data.products],
@@ -315,11 +322,16 @@ export const useStore = create<AppState>()(
 
       // Notifications
       lowStockProducts: [],
+      expiringProducts: [],
       fetchLowStockAlerts: async () => {
         try {
-          set({ lowStockProducts: await api<Product[]>('/inventory/low-stock') })
+          const [lowStockProducts, expiringProducts] = await Promise.all([
+            api<Product[]>('/inventory/low-stock'),
+            api<Product[]>('/inventory/expiring'),
+          ])
+          set({ lowStockProducts, expiringProducts })
         } catch (error) {
-          console.error('Failed to fetch low stock alerts', error)
+          console.error('Failed to fetch stock alerts', error)
         }
       },
 

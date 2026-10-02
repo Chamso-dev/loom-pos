@@ -16,6 +16,8 @@ const phoneField = z
   .trim()
   .nullish()
   .transform((value, ctx) => {
+    // Left out of a partial update: keep the current phone.
+    if (value === undefined) return undefined;
     if (!value) return null;
     const phone = normalizeAlgerianPhone(value);
     if (!phone) {

@@ -5,8 +5,10 @@
  * Only storage differs: the data lives in memory and resets on reload.
  */
 import {
+  addDays,
   allocateRepayment,
   dayKeyOf,
+  EXPIRY_SOON_DAYS,
   includedTax,
   isUnitCode,
   isValidQuantity,
@@ -21,11 +23,15 @@ import {
   settlePayments,
   splitRefund,
   sumMoney,
+  toExpiryDay,
   UNIT_CODES,
   UNITS,
   type PaymentInput,
 } from './domain'
 import { demoCustomers, demoHourWeights, demoProducts, demoStore, demoSuppliers } from './data'
+
+/** Expired or expiring within EXPIRY_SOON_DAYS, like the server's /inventory/expiring. */
+const isExpiring = (p: { expiryDate?: string | null }) => !!p.expiryDate && p.expiryDate <= addDays(dayKeyOf(new Date()), EXPIRY_SOON_DAYS)
 
 class HttpError extends Error {
   constructor(public status: number, public code: string, public details?: Record<string, unknown>) {
@@ -73,11 +79,12 @@ const pick = <T,>(a: T[]) => a[Math.floor(rand() * a.length)]
 function seedData() {
   const now = new Date()
   db.suppliers = demoSuppliers.map((s) => ({ id: id(), ...s, notes: null, balance: 0, createdAt: iso(now), updatedAt: iso(now) }))
-  db.products = demoProducts.map((p) => ({
+  db.products = demoProducts.map(({ expiresInDays, ...p }) => ({
     id: id(),
     size: null,
     color: null,
     supplier: null,
+    expiryDate: expiresInDays === undefined ? null : addDays(dayKeyOf(now), expiresInDays),
     ...p,
     supplierId: db.suppliers.find((s) => s.name === p.supplier)?.id ?? null,
     createdAt: iso(now),
@@ -493,9 +500,11 @@ async function route(method: string, path: string, query: URLSearchParams, body:
     const search = query.get('search') ?? ''
     const page = Number(query.get('page') ?? 1)
     const limit = Number(query.get('limit') ?? 50)
+    const expiring = query.get('expiring') === '1'
     const all = db.products
       .filter((p) => !search || [p.name, p.sku, p.barcode, p.category].some((v) => contains(v, search)))
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .filter((p) => !expiring || isExpiring(p))
+      .sort((a, b) => (expiring ? a.expiryDate.localeCompare(b.expiryDate) : b.createdAt.localeCompare(a.createdAt)))
     const products = all.slice((page - 1) * limit, page * limit).map(clone)
     return [200, { products, total: all.length, page, limit, hasMore: page * limit < all.length }]
   }
@@ -511,9 +520,13 @@ async function route(method: string, path: string, query: URLSearchParams, body:
     const clash = (k: 'sku' | 'barcode') => body[k] && db.products.find((p) => p[k] === body[k] && p.id !== current?.id)
     if (clash('sku')) throw new HttpError(409, 'SKU_TAKEN', { product: clash('sku').name })
     if (clash('barcode')) throw new HttpError(409, 'BARCODE_TAKEN', { product: clash('barcode').name })
+    if ('expiryDate' in body) {
+      if (body.expiryDate && !toExpiryDay(body.expiryDate)) throw new HttpError(400, 'VALIDATION')
+      body.expiryDate = toExpiryDay(body.expiryDate)
+    }
     const data = { ...body, unit, ...(body.stock !== undefined ? { stock: roundQuantity(body.stock, unit) } : {}), updatedAt: iso(new Date()) }
     if (current) return Object.assign(current, data), [200, clone(current)]
-    const product = { id: id(), size: null, color: null, supplier: null, supplierId: null, taxRate: 0, createdAt: iso(new Date()), ...data }
+    const product = { id: id(), size: null, color: null, supplier: null, supplierId: null, taxRate: 0, expiryDate: null, createdAt: iso(new Date()), ...data }
     db.products.push(product)
     return [201, clone(product)]
   }
@@ -526,6 +539,10 @@ async function route(method: string, path: string, query: URLSearchParams, body:
   if (is('GET', 'inventory/low-stock')) {
     const threshold = (p: Row) => UNITS[isUnitCode(p.unit) ? p.unit : 'piece'].lowStockAt
     return [200, db.products.filter((p) => p.stock <= threshold(p)).sort((a, b) => a.stock / threshold(a) - b.stock / threshold(b)).slice(0, 10).map(clone)]
+  }
+
+  if (is('GET', 'inventory/expiring')) {
+    return [200, db.products.filter((p) => p.stock > 0 && isExpiring(p)).sort((a, b) => a.expiryDate.localeCompare(b.expiryDate)).slice(0, 20).map(clone)]
   }
 
   // Settings

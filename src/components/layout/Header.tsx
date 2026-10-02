@@ -1,17 +1,20 @@
 import { useState, useRef, useEffect } from 'react'
-import { Bell, Search, User, Package, Receipt, Loader2, X, Sun, Moon, Settings, Menu } from 'lucide-react'
+import { Bell, Search, User, Package, Receipt, Loader2, X, Sun, Moon, Settings, Menu, CalendarClock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '@/store/useStore'
 import { useGlobalSearch, type SearchResult } from '@/hooks/useGlobalSearch'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
 import LanguageSwitcher from './LanguageSwitcher'
+import ExpiryBadge from '@/components/inventory/ExpiryBadge'
+import { expiryStatus } from '@/lib/domain'
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
-  const { lowStockProducts, user, logout, setTheme, theme, setMobileNavOpen } = useStore()
+  const { lowStockProducts, expiringProducts, user, logout, setTheme, theme, setMobileNavOpen } = useStore()
+  const hasExpiryProblem = expiringProducts.some((p) => expiryStatus(p.expiryDate)?.state === 'expired')
   const { t, qty, money, code } = useI18n()
 
   const { query, setQuery, results, isLoading } = useGlobalSearch()
@@ -190,22 +193,49 @@ export default function Header() {
             )}
           >
             <Bell size={18} />
-            {lowStockProducts.length > 0 && (
-              <span className="absolute top-2 end-2 w-2 h-2 bg-amber-500 rounded-full border border-background" />
+            {(lowStockProducts.length > 0 || expiringProducts.length > 0) && (
+              <span className={cn('absolute top-2 end-2 w-2 h-2 rounded-full border border-background', hasExpiryProblem ? 'bg-loss' : 'bg-amber-500')} />
             )}
           </button>
 
           {showNotifications && (
             <div className="absolute top-12 end-0 w-[min(20rem,calc(100vw-1.5rem))] bg-card border border-border shadow-lg rounded-md overflow-hidden z-50">
               <div className="p-3 border-b border-border bg-accent/15 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">{t('layout.restockTitle')}</h3>
-                {lowStockProducts.length > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-semibold">
-                    {t('layout.restockCount', { count: lowStockProducts.length })}
-                  </span>
-                )}
+                <h3 className="text-sm font-semibold">{t('layout.notifications')}</h3>
               </div>
               <div className="max-h-[min(70vh,400px)] overflow-y-auto p-1.5 custom-scrollbar">
+                {expiringProducts.length > 0 && (
+                  <section aria-label={t('layout.expiryTitle')} className="mb-1.5 border-b border-border pb-1.5">
+                    <div className="flex items-center justify-between px-2.5 pt-1.5 pb-1">
+                      <h4 className="text-xs font-semibold text-muted-foreground">{t('layout.expiryTitle')}</h4>
+                      <span className="text-xs font-semibold text-muted-foreground">{t('layout.expiryCount', { count: expiringProducts.length })}</span>
+                    </div>
+                    {expiringProducts.map((product) => (
+                      <button
+                        key={product.id}
+                        onClick={() => {
+                          setShowNotifications(false)
+                          navigate('/inventory?expiring=1')
+                        }}
+                        className="w-full flex items-center gap-3 p-2.5 rounded hover:bg-accent transition-all text-start"
+                      >
+                        <div className="w-8 h-8 shrink-0 rounded bg-secondary flex items-center justify-center text-muted-foreground">
+                          <CalendarClock size={14} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm text-foreground truncate"><bdi>{product.name}</bdi></p>
+                          <ExpiryBadge value={product.expiryDate} onlyWarnings className="mt-0.5" />
+                        </div>
+                      </button>
+                    ))}
+                  </section>
+                )}
+                {lowStockProducts.length > 0 && (
+                  <div className="flex items-center justify-between px-2.5 pt-1.5 pb-1">
+                    <h4 className="text-xs font-semibold text-muted-foreground">{t('layout.restockTitle')}</h4>
+                    <span className="text-xs font-semibold text-muted-foreground">{t('layout.restockCount', { count: lowStockProducts.length })}</span>
+                  </div>
+                )}
                 {lowStockProducts.length > 0 ? (
                   lowStockProducts.map((product) => (
                     <button
