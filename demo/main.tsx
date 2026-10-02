@@ -1,12 +1,14 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { installMockApi } from './mockApi'
+import { installFormShim } from './formShim'
 import App from '../src/App'
 import { useStore } from '../src/store/useStore'
 import '../src/index.css'
 
 // The demo runs the real LoomPOS interface against an in-browser API with sample data.
 installMockApi()
+installFormShim()
 
 // When the page is viewed inside a host that sets data-theme on <html>, follow it.
 const followHostTheme = () => {

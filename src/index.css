@@ -1,8 +1,11 @@
 @import "tailwindcss";
-/* Explicit so builds rooted elsewhere (the single-file demo in demo/) still find every class. */
-@source "../src";
 @import "@fontsource-variable/inter/standard.css";
 @import "@fontsource-variable/noto-sans-arabic/standard.css";
+
+/* Explicit so builds rooted elsewhere (the single-file demo in demo/) still find every class. */
+@source "../src";
+/* dark: utilities follow the app's theme switch (the .dark class on <html>), not the device setting. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   /* Bundled so the till works without internet. Arabic glyphs come from Noto Sans Arabic. */
@@ -56,7 +59,12 @@
 
 /* Dark Mode Overrides (Vercel / Linear Slate Aesthetic) */
 @layer base {
+  :root {
+    color-scheme: light;
+  }
   .dark {
+    /* Native controls (select lists, date pickers, scrollbars) follow the app theme too. */
+    color-scheme: dark;
     --color-background: oklch(10% 0.005 260); /* zinc-950 */
     --color-foreground: oklch(98% 0.003 260); /* zinc-50 */
 
