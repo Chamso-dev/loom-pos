@@ -117,7 +117,7 @@ function SupplierAccount({ id, onClose, onChanged, onEdit }: { id: string; onClo
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm text-muted-foreground">{t('suppliers.currentBalance')}</p>
-            <p className="text-4xl font-bold tabular-nums">{money(supplier.balance)}</p>
+            <p className="font-display text-4xl font-bold tabular-nums">{money(supplier.balance)}</p>
           </div>
           <Button variant="outline" onClick={() => onEdit(supplier)}>{t('suppliers.editDetails')}</Button>
         </div>
@@ -222,7 +222,7 @@ export default function SuppliersPage() {
         </div>
         <div className="text-end">
           <p className="text-sm text-muted-foreground">{t('suppliers.totalOwed')}</p>
-          <p className="text-3xl font-bold tabular-nums">{money(totalOwed)}</p>
+          <p className="font-display text-3xl font-bold tabular-nums">{money(totalOwed)}</p>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-3">

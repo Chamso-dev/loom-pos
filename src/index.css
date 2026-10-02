@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "@fontsource-variable/inter/standard.css";
 @import "@fontsource-variable/noto-sans-arabic/standard.css";
+@import "@fontsource-variable/syne/index.css";
+@import "@fontsource-variable/noto-kufi-arabic/index.css";
 
 /* Explicit so builds rooted elsewhere (the single-file demo in demo/) still find every class. */
 @source "../src";
@@ -10,6 +12,9 @@
 @theme {
   /* Bundled so the till works without internet. Arabic glyphs come from Noto Sans Arabic. */
   --font-sans: "Inter Variable", "Noto Sans Arabic Variable", system-ui, sans-serif;
+  /* Display face for headings, the shop name and headline amounts. Syne has no Arabic,
+     so Arabic words in the same heading use the geometric Noto Kufi Arabic. */
+  --font-display: "Syne Variable", "Noto Kufi Arabic Variable", "Inter Variable", system-ui, sans-serif;
 
   --radius-lg: 0.5rem;
   --radius-md: 0.375rem;
@@ -107,6 +112,10 @@
     line-height: 1.6;
   }
 
+  h1, h2 {
+    font-family: var(--font-display);
+  }
+
   /* Amounts, codes and phone numbers keep their digit order inside Arabic lines. */
   .ltr-nums {
     direction: ltr;
@@ -157,3 +166,8 @@
 
 
 
+
+/* Connected Arabic script must not be tracked; this outranks tracking-* utilities. */
+html[dir="rtl"] :is(h1, h2, .font-display) {
+  letter-spacing: 0;
+}

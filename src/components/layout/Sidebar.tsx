@@ -66,7 +66,7 @@ export default function Sidebar() {
       <div className="flex flex-col h-full font-sans">
         <div className={cn('h-16 flex items-center justify-between border-b border-border px-6 gap-2', !isSidebarOpen && 'px-4')}>
           {isSidebarOpen ? (
-            <span className="font-bold text-lg tracking-tight truncate">{storeName}</span>
+            <span dir="auto" className="font-display font-semibold text-base truncate">{storeName}</span>
           ) : (
             <Logo title={t('common.appName')} className="w-6 h-6 rounded shrink-0" />
           )}

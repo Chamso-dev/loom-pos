@@ -72,7 +72,7 @@ export function ThermalReceipt({ order }: { order: ReceiptOrder }) {
       style={{ width: `${width}mm` }}
     >
       <header className="text-center space-y-0.5 mb-2">
-        <h2 className="text-[15px] font-bold" dir="auto">{settings?.name || t('common.appName')}</h2>
+        <h2 className="font-sans text-[15px] font-bold" dir="auto">{settings?.name || t('common.appName')}</h2>
         {settings?.address && <p className="whitespace-pre-wrap" dir="auto">{settings.address}</p>}
         {settings?.phone && (
           <p>
@@ -166,7 +166,7 @@ export function A4Invoice({ order }: { order: ReceiptOrder }) {
           <StoreIds i18n={i18n} className="!justify-start text-xs" />
         </div>
         <div className="text-end">
-          <h1 className="text-3xl font-black mb-3">{t('receipt.invoiceTitle')}</h1>
+          <h1 className="font-sans text-3xl font-black mb-3">{t('receipt.invoiceTitle')}</h1>
           <p>
             <span className="opacity-60">{t('receipt.number')} </span>
             <span className="font-bold">{i18n.code(order.invoiceNo)}</span>

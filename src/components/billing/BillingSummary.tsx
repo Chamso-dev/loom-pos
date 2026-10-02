@@ -146,7 +146,7 @@ export default function BillingSummary() {
             )}
             <div className="flex items-baseline justify-between pt-3 border-t border-border">
               <dt className="text-base font-semibold">{t('billing.total')}</dt>
-              <dd className="text-3xl font-bold tabular-nums tracking-tight">{money(totals.total)}</dd>
+              <dd className="font-display text-3xl font-bold tabular-nums tracking-tight">{money(totals.total)}</dd>
             </div>
             {totals.taxLines.filter((l) => l.tax > 0).map((l) => (
               <div key={l.rate} className="flex justify-between text-xs text-muted-foreground">

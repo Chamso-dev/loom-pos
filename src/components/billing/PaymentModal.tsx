@@ -116,7 +116,7 @@ export default function PaymentModal({ total, onClose }: { total: number; onClos
           <div className="text-center space-y-4 py-2">
             <CheckCircle2 size={44} className="mx-auto text-emerald-600" />
             {order.changeGiven > 0 ? (
-              <p className="text-2xl font-bold">{t('billing.giveChange', { amount: money(order.changeGiven) })}</p>
+              <p className="font-display text-2xl font-bold">{t('billing.giveChange', { amount: money(order.changeGiven) })}</p>
             ) : (
               <p className="text-base text-muted-foreground">{t('billing.noChange')}</p>
             )}
@@ -164,7 +164,7 @@ export default function PaymentModal({ total, onClose }: { total: number; onClos
       >
         <div className="flex items-baseline justify-between rounded-lg bg-secondary/60 px-4 py-3">
           <span className="text-sm font-medium text-muted-foreground">{t('billing.amountDue')}</span>
-          <span className="text-3xl font-bold tabular-nums">{money(total)}</span>
+          <span className="font-display text-3xl font-bold tabular-nums">{money(total)}</span>
         </div>
 
         <ul className="space-y-3">

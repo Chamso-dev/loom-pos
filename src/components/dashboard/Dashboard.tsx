@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { isToday } from 'date-fns'
-import '@fontsource-variable/anek-latin/standard.css'
 import './dashboard.css'
 import { useStore } from '@/store/useStore'
 import { useI18n } from '@/i18n'

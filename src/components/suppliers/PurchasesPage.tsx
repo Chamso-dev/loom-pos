@@ -177,7 +177,7 @@ function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: (p: 
 
         <div className="flex items-baseline justify-between rounded-lg bg-secondary/60 px-4 py-3">
           <span className="font-semibold">{t('purchases.total')}</span>
-          <span className="text-2xl font-bold tabular-nums">{money(total)}</span>
+          <span className="font-display text-2xl font-bold tabular-nums">{money(total)}</span>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">

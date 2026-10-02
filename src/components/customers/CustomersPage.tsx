@@ -49,7 +49,7 @@ export default function CustomersPage() {
         </div>
         <div className="text-end">
           <p className="text-sm text-muted-foreground">{t('customers.totalOwed')}</p>
-          <p className="text-3xl font-bold tabular-nums">{money(totalOwed)}</p>
+          <p className="font-display text-3xl font-bold tabular-nums">{money(totalOwed)}</p>
           <p className="text-xs text-muted-foreground">{t('customers.owingCount', { count: owingCount })}</p>
         </div>
       </div>

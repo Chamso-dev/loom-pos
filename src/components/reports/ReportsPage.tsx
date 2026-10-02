@@ -185,12 +185,12 @@ export default function ReportsPage() {
               <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
                 <div>
                   <p className="text-sm text-muted-foreground">{t('reports.netSales')}</p>
-                  <p className="text-3xl font-bold tabular-nums">{money(totals.net)}</p>
+                  <p className="font-display text-3xl font-bold tabular-nums">{money(totals.net)}</p>
                   <p className="text-xs text-muted-foreground">{t('reports.netSalesHint')}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">{t('reports.profit')}</p>
-                  <p className={cn('text-3xl font-bold tabular-nums', totals.profit < 0 && 'text-destructive')}>{money(totals.profit)}</p>
+                  <p className={cn('font-display text-3xl font-bold tabular-nums', totals.profit < 0 && 'text-destructive')}>{money(totals.profit)}</p>
                   <p className="text-xs text-muted-foreground">{t('reports.profitHint')}</p>
                 </div>
               </div>
@@ -215,7 +215,7 @@ export default function ReportsPage() {
             <div className="rounded-lg border border-border bg-card p-5 space-y-5">
               <div>
                 <p className="text-sm text-muted-foreground">{t('reports.expectedCash')}</p>
-                <p className="text-3xl font-bold tabular-nums">{money(report.cash.expected)}</p>
+                <p className="font-display text-3xl font-bold tabular-nums">{money(report.cash.expected)}</p>
                 <p className="text-xs text-muted-foreground mt-1">{t('reports.expectedCashHint')}</p>
               </div>
               <div>

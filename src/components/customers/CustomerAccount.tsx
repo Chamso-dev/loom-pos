@@ -76,7 +76,7 @@ export default function CustomerAccount({ customerId, onClose, onChanged, onEdit
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm text-muted-foreground">{t('customers.currentBalance')}</p>
-            <p className={`text-4xl font-bold tabular-nums ${customer.balance > 0 ? 'text-amber-700 dark:text-amber-400' : ''}`}>{money(customer.balance)}</p>
+            <p className={`font-display text-4xl font-bold tabular-nums ${customer.balance > 0 ? 'text-amber-700 dark:text-amber-400' : ''}`}>{money(customer.balance)}</p>
             <p className="text-xs text-muted-foreground mt-1">
               {t('customers.creditLimit')}: {customer.creditLimit != null ? money(customer.creditLimit) : t('customers.noLimit')}
             </p>
