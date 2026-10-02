@@ -101,7 +101,7 @@ export default function StaffPage() {
                   <p className="text-xs text-muted-foreground mt-0.5">{t('staff.id', { id: i18n.code(user.employeeId) })}</p>
                 </div>
               </div>
-              <span className={cn('shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold border', user.role === 'ADMIN' ? 'bg-primary/10 text-primary border-primary/20' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20')}>
+              <span className={cn('shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold border', user.role === 'ADMIN' ? 'bg-primary/10 text-link border-primary/20' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20')}>
                 {t(`nav.roles.${user.role}`)}
               </span>
             </div>
@@ -180,7 +180,7 @@ export default function StaffPage() {
                 <button type="button" onClick={() => setResetting(false)} className="text-xs text-muted-foreground hover:underline">{t('common.cancel')}</button>
               </div>
             ) : (
-              <button type="button" onClick={() => setResetting(true)} className="text-sm font-medium text-primary hover:underline">{t('staff.resetPassword')}</button>
+              <button type="button" onClick={() => setResetting(true)} className="text-sm font-medium text-link hover:underline">{t('staff.resetPassword')}</button>
             )}
             {notice && <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">{notice}</p>}
             {error != null && <ErrorNote>{i18n.error(error)}</ErrorNote>}

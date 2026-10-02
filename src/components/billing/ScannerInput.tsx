@@ -148,7 +148,7 @@ export default function ScannerInput() {
                 <span className="text-xs text-muted-foreground">
                   {product.stock > 0 ? t('billing.inStock', { stock: qty(product.stock, product.unit, true) }) : t('billing.outOfStock')}
                 </span>
-                <span className="font-semibold text-sm text-primary">{unitPrice(product.sellingPrice, product.unit)}</span>
+                <span className="font-semibold text-sm text-link">{unitPrice(product.sellingPrice, product.unit)}</span>
               </span>
             </button>
           ))}

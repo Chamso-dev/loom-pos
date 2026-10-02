@@ -49,6 +49,13 @@
   --color-input: oklch(92% 0.003 260);
   --color-ring: oklch(40% 0.01 260);
 
+  /* Links and selected options. Same ink as primary in light mode, a lighter blue in dark mode. */
+  --color-link: oklch(25% 0.01 264);
+
+  /* Shop blue: the sign-in panel and its button. White text on it in both themes. */
+  --color-brand: oklch(51% 0.2 259);
+  --color-brand-foreground: oklch(100% 0 0);
+
   /* Money that comes in (profit) and goes out (losses, refunds). */
   --color-gain: oklch(52% 0.15 150); /* green-700 */
   --color-loss: oklch(55% 0.21 27); /* red-600 */
@@ -83,8 +90,11 @@
     --color-popover: oklch(12% 0.008 260);
     --color-popover-foreground: oklch(98% 0.003 260);
 
-    --color-primary: oklch(98% 0.003 260); /* white primary */
-    --color-primary-foreground: oklch(10% 0.005 260);
+    /* Main buttons are blue with white text in dark mode. */
+    --color-primary: oklch(54% 0.2 259);
+    --color-primary-foreground: oklch(100% 0 0);
+    --color-link: oklch(72% 0.14 255);
+    --color-brand: oklch(45% 0.18 259);
 
     --color-secondary: oklch(18% 0.005 260); /* zinc-800 */
     --color-secondary-foreground: oklch(98% 0.003 260);

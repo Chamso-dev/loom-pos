@@ -117,7 +117,7 @@ export default function SettingsPage() {
                       setLanguage(l.code as Lang)
                       set('language', l.code as Lang)
                     }}
-                    className={cn('h-10 rounded-md border text-sm font-semibold', language === l.code ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent')}
+                    className={cn('h-10 rounded-md border text-sm font-semibold', language === l.code ? 'border-primary bg-primary/10 text-link' : 'border-border hover:bg-accent')}
                   >
                     {l.label}
                   </button>
@@ -185,7 +185,7 @@ export default function SettingsPage() {
                     role="radio"
                     aria-checked={form.receiptWidth === w}
                     onClick={() => set('receiptWidth', w)}
-                    className={cn('h-10 rounded-md border text-sm font-semibold', form.receiptWidth === w ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent')}
+                    className={cn('h-10 rounded-md border text-sm font-semibold', form.receiptWidth === w ? 'border-primary bg-primary/10 text-link' : 'border-border hover:bg-accent')}
                   >
                     {w === 58 ? t('settings.width58') : t('settings.width80')}
                   </button>

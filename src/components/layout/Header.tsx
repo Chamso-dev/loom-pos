@@ -75,7 +75,7 @@ export default function Header() {
           <Search
             className={cn(
               'absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4 transition-all',
-              isOpen ? 'text-primary' : 'group-focus-within:text-primary'
+              isOpen ? 'text-link' : 'group-focus-within:text-link'
             )}
           />
           <input
@@ -243,7 +243,7 @@ export default function Header() {
                     setShowNotifications(false)
                     navigate('/inventory')
                   }}
-                  className="w-full p-3 text-sm font-semibold text-primary hover:bg-accent transition-colors border-t border-border"
+                  className="w-full p-3 text-sm font-semibold text-link hover:bg-accent transition-colors border-t border-border"
                 >
                   {t('layout.openInventory')}
                 </button>

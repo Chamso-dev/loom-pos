@@ -134,7 +134,7 @@ export default function CustomerAccount({ customerId, onClose, onChanged, onEdit
                 {unpaid.map((o) => (
                   <tr key={o.id}>
                     <td className="py-2">
-                      <Link to={`/orders?orderId=${o.id}`} className="font-semibold text-primary hover:underline">{i18n.code(o.invoiceNo)}</Link>
+                      <Link to={`/orders?orderId=${o.id}`} className="font-semibold text-link hover:underline">{i18n.code(o.invoiceNo)}</Link>
                     </td>
                     <td className="py-2">{i18n.date(o.date, 'medium')}</td>
                     <td className="py-2 text-end tabular-nums">{money(o.totalAmount)}</td>
@@ -171,7 +171,7 @@ export default function CustomerAccount({ customerId, onClose, onChanged, onEdit
             <ul className="divide-y divide-border text-sm">
               {account.orders.filter((o) => o.balanceDue <= 0).slice(0, 10).map((o) => (
                 <li key={o.id} className="flex items-center justify-between gap-2 py-2">
-                  <Link to={`/orders?orderId=${o.id}`} className="text-primary hover:underline">{i18n.code(o.invoiceNo)}</Link>
+                  <Link to={`/orders?orderId=${o.id}`} className="text-link hover:underline">{i18n.code(o.invoiceNo)}</Link>
                   <span className="text-muted-foreground">{i18n.date(o.date, 'medium')}</span>
                   <StatusBadge status={o.status} />
                   <span className="tabular-nums">{money(o.totalAmount)}</span>

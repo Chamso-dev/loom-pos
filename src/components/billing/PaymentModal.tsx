@@ -221,7 +221,7 @@ export default function PaymentModal({ total, onClose }: { total: number; onClos
                         title={i === 0 ? t('billing.exact') : undefined}
                         className={cn(
                           'rounded-md border px-3 py-1.5 text-sm font-semibold tabular-nums',
-                          parseDecimal(line.text) === v ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent'
+                          parseDecimal(line.text) === v ? 'border-primary bg-primary/10 text-link' : 'border-border hover:bg-accent'
                         )}
                       >
                         {money(v)}

@@ -79,7 +79,7 @@ export default function CartList() {
               <span className="text-sm font-semibold text-foreground"><bdi>{item.name}</bdi></span>
               <span className="text-[11px] bg-secondary px-1.5 py-0.5 rounded border border-border text-muted-foreground">{code(item.sku)}</span>
               {item.taxRate > 0 && (
-                <span className="text-[11px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-semibold">{t('billing.taxRate', { rate: item.taxRate })}</span>
+                <span className="text-[11px] bg-primary/10 text-link px-1.5 py-0.5 rounded font-semibold">{t('billing.taxRate', { rate: item.taxRate })}</span>
               )}
             </div>
             <div className="flex flex-wrap items-center gap-3 text-xs">

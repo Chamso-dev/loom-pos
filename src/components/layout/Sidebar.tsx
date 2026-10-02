@@ -94,7 +94,7 @@ export default function Sidebar() {
                   isActive ? 'bg-secondary text-foreground' : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
                 )}
               >
-                <item.icon size={18} className={cn('shrink-0', isActive ? 'text-primary' : 'group-hover:text-foreground')} />
+                <item.icon size={18} className={cn('shrink-0', isActive ? 'text-link' : 'group-hover:text-foreground')} />
                 {isSidebarOpen && <span className="truncate">{label}</span>}
                 {!isSidebarOpen && (
                   <span className="absolute start-14 bg-popover text-popover-foreground px-2.5 py-1 rounded border border-border text-xs z-50 shadow-md hidden group-hover:block whitespace-nowrap">

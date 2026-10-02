@@ -123,7 +123,7 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
             <span className="flex items-center justify-between">
               {t('inventory.sku')}
               {!product && (
-                <button type="button" onClick={() => setForm((f) => ({ ...f, ...newCodes() }))} className="text-xs text-primary flex items-center gap-1">
+                <button type="button" onClick={() => setForm((f) => ({ ...f, ...newCodes() }))} className="text-xs text-link flex items-center gap-1">
                   <RefreshCw size={11} /> {t('inventory.regenerate')}
                 </button>
               )}
@@ -169,7 +169,7 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
                 role="radio"
                 aria-checked={form.taxRate === rate}
                 onClick={() => set('taxRate', rate)}
-                className={`flex-1 h-10 rounded-md border text-sm font-semibold ${form.taxRate === rate ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent'}`}
+                className={`flex-1 h-10 rounded-md border text-sm font-semibold ${form.taxRate === rate ? 'border-primary bg-primary/10 text-link' : 'border-border hover:bg-accent'}`}
               >
                 {TAX_RATES.includes(rate as 0) ? percent(rate) : t('inventory.taxOther', { rate })}
               </button>

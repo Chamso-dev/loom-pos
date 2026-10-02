@@ -57,7 +57,7 @@ export default function BillingSummary() {
                   )}
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <button type="button" onClick={() => setPickingCustomer(true)} className="text-xs font-medium text-primary hover:underline px-1">
+                  <button type="button" onClick={() => setPickingCustomer(true)} className="text-xs font-medium text-link hover:underline px-1">
                     {t('billing.changeCustomer')}
                   </button>
                   <button type="button" aria-label={t('billing.removeCustomer')} onClick={() => setCartCustomer(null)} className="p-1 text-muted-foreground hover:text-destructive">
@@ -124,7 +124,7 @@ export default function BillingSummary() {
                 type="button"
                 disabled={cart.length === 0}
                 onClick={() => setDiscountOpen(true)}
-                className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline disabled:opacity-40 disabled:no-underline"
+                className="flex items-center gap-1.5 text-sm font-medium text-link hover:underline disabled:opacity-40 disabled:no-underline"
               >
                 <BadgePercent size={15} /> {t('billing.addDiscount')}
               </button>

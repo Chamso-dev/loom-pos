@@ -4,6 +4,7 @@ export const auth = defineMessages({
   en: {
     documentTitle: 'LoomPOS, point of sale',
     subtitle: 'Staff sign-in',
+    formHint: 'Use the ID and password your manager gave you.',
     employeeId: 'Employee ID',
     employeeIdPlaceholder: 'e.g. admin',
     password: 'Password',
@@ -16,6 +17,7 @@ export const auth = defineMessages({
   ar: {
     documentTitle: 'LoomPOS، نقطة البيع',
     subtitle: 'دخول الموظفين',
+    formHint: 'استعمل المعرّف وكلمة السر اللذين أعطاك إياهما المسيّر.',
     employeeId: 'معرّف الموظف',
     employeeIdPlaceholder: 'مثال: admin',
     password: 'كلمة السر',

@@ -29,7 +29,7 @@ export default function ThemeToggle() {
             className={cn(
               'flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg transition-all',
               isActive
-                ? 'bg-background text-primary shadow-sm border border-border/60'
+                ? 'bg-background text-link shadow-sm border border-border/60'
                 : 'text-muted-foreground hover:text-foreground opacity-60 hover:opacity-100'
             )}
           >

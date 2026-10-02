@@ -87,7 +87,7 @@ export default function RefundModal({ order, onClose, onDone }: Props) {
                     <button
                       type="button"
                       onClick={() => setQuantities((q) => ({ ...q, [item.id]: formatNumber(left, unitRule(item.unit).decimals) }))}
-                      className="text-xs font-semibold text-primary hover:underline"
+                      className="text-xs font-semibold text-link hover:underline"
                     >
                       {t('orders.refundAll')}
                     </button>

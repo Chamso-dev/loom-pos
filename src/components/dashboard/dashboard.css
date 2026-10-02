@@ -16,6 +16,7 @@
   --ld-turmeric-ink: #8a5d00;
   --ld-madder: #c0362c;
   --ld-gain: #15803d;
+  --ld-blue-fill: #1a5fd0;
   --ld-on-blue: #ffffff;
   --ld-teal: #2f8f8a;
   --ld-slate: #8b96a8;
@@ -42,7 +43,9 @@
   --ld-turmeric-ink: #f0c869;
   --ld-madder: #f0857a;
   --ld-gain: #4fd18b;
-  --ld-on-blue: #071428;
+  /* Filled buttons need a deeper blue than lines and links so white text stays readable. */
+  --ld-blue-fill: #0f67e0;
+  --ld-on-blue: #ffffff;
   --ld-teal: #5cc4bd;
   --ld-slate: #6b778b;
 }
@@ -159,7 +162,7 @@
   padding: 0 20px;
   border-radius: 999px;
   border: 0;
-  background: var(--ld-blue);
+  background: var(--ld-blue-fill);
   color: var(--ld-on-blue);
   font: inherit;
   font-size: 1rem;
