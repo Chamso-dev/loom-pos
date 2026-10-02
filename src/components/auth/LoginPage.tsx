@@ -128,7 +128,8 @@ export default function LoginPage() {
               <label htmlFor="password" className="text-sm font-medium">
                 {t('auth.password')}
               </label>
-              <div className="relative">
+              {/* Left to right as a whole, so the eye button and the field's padding are on the same side in Arabic too. */}
+              <div className="relative" dir="ltr">
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
@@ -136,7 +137,7 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-12 text-base pe-11 text-start"
+                  className="h-12 text-base pe-11"
                   required
                 />
                 <button

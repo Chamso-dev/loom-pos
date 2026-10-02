@@ -162,8 +162,8 @@ export default function StaffPage() {
 
             {!editingUser ? (
               <Field label={t('staff.password')} hint={t('staff.passwordHint')}>
-                <div className="relative">
-                  <TextInput type={showPassword ? 'text' : 'password'} aria-label={t('staff.password')} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} dir="ltr" autoComplete="new-password" className="pe-10 text-start" />
+                <div className="relative" dir="ltr">
+                  <TextInput type={showPassword ? 'text' : 'password'} aria-label={t('staff.password')} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} dir="ltr" autoComplete="new-password" className="pe-10" />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? t('staff.hidePassword') : t('staff.showPassword')} className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>

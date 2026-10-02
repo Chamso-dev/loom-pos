@@ -129,6 +129,13 @@
     line-height: 1.6;
   }
 
+  /* Typed text always uses the theme colour, whatever the browser's default for form fields. */
+  input,
+  textarea,
+  select {
+    color: var(--color-foreground);
+  }
+
   h1, h2 {
     font-family: var(--font-display);
   }
@@ -187,4 +194,27 @@
 /* Connected Arabic script must not be tracked; this outranks tracking-* utilities. */
 html[dir="rtl"] :is(h1, h2, .font-display) {
   letter-spacing: 0;
+}
+
+/* Browsers paint saved usernames and passwords with their own light box and black text, which
+   ignores dark mode. Keep autofilled fields in the app's colours. The inset shadow covers the
+   browser's autofill background, which cannot be overridden with background-color. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--color-foreground);
+  caret-color: var(--color-foreground);
+  -webkit-box-shadow: 0 0 0 1000px var(--color-background) inset;
+  box-shadow: 0 0 0 1000px var(--color-background) inset;
+  transition: background-color 9999s ease-out 0s;
+}
+input:autofill {
+  -webkit-text-fill-color: var(--color-foreground);
+  box-shadow: 0 0 0 1000px var(--color-background) inset;
+}
+/* Keep a visible keyboard focus ring on an autofilled field. */
+input:-webkit-autofill:focus-visible,
+input:autofill:focus-visible {
+  box-shadow: 0 0 0 1000px var(--color-background) inset, 0 0 0 2px var(--color-ring);
 }
