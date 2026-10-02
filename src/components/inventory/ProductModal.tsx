@@ -1,15 +1,11 @@
-import { useState, useEffect } from 'react'
-import { 
-  Card, 
-  CardHeader, 
-  CardTitle, 
-  CardContent, 
-  CardFooter 
-} from '@/components/ui/card'
+import { useEffect, useState } from 'react'
+import { RefreshCw } from 'lucide-react'
+import Modal from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { useStore, type Product } from '@/store/useStore'
-import { X, Save, RefreshCw } from 'lucide-react'
+import { DecimalInput, ErrorNote, Field, SelectInput, TextInput } from '@/components/ui/field'
+import { useStore, type Product, type ProductInput } from '@/store/useStore'
+import { useI18n } from '@/i18n'
+import { formatNumber, includedTax, parseDecimal, roundMoney, TAX_RATES, UNIT_CODES, unitRule, type UnitCode } from '@/lib/domain'
 
 interface ProductModalProps {
   product?: Product | null
@@ -18,151 +14,192 @@ interface ProductModalProps {
   adminKey?: string
 }
 
+const newCodes = () => {
+  const stamp = Date.now().toString().slice(-6)
+  return { sku: `SKU-${stamp}`, barcode: `200${stamp}` }
+}
+
+type Form = { name: string; sku: string; barcode: string; category: string; unit: UnitCode; size: string; color: string; supplier: string; cost: string; price: string; stock: string; taxRate: number }
+
+const fromProduct = (p?: Product | null): Form =>
+  p
+    ? {
+        name: p.name,
+        sku: p.sku,
+        barcode: p.barcode,
+        category: p.category,
+        unit: (UNIT_CODES as readonly string[]).includes(p.unit) ? (p.unit as UnitCode) : 'piece',
+        size: p.size ?? '',
+        color: p.color ?? '',
+        supplier: p.supplier ?? '',
+        cost: formatNumber(p.costPrice, 2),
+        price: formatNumber(p.sellingPrice, 2),
+        stock: formatNumber(p.stock, 3),
+        taxRate: p.taxRate,
+      }
+    : { name: '', ...newCodes(), category: '', unit: 'piece', size: '', color: '', supplier: '', cost: '', price: '', stock: '0', taxRate: 0 }
+
 export default function ProductModal({ product, isOpen, onClose, adminKey }: ProductModalProps) {
   const { addProduct, updateProduct } = useStore()
-  const [formData, setFormData] = useState<Omit<Product, 'id' | 'createdAt' | 'updatedAt'>>({
-    name: '',
-    sku: '',
-    barcode: '',
-    category: '',
-    size: '',
-    color: '',
-    costPrice: 0,
-    sellingPrice: 0,
-    gst: 18,
-    stock: 0,
-    supplier: '',
-  })
+  const i18n = useI18n()
+  const { t, money, percent, unitName } = i18n
+  const [form, setForm] = useState<Form>(fromProduct(product))
+  const [error, setError] = useState<unknown>(null)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (product) {
-      setFormData({
-        name: product.name,
-        sku: product.sku,
-        barcode: product.barcode,
-        category: product.category,
-        size: product.size || '',
-        color: product.color || '',
-        costPrice: product.costPrice,
-        sellingPrice: product.sellingPrice,
-        gst: product.gst,
-        stock: product.stock,
-        supplier: product.supplier || '',
-      })
-    } else {
-      // Generate initial SKU/Barcode if empty
-      const timestamp = Date.now().toString().slice(-6)
-      setFormData(prev => ({
-        ...prev,
-        sku: `SKU-${timestamp}`,
-        barcode: `BR-${timestamp}`,
-      }))
+    if (isOpen) {
+      setForm(fromProduct(product))
+      setError(null)
     }
-  }, [product])
+  }, [product, isOpen])
 
   if (!isOpen) return null
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm((f) => ({ ...f, [key]: value }))
+  const cost = parseDecimal(form.cost)
+  const price = parseDecimal(form.price)
+  const stock = parseDecimal(form.stock)
+  const unitShort = t(`units.short.${form.unit}`)
+  // Profit leaves out the TVA inside the price, which is owed to the state.
+  const netPrice = Number.isFinite(price) ? roundMoney(price - includedTax(price, form.taxRate)) : NaN
+  const margin = Number.isFinite(cost) && Number.isFinite(price) && price > 0 ? roundMoney(netPrice - cost) : null
+  const stockValid = Number.isFinite(stock) && stock >= 0 && (unitRule(form.unit).decimals > 0 || Number.isInteger(stock))
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (product) {
-      await updateProduct(product.id, formData, adminKey)
-    } else {
-      await addProduct(formData, adminKey)
+    if (!Number.isFinite(cost) || !Number.isFinite(price) || price <= 0 || !stockValid) {
+      setError({ code: 'VALIDATION' })
+      return
     }
-    onClose()
+    const data: ProductInput = {
+      name: form.name.trim(),
+      sku: form.sku.trim(),
+      barcode: form.barcode.trim(),
+      category: form.category.trim(),
+      unit: form.unit,
+      size: form.size.trim() || null,
+      color: form.color.trim() || null,
+      supplier: form.supplier.trim() || null,
+      costPrice: cost,
+      sellingPrice: price,
+      taxRate: form.taxRate,
+      stock,
+    }
+    setSaving(true)
+    const result = product ? await updateProduct(product.id, data, adminKey) : await addProduct(data, adminKey)
+    setSaving(false)
+    if (result.ok) onClose()
+    else setError(result.error)
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'number' ? parseFloat(value) : value
-    }))
-  }
-
-  const generateCodes = () => {
-    const timestamp = Date.now().toString().slice(-6)
-    setFormData(prev => ({
-      ...prev,
-      sku: `SKU-${timestamp}`,
-      barcode: `BR-${timestamp}`,
-    }))
-  }
+  const rates: number[] = TAX_RATES.includes(form.taxRate as 0) ? [...TAX_RATES] : [...TAX_RATES, form.taxRate]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <Card className="w-full max-w-2xl border border-border bg-card shadow-lg animate-in zoom-in-95 duration-200">
-        <form onSubmit={handleSubmit}>
-          <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4">
-            <CardTitle className="text-lg font-semibold">{product ? 'Edit Product' : 'Add New Product'}</CardTitle>
-            <Button variant="ghost" size="icon" onClick={onClose} type="button" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-              <X size={16} />
-            </Button>
-          </CardHeader>
-          
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6">
-            <div className="space-y-1.5 col-span-1 md:col-span-2">
-              <label className="text-xs font-medium text-muted-foreground">Product Name</label>
-              <Input name="name" value={formData.name} onChange={handleChange} required placeholder="e.g. Silk Shirt" className="h-9 text-sm" />
-            </div>
+    <Modal
+      title={product ? t('inventory.formEditTitle') : t('inventory.formAddTitle')}
+      onClose={onClose}
+      locked={saving}
+      size="lg"
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" type="button" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button type="submit" form="product-form" disabled={saving}>
+            {saving ? t('common.saving') : product ? t('inventory.updateProduct') : t('inventory.saveProduct')}
+          </Button>
+        </div>
+      }
+    >
+      <form id="product-form" onSubmit={submit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Field label={t('inventory.name')} className="md:col-span-2">
+          <TextInput value={form.name} onChange={(e) => set('name', e.target.value)} required placeholder={t('inventory.namePlaceholder')} />
+        </Field>
 
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-muted-foreground">SKU</label>
-                {!product && (
-                  <button type="button" onClick={generateCodes} className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1">
-                    <RefreshCw size={10} /> Regen
-                  </button>
-                )}
-              </div>
-              <Input name="sku" value={formData.sku} onChange={handleChange} required className="h-9 text-sm" />
-            </div>
+        <Field
+          label={
+            <span className="flex items-center justify-between">
+              {t('inventory.sku')}
+              {!product && (
+                <button type="button" onClick={() => setForm((f) => ({ ...f, ...newCodes() }))} className="text-xs text-primary flex items-center gap-1">
+                  <RefreshCw size={11} /> {t('inventory.regenerate')}
+                </button>
+              )}
+            </span>
+          }
+        >
+          <TextInput value={form.sku} onChange={(e) => set('sku', e.target.value)} required dir="ltr" className="text-start" />
+        </Field>
+        <Field label={t('inventory.barcode')}>
+          <TextInput value={form.barcode} onChange={(e) => set('barcode', e.target.value)} required dir="ltr" className="text-start" inputMode="numeric" />
+        </Field>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Barcode</label>
-              <Input name="barcode" value={formData.barcode} onChange={handleChange} required className="h-9 text-sm" />
-            </div>
+        <Field label={t('inventory.category')}>
+          <TextInput value={form.category} onChange={(e) => set('category', e.target.value)} required placeholder={t('inventory.categoryPlaceholder')} />
+        </Field>
+        <Field label={t('inventory.unit')}>
+          <SelectInput value={form.unit} onChange={(e) => set('unit', e.target.value as UnitCode)}>
+            {UNIT_CODES.map((u) => (
+              <option key={u} value={u}>
+                {unitName(u)}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Category</label>
-              <Input name="category" value={formData.category} onChange={handleChange} required placeholder="e.g. Apparel" className="h-9 text-sm" />
-            </div>
+        <Field label={t('inventory.costPrice')} hint={t('inventory.costHint', { unit: unitShort })}>
+          <DecimalInput value={form.cost} onChange={(e) => set('cost', e.target.value)} required placeholder="0" />
+        </Field>
+        <Field
+          label={t('inventory.sellingPrice')}
+          hint={t('inventory.sellingHint', { unit: unitShort })}
+          error={Number.isFinite(cost) && Number.isFinite(price) && price > 0 && price < cost ? t('inventory.priceBelowCost') : undefined}
+        >
+          <DecimalInput value={form.price} onChange={(e) => set('price', e.target.value)} required placeholder="0" />
+        </Field>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Stock Level</label>
-              <Input name="stock" type="number" value={formData.stock} onChange={handleChange} required className="h-9 text-sm" />
-            </div>
+        <Field label={t('inventory.taxRateLabel')} hint={t('inventory.taxRateHint')}>
+          <div className="flex gap-2" role="radiogroup" aria-label={t('inventory.taxRateLabel')}>
+            {rates.map((rate) => (
+              <button
+                key={rate}
+                type="button"
+                role="radio"
+                aria-checked={form.taxRate === rate}
+                onClick={() => set('taxRate', rate)}
+                className={`flex-1 h-10 rounded-md border text-sm font-semibold ${form.taxRate === rate ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent'}`}
+              >
+                {TAX_RATES.includes(rate as 0) ? percent(rate) : t('inventory.taxOther', { rate })}
+              </button>
+            ))}
+          </div>
+        </Field>
+        <Field label={`${t('inventory.stockLevel')} (${unitShort})`} error={!stockValid ? t('inventory.invalidNumber') : undefined}>
+          <DecimalInput value={form.stock} onChange={(e) => set('stock', e.target.value)} required />
+        </Field>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Cost Price</label>
-              <Input name="costPrice" type="number" step="0.01" value={formData.costPrice} onChange={handleChange} required className="h-9 text-sm" />
-            </div>
+        <Field label={`${t('inventory.size')} (${t('common.optional')})`}>
+          <TextInput value={form.size} onChange={(e) => set('size', e.target.value)} placeholder={t('inventory.sizePlaceholder')} />
+        </Field>
+        <Field label={`${t('inventory.color')} (${t('common.optional')})`}>
+          <TextInput value={form.color} onChange={(e) => set('color', e.target.value)} placeholder={t('inventory.colorPlaceholder')} />
+        </Field>
+        <Field label={`${t('inventory.supplier')} (${t('common.optional')})`} className="md:col-span-2">
+          <TextInput value={form.supplier} onChange={(e) => set('supplier', e.target.value)} placeholder={t('inventory.supplierPlaceholder')} />
+        </Field>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Selling Price</label>
-              <Input name="sellingPrice" type="number" step="0.01" value={formData.sellingPrice} onChange={handleChange} required className="h-9 text-sm" />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">GST (%)</label>
-              <Input name="gst" type="number" value={formData.gst} onChange={handleChange} required className="h-9 text-sm" />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Supplier</label>
-              <Input name="supplier" value={formData.supplier || ''} onChange={handleChange} className="h-9 text-sm" />
-            </div>
-          </CardContent>
-
-          <CardFooter className="flex justify-end gap-2 border-t border-border/40 pt-4 pb-6 px-6">
-            <Button variant="outline" type="button" onClick={onClose} className="h-9 text-xs">Cancel</Button>
-            <Button variant="default" type="submit" className="gap-2 h-9 text-xs">
-              <Save size={14} />
-              {product ? 'Update' : 'Save Product'}
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
-    </div>
+        {margin !== null && (
+          <p className="md:col-span-2 text-sm text-muted-foreground">
+            {t('inventory.marginPreview', { unit: unitShort, amount: money(margin), percent: netPrice > 0 ? percent((margin / netPrice) * 100) : '' })}
+          </p>
+        )}
+        {error != null && (
+          <div className="md:col-span-2">
+            <ErrorNote>{i18n.error(error)}</ErrorNote>
+          </div>
+        )}
+      </form>
+    </Modal>
   )
 }

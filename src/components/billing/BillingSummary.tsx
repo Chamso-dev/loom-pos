@@ -1,261 +1,182 @@
-import { useState, useMemo } from 'react'
-import { Printer, Receipt, Wallet, CreditCard, QrCode, FileText } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Receipt, X, Percent, BadgePercent } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
+import { DecimalInput } from '@/components/ui/field'
+import Modal from '@/components/ui/modal'
 import { useStore } from '@/store/useStore'
-import { formatCurrency, cn } from '@/lib/utils'
-import PrintReceiptPortal from './PrintReceiptPortal'
+import { useI18n } from '@/i18n'
+import { CURRENCY, parseDecimal, priceSale } from '@/lib/domain'
+import { cn } from '@/lib/utils'
+import CustomerPicker from '../customers/CustomerPicker'
 import PaymentModal from './PaymentModal'
 
 export default function BillingSummary() {
-  // ... existing logic ...
-  const { cart, clearCart, user } = useStore()
-  const [receiptType, setReceiptType] = useState<'A4' | 'Thermal'>('Thermal')
-  const [lastOrder, setLastOrder] = useState<any>(null)
-  const [customerName, setCustomerName] = useState('')
-  const [customerMobile, setCustomerMobile] = useState('')
-  const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState<string>('CASH')
+  const { cart, discount, setDiscount, cartCustomer, setCartCustomer } = useStore()
+  const { t, money, phone, lang } = useI18n()
+  const [pickingCustomer, setPickingCustomer] = useState(false)
+  const [showPayment, setShowPayment] = useState(false)
+  const [discountText, setDiscountText] = useState(discount ? String(discount.value) : '')
+  const [discountOpen, setDiscountOpen] = useState(Boolean(discount))
+  // Kept apart from the discount so choosing % before typing a value is remembered.
+  const [discountType, setDiscountType] = useState<'amount' | 'percent'>(discount?.type ?? 'amount')
 
-  const { subtotal, gstGroups, total } = useMemo(() => {
-    let sub = 0
-    const groups: Record<number, number> = {}
-    
-    cart.forEach(item => {
-      const itemSubtotal = item.price * item.quantity
-      sub += itemSubtotal
-      
-      const itemGst = (itemSubtotal * item.gst) / 100
-      groups[item.gst] = (groups[item.gst] || 0) + itemGst
-    })
-    
-    const gstTotal = Object.values(groups).reduce((acc, val) => acc + val, 0)
-    
-    return {
-      subtotal: sub,
-      gstGroups: Object.entries(groups).map(([rate, amount]) => ({
-        rate: Number(rate),
-        amount
-      })),
-      total: sub + gstTotal
-    }
-  }, [cart])
+  const totals = useMemo(
+    () =>
+      priceSale(
+        cart.map((i) => ({ unitPrice: i.price, quantity: i.quantity, unit: i.unit, taxRate: i.taxRate, costPrice: i.costPrice })),
+        discount
+      ),
+    [cart, discount]
+  )
 
-  const handleCheckout = () => {
-    if (cart.length === 0) return
-    if (paymentMethod === 'UPI') {
-      setShowPaymentModal(true)
-    } else {
-      completeOrder(paymentMethod)
-    }
-  }
-
-  const completeOrder = async (method: string) => {
-    setIsProcessing(true)
-    try {
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          totalAmount: total,
-          gstAmount: total - subtotal,
-          paymentMethod: method, 
-          customerName: customerName || null,
-          customerMobile: customerMobile || null,
-          userId: user?.id,
-          items: cart.map(item => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            price: item.price
-          }))
-        })
-      })
-
-
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Checkout failed')
-      }
-
-      const orderData = await response.json()
-      setLastOrder(orderData)
-      setCustomerName('')
-      setCustomerMobile('')
-      setShowPaymentModal(false)
-      setPaymentMethod('CASH')
-      clearCart()
-    } catch (error: any) {
-      console.error('Checkout error:', error)
-      alert(`Error: ${error.message}`)
-    } finally {
-      setIsProcessing(false)
-    }
+  const updateDiscount = (text: string, type = discountType) => {
+    setDiscountText(text)
+    setDiscountType(type)
+    const value = parseDecimal(text)
+    setDiscount(Number.isFinite(value) && value > 0 ? { type, value } : null)
   }
 
   return (
     <>
-      <Card className="h-full flex flex-col border border-border shadow-sm bg-card rounded-md overflow-hidden font-sans">
-        <CardHeader className="border-b border-border pb-3 shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-secondary rounded text-foreground border border-border">
-                <Receipt size={16} />
-              </div>
-              <CardTitle className="text-sm font-bold uppercase tracking-wider">Order Summary</CardTitle>
-            </div>
-            
-            <div className="flex bg-secondary p-0.5 rounded border border-border scale-90">
-               <button 
-                 onClick={() => setReceiptType('A4')}
-                 className={cn(
-                   "flex items-center gap-1 px-2 py-1 rounded text-[8px] font-bold uppercase tracking-wider transition-all",
-                   receiptType === 'A4' ? "bg-card text-foreground border border-border shadow-sm" : "text-muted-foreground"
-                 )}
-               >
-                 <FileText size={10} /> A4
-               </button>
-               <button 
-                 onClick={() => setReceiptType('Thermal')}
-                 className={cn(
-                   "flex items-center gap-1 px-2 py-1 rounded text-[8px] font-bold uppercase tracking-wider transition-all",
-                   receiptType === 'Thermal' ? "bg-card text-foreground border border-border shadow-sm" : "text-muted-foreground"
-                 )}
-               >
-                 <Receipt size={10} /> 80mm
-               </button>
-            </div>
-          </div>
-        </CardHeader>
-      
-      <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 shrink-0 custom-scrollbar">
-        {/* Customer Info Inputs */}
-        <div className="space-y-2 pb-1">
-           <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Customer Info</span>
-           <div className="grid grid-cols-1 gap-2">
-             <input 
-               type="text" 
-               placeholder="Customer Name"
-               value={customerName}
-               onChange={(e) => setCustomerName(e.target.value)}
-               className="w-full bg-accent/10 border border-border px-3 py-1.5 rounded-md text-xs placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition-all"
-             />
-             <input 
-               type="text" 
-               placeholder="Mobile Number"
-               value={customerMobile}
-               onChange={(e) => setCustomerMobile(e.target.value)}
-               className="w-full bg-accent/10 border border-border px-3 py-1.5 rounded-md text-xs placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition-all"
-             />
-           </div>
-        </div>
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-            <span>Subtotal</span>
-            <span className="text-foreground">{formatCurrency(subtotal)}</span>
-          </div>
-          
-          <div className="space-y-1 pt-1.5 border-t border-border">
-            <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Tax Breakdown</span>
-            {gstGroups.length > 0 ? (
-              gstGroups.map(group => (
-                <div key={group.rate} className="flex justify-between text-[11px] text-muted-foreground">
-                  <span>GST ({group.rate}%)</span>
-                  <span>{formatCurrency(group.amount)}</span>
+      <section className="h-full flex flex-col border border-border bg-card rounded-md overflow-hidden font-sans">
+        <header className="flex items-center gap-2 border-b border-border px-4 py-3 shrink-0">
+          <Receipt size={16} className="text-muted-foreground" />
+          <h2 className="text-sm font-semibold">{t('billing.summary')}</h2>
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-5 custom-scrollbar">
+          <div className="space-y-2">
+            <span className="text-xs font-semibold text-muted-foreground">{t('billing.customer')}</span>
+            {cartCustomer ? (
+              <div className="flex items-start justify-between gap-2 rounded-md border border-border p-3">
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm truncate"><bdi>{cartCustomer.name}</bdi></p>
+                  <p className="text-xs text-muted-foreground">{cartCustomer.phone ? phone(cartCustomer.phone) : t('common.noContact')}</p>
+                  {cartCustomer.balance > 0 && (
+                    <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mt-1">{t('billing.owes', { amount: money(cartCustomer.balance) })}</p>
+                  )}
                 </div>
-              ))
+                <div className="flex gap-1 shrink-0">
+                  <button type="button" onClick={() => setPickingCustomer(true)} className="text-xs font-medium text-primary hover:underline px-1">
+                    {t('billing.changeCustomer')}
+                  </button>
+                  <button type="button" aria-label={t('billing.removeCustomer')} onClick={() => setCartCustomer(null)} className="p-1 text-muted-foreground hover:text-destructive">
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
             ) : (
-                <div className="text-[11px] text-muted-foreground italic">No taxes applicable</div>
+              <button
+                type="button"
+                onClick={() => setPickingCustomer(true)}
+                className="w-full rounded-md border border-dashed border-border px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 text-start"
+              >
+                {t('billing.chooseCustomer')}
+              </button>
             )}
           </div>
+
+          <div className="space-y-2">
+            {discountOpen ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-muted-foreground">{t('billing.discount')}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDiscountOpen(false)
+                      updateDiscount('')
+                    }}
+                    className="text-xs text-muted-foreground hover:text-destructive"
+                  >
+                    {t('billing.removeDiscount')}
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex rounded-md border border-border p-0.5 bg-secondary/50" role="group">
+                    {(['amount', 'percent'] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        aria-pressed={discountType === type}
+                        onClick={() => updateDiscount(discountText, type)}
+                        className={cn(
+                          'px-2.5 rounded text-xs font-semibold',
+                          discountType === type ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground'
+                        )}
+                        title={type === 'amount' ? t('billing.discountAmount') : t('billing.discountPercent')}
+                      >
+                        {type === 'amount' ? CURRENCY.symbol[lang] : '%'}
+                      </button>
+                    ))}
+                  </div>
+                  <DecimalInput
+                    autoFocus
+                    value={discountText}
+                    onChange={(e) => updateDiscount(e.target.value)}
+                    aria-label={discountType === 'amount' ? t('billing.discountAmount') : t('billing.discountPercent')}
+                    placeholder="0"
+                  />
+                </div>
+              </>
+            ) : (
+              <button
+                type="button"
+                disabled={cart.length === 0}
+                onClick={() => setDiscountOpen(true)}
+                className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline disabled:opacity-40 disabled:no-underline"
+              >
+                <BadgePercent size={15} /> {t('billing.addDiscount')}
+              </button>
+            )}
+          </div>
+
+          <dl className="space-y-2 border-t border-border pt-4 text-sm">
+            <div className="flex justify-between text-muted-foreground">
+              <dt>{t('billing.subtotal')}</dt>
+              <dd className="tabular-nums text-foreground">{money(totals.subtotal)}</dd>
+            </div>
+            {totals.discountAmount > 0 && (
+              <div className="flex justify-between text-muted-foreground">
+                <dt className="flex items-center gap-1">
+                  <Percent size={12} /> {t('billing.discount')}
+                </dt>
+                <dd className="tabular-nums text-emerald-700 dark:text-emerald-400">−{money(totals.discountAmount)}</dd>
+              </div>
+            )}
+            <div className="flex items-baseline justify-between pt-3 border-t border-border">
+              <dt className="text-base font-semibold">{t('billing.total')}</dt>
+              <dd className="text-3xl font-bold tabular-nums tracking-tight">{money(totals.total)}</dd>
+            </div>
+            {totals.taxLines.filter((l) => l.tax > 0).map((l) => (
+              <div key={l.rate} className="flex justify-between text-xs text-muted-foreground">
+                <dt>{t('billing.taxIncluded', { rate: l.rate })}</dt>
+                <dd className="tabular-nums">{money(l.tax)}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
 
-        <div className="space-y-2 pt-4 border-t border-border">
-           <div className="flex items-center justify-between">
-              <span className="text-sm font-bold uppercase tracking-wider text-foreground">Total Payable</span>
-              <span className="text-2xl font-bold text-foreground tracking-tight tabular-nums">
-                {formatCurrency(total)}
-              </span>
-           </div>
-        </div>
+        <footer className="p-4 border-t border-border shrink-0 bg-secondary/30">
+          <Button size="lg" disabled={cart.length === 0} onClick={() => setShowPayment(true)} className="w-full h-12 text-base font-semibold">
+            {t('billing.takePayment')}
+          </Button>
+        </footer>
+      </section>
 
-        {/* Payment Modes Selection */}
-        <div className="space-y-2 pt-2">
-           <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Payment Method</span>
-           <div className="grid grid-cols-3 gap-2">
-             <Button 
-               variant="outline" 
-               onClick={() => setPaymentMethod('CASH')}
-               className={cn(
-                 "flex-col h-12 gap-1 border transition-all rounded-md cursor-pointer",
-                 paymentMethod === 'CASH' ? "bg-secondary border-foreground text-foreground" : "border-border text-muted-foreground hover:text-foreground"
-               )}
-             >
-                 <Wallet size={14} />
-                 <span className="text-[8px] uppercase font-bold">Cash</span>
-             </Button>
-             <Button 
-               variant="outline" 
-               onClick={() => setPaymentMethod('UPI')}
-               className={cn(
-                 "flex-col h-12 gap-1 border transition-all rounded-md cursor-pointer",
-                 paymentMethod === 'UPI' ? "bg-secondary border-foreground text-foreground" : "border-border text-muted-foreground hover:text-foreground"
-               )}
-             >
-                 <QrCode size={14} />
-                 <span className="text-[8px] uppercase font-bold">UPI</span>
-             </Button>
-             <Button 
-               variant="outline" 
-               onClick={() => setPaymentMethod('CARD')}
-               className={cn(
-                 "flex-col h-12 gap-1 border transition-all rounded-md cursor-pointer",
-                 paymentMethod === 'CARD' ? "bg-secondary border-foreground text-foreground" : "border-border text-muted-foreground hover:text-foreground"
-               )}
-             >
-                 <CreditCard size={14} />
-                 <span className="text-[8px] uppercase font-bold">Card</span>
-             </Button>
-           </div>
-        </div>
-      </CardContent>
-
-      <CardFooter className="p-4 pt-0 border-t border-border shrink-0 bg-secondary/30">
-        <Button 
-          size="lg" 
-          disabled={cart.length === 0}
-          onClick={handleCheckout}
-          className={cn(
-            "w-full h-11 text-sm font-semibold uppercase tracking-wider transition-all active:scale-[0.99] rounded-md cursor-pointer bg-primary text-primary-foreground hover:opacity-90 shadow-sm",
-            cart.length === 0 && "opacity-50 grayscale"
-          )}
-        >
-          <Printer size={16} className="mr-2" />
-          Complete Sale
-        </Button>
-      </CardFooter>
-      </Card>
-
-      {/* Actual Print Portal */}
-      {lastOrder && (
-        <PrintReceiptPortal 
-          order={lastOrder} 
-          type={receiptType} 
-          onClose={() => setLastOrder(null)} 
-        />
+      {pickingCustomer && (
+        <Modal title={t('billing.chooseCustomer')} onClose={() => setPickingCustomer(false)} size="sm">
+          <CustomerPicker
+            autoFocus
+            onPick={(c) => {
+              setCartCustomer(c)
+              setPickingCustomer(false)
+            }}
+          />
+        </Modal>
       )}
 
-      {/* Payment Selection Modal */}
-      {showPaymentModal && (
-        <PaymentModal
-          amount={total}
-          method={paymentMethod}
-          onConfirm={() => completeOrder(paymentMethod)}
-          onCancel={() => setShowPaymentModal(false)}
-          isProcessing={isProcessing}
-        />
-      )}
+      {showPayment && <PaymentModal total={totals.total} onClose={() => setShowPayment(false)} />}
     </>
   )
 }

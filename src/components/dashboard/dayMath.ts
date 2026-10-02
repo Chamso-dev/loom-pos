@@ -1,35 +1,7 @@
 // Pure helpers for the dashboard. Kept free of React so they are easy to check.
 
-const rupeeFormat = new Intl.NumberFormat('en-IN', {
-  style: 'currency',
-  currency: 'INR',
-  maximumFractionDigits: 0,
-})
-
-/** Whole rupees with Indian digit grouping, e.g. ₹12,34,567. */
-export const rupees = (amount: number) => rupeeFormat.format(Math.round(amount))
-
-/**
- * Short form for tight spaces using Indian units: ₹950, ₹18.2K, ₹1.6L, ₹2.4Cr.
- * Intl's own en-IN compact form writes thousands as "T", which reads as trillions.
- */
-export function rupeesShort(amount: number) {
-  const units: Array<[number, string]> = [[1e7, 'Cr'], [1e5, 'L'], [1e3, 'K']]
-  for (const [size, suffix] of units) {
-    if (Math.abs(amount) >= size) {
-      return `₹${(amount / size).toFixed(1).replace(/\.0$/, '')}${suffix}`
-    }
-  }
-  return rupees(amount)
-}
-
-/** 10 → "10 am", 12 → "12 pm", 15 → "3 pm", 24 → "12 am". */
-export function hourLabel(hour: number) {
-  const h = ((hour % 24) + 24) % 24
-  const suffix = h < 12 ? 'am' : 'pm'
-  const twelve = h % 12 === 0 ? 12 : h % 12
-  return `${twelve} ${suffix}`
-}
+/** 10 → "10:00", 24 → "00:00": the 24-hour clock used in Algeria. */
+export const hourLabel = (hour: number) => `${String(((hour % 24) + 24) % 24).padStart(2, '0')}:00`
 
 /** Parses a "YYYY-MM-DD" key as a local date, avoiding the UTC shift of new Date(key). */
 export function localDate(key: string) {

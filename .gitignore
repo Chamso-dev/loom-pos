@@ -39,3 +39,5 @@ build/
 phases/
 prd.md
 implementation_plan.md
+# Single-file demo build
+dist-demo/

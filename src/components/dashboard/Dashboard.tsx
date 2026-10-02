@@ -1,34 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { format, isToday } from 'date-fns'
+import { isToday } from 'date-fns'
 import '@fontsource-variable/anek-latin/standard.css'
 import './dashboard.css'
 import { useStore } from '@/store/useStore'
-import EndOfDaySummary from './EndOfDaySummary'
+import { useI18n } from '@/i18n'
+import { api } from '@/lib/api'
+import { CURRENCY, formatNumber, PAYMENT_METHOD_CODES } from '@/lib/domain'
+import { MethodList } from '@/components/ui/badges'
+import EndOfDaySummary, { type DaySummary } from './EndOfDaySummary'
 import DayThread from './DayThread'
-import { localDate, rupees, rupeesShort, shapeDay } from './dayMath'
-
-interface Summary {
-  revenue: number
-  gst: number
-  orders: number
-  paymentBreakdown: Array<{ paymentMethod: string; _sum: { totalAmount: number | null } }>
-}
+import { localDate, shapeDay } from './dayMath'
 
 interface TodayAnalytics {
   todayByHour: number[]
   averageByHour: number[]
   comparedDays: number
   week: Array<{ date: string; amount: number; orders: number }>
-  topItems: Array<{
-    productId: string
-    name: string
-    size: string | null
-    color: string | null
-    sku: string
-    quantity: number
-    revenue: number
-  }>
+  topItems: Array<{ productId: string; name: string; size: string | null; color: string | null; sku: string; unit: string; quantity: number; revenue: number }>
 }
 
 interface Bill {
@@ -36,36 +25,30 @@ interface Bill {
   invoiceNo: string
   date: string
   totalAmount: number
+  amountPaid: number
   paymentMethod: string
   customerName: string | null
   processedBy: { name: string } | null
+  payments?: Array<{ method: string }>
   _count: { items: number }
 }
 
-const METHODS = [
-  { method: 'CASH', label: 'Cash', dip: 'ld-dip-cash', color: 'var(--ld-indigo)' },
-  { method: 'UPI', label: 'UPI', dip: 'ld-dip-upi', color: 'var(--ld-indigo-mid)' },
-  { method: 'CARD', label: 'Card', dip: 'ld-dip-card', color: 'var(--ld-indigo-pale)' },
-] as const
-
-const METHOD_LABEL: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', CARD: 'Card' }
-
 const REFRESH_MS = 2 * 60 * 1000
-
-async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`${url} answered ${res.status}`)
-  return res.json()
+const DIP_CLASS: Record<string, string> = {
+  CASH: 'ld-dip-cash',
+  CIB: 'ld-dip-cib',
+  EDAHABIA: 'ld-dip-edahabia',
+  BARIDIMOB: 'ld-dip-baridimob',
+  TRANSFER: 'ld-dip-transfer',
 }
-
-const detailOf = (size: string | null, color: string | null) =>
-  [size && `Size ${size}`, color].filter(Boolean).join(', ')
 
 export default function Dashboard() {
   const navigate = useNavigate()
   const { lowStockProducts, fetchLowStockAlerts } = useStore()
+  const i18n = useI18n()
+  const { t, money, qty, code } = i18n
 
-  const [summary, setSummary] = useState<Summary | null>(null)
+  const [summary, setSummary] = useState<DaySummary | null>(null)
   const [today, setToday] = useState<TodayAnalytics | null>(null)
   const [bills, setBills] = useState<Bill[] | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading')
@@ -73,18 +56,16 @@ export default function Dashboard() {
   const [showEOD, setShowEOD] = useState(false)
 
   const load = useCallback(async () => {
-    // Each request settles on its own, so one slow or missing endpoint does not blank the page.
-    const [s, t, b] = await Promise.allSettled([
-      getJson<Summary>('/api/analytics/summary'),
-      getJson<TodayAnalytics>('/api/analytics/today'),
-      getJson<{ orders: Bill[] }>('/api/orders?limit=6'),
+    const [s, td, b] = await Promise.allSettled([
+      api<DaySummary>('/analytics/summary'),
+      api<TodayAnalytics>('/analytics/today'),
+      api<{ orders: Bill[] }>('/orders', { query: { limit: 6 } }),
       fetchLowStockAlerts(),
     ])
     if (s.status === 'fulfilled') setSummary(s.value)
-    if (t.status === 'fulfilled') setToday(t.value)
+    if (td.status === 'fulfilled') setToday(td.value)
     if (b.status === 'fulfilled') setBills(b.value.orders)
     setNow(new Date())
-    // A failed background refresh keeps the last good numbers on screen.
     setStatus((prev) => (s.status === 'fulfilled' || prev === 'ready' ? 'ready' : 'failed'))
   }, [fetchLowStockAlerts])
 
@@ -94,14 +75,11 @@ export default function Dashboard() {
     return () => window.clearInterval(timer)
   }, [load])
 
-  const shape = useMemo(
-    () => (today ? shapeDay(today.todayByHour, today.averageByHour, now) : null),
-    [today, now]
-  )
+  const shape = useMemo(() => (today ? shapeDay(today.todayByHour, today.averageByHour, now) : null), [today, now])
 
   if (status === 'loading') {
     return (
-      <div className="loom-dash" aria-busy="true" aria-label="Loading today's sales">
+      <div className="loom-dash" aria-busy="true" aria-label={t('dashboard.loadingLabel')}>
         <div className="ld-skeleton" style={{ height: 160, maxWidth: 520 }} />
         <div className="ld-skeleton" style={{ height: 240 }} />
         <div className="ld-row">
@@ -117,12 +95,9 @@ export default function Dashboard() {
     return (
       <div className="loom-dash">
         <div className="ld-alert" role="alert">
-          <p>
-            Today's sales could not be loaded. The LoomPOS server did not answer.
-            Check that it is running, then try again.
-          </p>
+          <p>{t('dashboard.loadError')}</p>
           <button className="ld-button" onClick={() => { setStatus('loading'); load() }}>
-            Try again
+            {t('common.retry')}
           </button>
         </div>
       </div>
@@ -132,168 +107,174 @@ export default function Dashboard() {
   const revenue = summary.revenue || 0
   const orderCount = summary.orders || 0
   const averageBill = orderCount ? revenue / orderCount : 0
-  const paid = METHODS.map((m) => ({
-    ...m,
-    amount: summary.paymentBreakdown.find((p) => p.paymentMethod === m.method)?._sum.totalAmount ?? 0,
-  }))
+  const moneyIn = summary.payments.reduce((sum, p) => sum + p.amount, 0)
+  const paid = PAYMENT_METHOD_CODES.filter((m) => m !== 'CREDIT')
+    .map((method) => ({ method, amount: summary.payments.find((p) => p.method === method)?.amount ?? 0 }))
+    .filter((p) => p.amount > 0 || p.method === 'CASH')
   const weekMax = Math.max(...(today?.week.map((d) => d.amount) ?? [0]), 1)
+  // Bars are narrow: thousands without decimals once past 10 000 (48k / 48 ألف), the unit is in the heading.
+  const weekAmount = (amount: number) =>
+    amount >= 1000 ? `${formatNumber(amount / 1000, amount >= 10000 ? 0 : 1)}${i18n.lang === 'ar' ? ' ألف' : 'k'}` : formatNumber(amount, 0)
 
   return (
     <div className="loom-dash">
       <header className="ld-hero">
         <div>
-          <h1 className="ld-date">{format(now, 'EEEE, d MMMM')}</h1>
+          <h1 className="ld-date">{i18n.date(now, 'dayMonth')}</h1>
           <p className="ld-takings">
-            <span className="ld-figure">{rupees(revenue)}</span>
-            <span className="ld-figure-note">in sales today</span>
+            <span className="ld-figure">
+              {money(revenue, { symbol: false })}
+              <span className="ld-figure-currency">{CURRENCY.symbol[i18n.lang]}</span>
+            </span>
+            <span className="ld-figure-note">{t('dashboard.salesToday')}</span>
           </p>
           <Comparison shape={shape} comparedDays={today?.comparedDays ?? 0} orderCount={orderCount} />
           <dl className="ld-facts">
             <div className="ld-fact">
-              <dt>{orderCount === 1 ? 'bill' : 'bills'}</dt>
-              <dd>{orderCount}</dd>
+              <dt>{t('dashboard.bills', { count: orderCount })}</dt>
+              <dd>{i18n.number(orderCount)}</dd>
             </div>
             <div className="ld-fact">
-              <dt>average bill</dt>
-              <dd>{rupees(averageBill)}</dd>
+              <dt>{t('dashboard.averageBill')}</dt>
+              <dd>{money(averageBill)}</dd>
             </div>
             <div className="ld-fact">
-              <dt>GST collected</dt>
-              <dd>{rupees(summary.gst || 0)}</dd>
+              <dt>{t('dashboard.profit')}</dt>
+              <dd>{money(summary.profit)}</dd>
             </div>
+            {summary.tax > 0 && (
+              <div className="ld-fact">
+                <dt>{t('dashboard.taxCollected')}</dt>
+                <dd>{money(summary.tax)}</dd>
+              </div>
+            )}
+            {summary.creditGiven > 0 && (
+              <div className="ld-fact ld-fact-credit">
+                <dt>{t('dashboard.creditGiven')}</dt>
+                <dd>{money(summary.creditGiven)}</dd>
+              </div>
+            )}
           </dl>
         </div>
         <button className="ld-button" onClick={() => setShowEOD(true)}>
-          Close the day
+          {t('dashboard.closeDay')}
         </button>
       </header>
 
       <section aria-labelledby="ld-thread-heading">
-        <h2 id="ld-thread-heading" className="ld-sr-only">Sales through the day</h2>
-        {shape && today ? (
-          <DayThread shape={shape} comparedDays={today.comparedDays} now={now} />
-        ) : (
-          <p className="ld-empty">The hour-by-hour view is unavailable. The server may need updating.</p>
-        )}
+        <h2 id="ld-thread-heading" className="ld-sr-only">{t('dashboard.threadHeading')}</h2>
+        {shape && today ? <DayThread shape={shape} comparedDays={today.comparedDays} now={now} /> : <p className="ld-empty">{t('dashboard.threadUnavailable')}</p>}
       </section>
 
       <div className="ld-row">
         <section className="ld-panel" aria-labelledby="ld-paid-heading">
-          <h2 id="ld-paid-heading" className="ld-heading">How customers paid</h2>
+          <h2 id="ld-paid-heading" className="ld-heading">{t('dashboard.howPaid')}</h2>
+          <p className="ld-empty ld-heading-hint">{t('dashboard.moneyInHint')}</p>
           <div className="ld-split" aria-hidden="true">
-            {revenue > 0 &&
-              paid
-                .filter((p) => p.amount > 0)
-                .map((p) => (
-                  <div
-                    key={p.method}
-                    className="ld-split-part"
-                    style={{ width: `${(p.amount / revenue) * 100}%`, background: p.color }}
-                  />
-                ))}
+            {moneyIn > 0 &&
+              paid.filter((p) => p.amount > 0).map((p) => (
+                <div key={p.method} className={`ld-split-part ${DIP_CLASS[p.method] ?? 'ld-dip-transfer'}`} style={{ width: `${(p.amount / moneyIn) * 100}%` }} />
+              ))}
           </div>
           <ul className="ld-list">
             {paid.map((p) => (
               <li key={p.method} className="ld-list-row">
                 <span className="ld-item-name">
-                  <span className={`ld-dip ${p.dip}`} />
-                  {p.label}
+                  <span className={`ld-dip ${DIP_CLASS[p.method] ?? 'ld-dip-transfer'}`} />
+                  {i18n.method(p.method)}
                 </span>
-                <span className="ld-item-value">{rupees(p.amount)}</span>
+                <span className="ld-item-value">{money(p.amount)}</span>
                 <span className="ld-item-detail ld-indent">
-                  {revenue > 0 ? `${Math.round((p.amount / revenue) * 100)}% of sales` : 'No sales yet'}
+                  {moneyIn > 0 ? t('dashboard.shareOf', { percent: i18n.percent(Math.round((p.amount / moneyIn) * 100)) }) : t('dashboard.noPayments')}
                 </span>
               </li>
             ))}
+            {summary.creditGiven > 0 && (
+              <li className="ld-list-row">
+                <span className="ld-item-name">
+                  <span className="ld-dip ld-dip-credit" />
+                  {t('dashboard.creditToday')}
+                </span>
+                <span className="ld-item-value ld-stock-low">{money(summary.creditGiven)}</span>
+              </li>
+            )}
           </ul>
-          {paid[0].amount > 0 && (
-          <p className="ld-panel-foot">
-            Cash taken today is <strong>{rupees(paid[0].amount)}</strong>. Check it against the drawer at closing.
-          </p>
+          {summary.cash.expected !== 0 && (
+            <p className="ld-panel-foot">{i18n.tx('dashboard.cashCheck', { amount: <strong>{money(summary.cash.expected)}</strong> })}</p>
           )}
         </section>
 
         <section className="ld-panel" aria-labelledby="ld-low-heading">
-          <h2 id="ld-low-heading" className="ld-heading">Running low</h2>
+          <h2 id="ld-low-heading" className="ld-heading">{t('dashboard.runningLow')}</h2>
           {lowStockProducts.length ? (
             <ul className="ld-list">
               {lowStockProducts.slice(0, 5).map((p) => (
                 <li key={p.id} className="ld-list-row">
-                  <Link className="ld-item-name" to={`/inventory?search=${encodeURIComponent(p.sku)}`}>
-                    {p.name}
-                  </Link>
-                  <span className={`ld-item-value ${p.stock === 0 ? 'ld-stock-out' : 'ld-stock-low'}`}>
+                  <Link className="ld-item-name" to={`/inventory?search=${encodeURIComponent(p.sku)}`}><bdi>{p.name}</bdi></Link>
+                  <span className={`ld-item-value ${p.stock <= 0 ? 'ld-stock-out' : 'ld-stock-low'}`}>
                     <span className="ld-stock-mark" aria-hidden="true" />
-                    {p.stock === 0 ? 'Sold out' : `${p.stock} left`}
+                    {p.stock <= 0 ? t('dashboard.soldOut') : t('dashboard.left', { qty: qty(p.stock, p.unit, true) })}
                   </span>
-                  <span className="ld-item-detail">{detailOf(p.size ?? null, p.color ?? null) || p.sku}</span>
+                  <span className="ld-item-detail"><bdi>{[p.size, p.category].filter(Boolean).join(', ') || code(p.sku)}</bdi></span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="ld-empty">Nothing is running low. Items appear here when 10 or fewer are left.</p>
+            <p className="ld-empty">{t('dashboard.nothingLow')}</p>
           )}
           <p className="ld-panel-foot">
-            <Link className="ld-link" to="/inventory">Open inventory</Link>
+            <Link className="ld-link" to="/inventory">{t('dashboard.openInventory')}</Link>
           </p>
         </section>
 
         <section className="ld-panel" aria-labelledby="ld-top-heading">
-          <h2 id="ld-top-heading" className="ld-heading">Selling today</h2>
+          <h2 id="ld-top-heading" className="ld-heading">{t('dashboard.sellingToday')}</h2>
           {today?.topItems.length ? (
             <ul className="ld-list">
               {today.topItems.map((item) => (
                 <li key={item.productId} className="ld-list-row">
-                  <Link className="ld-item-name" to={`/inventory?search=${encodeURIComponent(item.sku)}`}>
-                    {item.name}
-                  </Link>
-                  <span className="ld-item-value">{item.quantity} sold</span>
-                  <span className="ld-item-detail">{detailOf(item.size, item.color)}</span>
-                  <span className="ld-item-sub">{rupees(item.revenue)}</span>
+                  <Link className="ld-item-name" to={`/inventory?search=${encodeURIComponent(item.sku)}`}><bdi>{item.name}</bdi></Link>
+                  <span className="ld-item-value">{money(item.revenue)}</span>
+                  <span className="ld-item-detail">{t('dashboard.sold', { qty: qty(item.quantity, item.unit, true) })}</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="ld-empty">No items sold yet today. Best sellers show here after the first bill.</p>
+            <p className="ld-empty">{t('dashboard.nothingSold')}</p>
           )}
         </section>
       </div>
 
       <div className="ld-row-wide">
         <section className="ld-panel ld-panel-open" aria-labelledby="ld-bills-heading">
-          <h2 id="ld-bills-heading" className="ld-heading">Latest bills</h2>
+          <h2 id="ld-bills-heading" className="ld-heading">{t('dashboard.latestBills')}</h2>
           {bills?.length ? (
             <div className="ld-table-wrap">
               <table className="ld-table">
                 <thead>
                   <tr>
-                    <th scope="col">Time</th>
-                    <th scope="col">Bill</th>
-                    <th scope="col">Customer</th>
-                    <th scope="col" className="ld-num">Items</th>
-                    <th scope="col">Paid by</th>
-                    <th scope="col">Cashier</th>
-                    <th scope="col" className="ld-num">Amount</th>
+                    <th scope="col">{t('dashboard.time')}</th>
+                    <th scope="col">{t('dashboard.receipt')}</th>
+                    <th scope="col">{t('dashboard.customer')}</th>
+                    <th scope="col" className="ld-num">{t('dashboard.items')}</th>
+                    <th scope="col">{t('dashboard.paidBy')}</th>
+                    <th scope="col" className="ld-num">{t('dashboard.amount')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {bills.map((bill) => {
                     const when = new Date(bill.date)
+                    const methods = [...(bill.payments ?? []).map((p) => p.method), ...(bill.totalAmount - bill.amountPaid > 0.004 ? ['CREDIT'] : [])]
                     return (
                       <tr key={bill.id} onClick={() => navigate(`/orders?orderId=${bill.id}`)}>
-                        <td className="ld-table-muted">
-                          {isToday(when) ? format(when, 'h:mm a').toLowerCase() : format(when, 'd MMM')}
-                        </td>
+                        <td className="ld-table-muted">{isToday(when) ? i18n.time(when) : i18n.date(when, 'medium')}</td>
                         <td>
-                          <Link className="ld-link" to={`/orders?orderId=${bill.id}`} onClick={(e) => e.stopPropagation()}>
-                            {bill.invoiceNo}
-                          </Link>
+                          <Link className="ld-link" to={`/orders?orderId=${bill.id}`} onClick={(e) => e.stopPropagation()}>{code(bill.invoiceNo)}</Link>
                         </td>
-                        <td>{bill.customerName || <span className="ld-table-muted">Walk-in</span>}</td>
-                        <td className="ld-num">{bill._count.items}</td>
-                        <td>{METHOD_LABEL[bill.paymentMethod] ?? bill.paymentMethod}</td>
-                        <td className="ld-table-muted">{bill.processedBy?.name ?? 'Unknown'}</td>
-                        <td className="ld-num">{rupees(bill.totalAmount)}</td>
+                        <td>{bill.customerName || <span className="ld-table-muted">{t('common.walkIn')}</span>}</td>
+                        <td className="ld-num">{i18n.number(bill._count.items)}</td>
+                        <td><MethodList methods={methods.length ? methods : [bill.paymentMethod]} /></td>
+                        <td className="ld-num">{money(bill.totalAmount)}</td>
                       </tr>
                     )
                   })}
@@ -302,18 +283,18 @@ export default function Dashboard() {
             </div>
           ) : (
             <p className="ld-empty">
-              No bills yet. <Link className="ld-link" to="/billing">Open billing</Link> to make the first one.
+              {t('dashboard.noBills')} <Link className="ld-link" to="/billing">{t('dashboard.openBilling')}</Link>
             </p>
           )}
           <p className="ld-panel-foot">
-            <Link className="ld-link" to="/orders">See all orders</Link>
+            <Link className="ld-link" to="/orders">{t('dashboard.seeAll')}</Link>
           </p>
         </section>
 
         <section className="ld-panel" aria-labelledby="ld-week-heading">
-          <h2 id="ld-week-heading" className="ld-heading">Past 7 days</h2>
+          <h2 id="ld-week-heading" className="ld-heading">{t('dashboard.pastWeek')}</h2>
           {today ? (
-            <ol className="ld-week">
+            <ol className="ld-week" dir="ltr">
               {today.week.map((day, i) => {
                 const date = localDate(day.date)
                 const isLast = i === today.week.length - 1
@@ -321,25 +302,17 @@ export default function Dashboard() {
                   <li
                     key={day.date}
                     className={`ld-week-day${isLast ? ' is-today' : ''}`}
-                    aria-label={`${format(date, 'EEEE d MMMM')}: ${rupees(day.amount)} from ${day.orders} ${day.orders === 1 ? 'bill' : 'bills'}`}
+                    aria-label={t('dashboard.weekDay', { day: i18n.date(date, 'long'), amount: money(day.amount), count: day.orders })}
                   >
-                    <span className="ld-week-amount" aria-hidden="true">
-                      {day.amount > 0 ? rupeesShort(day.amount) : '–'}
-                    </span>
-                    <span
-                      className="ld-week-bar"
-                      aria-hidden="true"
-                      style={{ height: `${(day.amount / weekMax) * 120}px` }}
-                    />
-                    <span className="ld-week-label" aria-hidden="true">
-                      {isLast ? 'Today' : format(date, 'EEE')}
-                    </span>
+                    <span className="ld-week-amount" aria-hidden="true">{day.amount > 0 ? weekAmount(day.amount) : '–'}</span>
+                    <span className="ld-week-bar" aria-hidden="true" style={{ height: `${(day.amount / weekMax) * 120}px` }} />
+                    <span className="ld-week-label" aria-hidden="true">{isLast ? t('dashboard.today') : i18n.date(date, 'weekday')}</span>
                   </li>
                 )
               })}
             </ol>
           ) : (
-            <p className="ld-empty">The weekly view is unavailable. The server may need updating.</p>
+            <p className="ld-empty">{t('dashboard.threadUnavailable')}</p>
           )}
         </section>
       </div>
@@ -349,34 +322,22 @@ export default function Dashboard() {
   )
 }
 
-function Comparison({
-  shape,
-  comparedDays,
-  orderCount,
-}: {
-  shape: ReturnType<typeof shapeDay> | null
-  comparedDays: number
-  orderCount: number
-}) {
+function Comparison({ shape, comparedDays, orderCount }: { shape: ReturnType<typeof shapeDay> | null; comparedDays: number; orderCount: number }) {
+  const { t, money, tx } = useI18n()
   if (!shape) return null
-  if (orderCount === 0) {
-    return <p className="ld-compare">No bills yet today. Sales show here as soon as the first bill is saved.</p>
-  }
-  if (comparedDays === 0) {
-    return <p className="ld-compare">Comparisons start once the store has a few days of sales.</p>
-  }
+  if (orderCount === 0) return <p className="ld-compare">{t('dashboard.noBillsYet')}</p>
+  if (comparedDays === 0) return <p className="ld-compare">{t('dashboard.notEnoughHistory')}</p>
 
   const gap = shape.todayTotal - shape.averageByNow
   const closeEnough = Math.abs(gap) < Math.max(shape.averageByNow * 0.02, 50)
-  const when = shape.nowAt >= shape.end ? 'for a whole day' : 'by this time'
-
-  if (closeEnough) {
-    return <p className="ld-compare">Level with an average day {when}.</p>
-  }
+  const when = shape.nowAt >= shape.end ? t('dashboard.forWholeDay') : t('dashboard.byThisTime')
+  if (closeEnough) return <p className="ld-compare">{t('dashboard.level', { when })}</p>
   return (
     <p className="ld-compare">
-      <span className={`ld-compare-gap${gap < 0 ? ' is-behind' : ''}`}>{rupees(Math.abs(gap))}</span>{' '}
-      {gap > 0 ? 'ahead of' : 'behind'} an average day {when}.
+      {tx(gap > 0 ? 'dashboard.ahead' : 'dashboard.behind', {
+        amount: <span className={`ld-compare-gap${gap < 0 ? ' is-behind' : ''}`}>{money(Math.abs(gap))}</span>,
+        when,
+      })}
     </p>
   )
 }

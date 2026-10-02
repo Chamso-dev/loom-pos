@@ -1,218 +1,149 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Plus, Package, Search, LayoutGrid, List as ListIcon, Printer } from 'lucide-react'
-
+import { Plus, Package, Search, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { ErrorNote } from '@/components/ui/field'
+import ConfirmDialog from '@/components/ui/confirm'
 import InventoryTable from './InventoryTable'
 import ProductModal from './ProductModal'
 import PrintLabelsModal from './PrintLabelsModal'
 import AdminVerifyModal from './AdminVerifyModal'
 import { useStore, type Product } from '@/store/useStore'
-import { cn } from '@/lib/utils'
+import { useI18n } from '@/i18n'
+
+type Pending = { type: 'add' } | { type: 'edit'; product: Product } | { type: 'delete'; product: Product }
 
 export default function InventoryPage() {
   const [searchParams] = useSearchParams()
-  const initialSearch = searchParams.get('search') || ''
-  
   const { fetchProducts, products, hasMoreProducts, totalProducts, isLoadingProducts, user, deleteProduct } = useStore()
+  const i18n = useI18n()
+  const { t } = i18n
+
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false)
-  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
-  
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [searchQuery, setSearchQuery] = useState(initialSearch)
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '')
   const [page, setPage] = useState(1)
-  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([])
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [adminKey, setAdminKey] = useState<string | undefined>()
-  const [pendingAction, setPendingAction] = useState<{ type: 'add' | 'edit' | 'delete', data?: any } | null>(null)
+  const [pending, setPending] = useState<Pending | null>(null)
+  const [error, setError] = useState<unknown>(null)
+  const [toDelete, setToDelete] = useState<{ product: Product; key?: string } | null>(null)
+  const isAdmin = user?.role === 'ADMIN'
 
   useEffect(() => {
-    // Reset page and fetch on search change
     setPage(1)
-    const delayDebounceFn = setTimeout(() => {
-      fetchProducts({ page: 1, search: searchQuery })
-    }, 300)
-
-    return () => clearTimeout(delayDebounceFn)
+    const timer = setTimeout(() => fetchProducts({ page: 1, search: searchQuery }), 300)
+    return () => clearTimeout(timer)
   }, [searchQuery, fetchProducts])
 
-  const handleLoadMore = () => {
-    const nextPage = page + 1
-    setPage(nextPage)
-    fetchProducts({ page: nextPage, search: searchQuery })
+  const openForm = (product: Product | null, key?: string) => {
+    setEditingProduct(product)
+    setAdminKey(key)
+    setIsModalOpen(true)
   }
 
-  const handleEdit = (product: Product) => {
-    if (user?.role === 'ADMIN') {
-      setEditingProduct(product)
-      setAdminKey(undefined)
-      setIsModalOpen(true)
-    } else {
-      setPendingAction({ type: 'edit', data: product })
-      setIsVerifyModalOpen(true)
-    }
+  const remove = async (product: Product, key?: string) => {
+    const result = await deleteProduct(product.id, key)
+    setError(result.ok ? null : result.error)
   }
 
-  const handleAddNew = () => {
-    if (user?.role === 'ADMIN') {
-      setEditingProduct(null)
-      setAdminKey(undefined)
-      setIsModalOpen(true)
-    } else {
-      setPendingAction({ type: 'add' })
-      setIsVerifyModalOpen(true)
-    }
+  const run = (action: Pending, key?: string) => {
+    if (action.type === 'add') openForm(null, key)
+    else if (action.type === 'edit') openForm(action.product, key)
+    else setToDelete({ product: action.product, key })
   }
 
-  const handleDelete = (id: string) => {
-    if (user?.role === 'ADMIN') {
-      if (confirm('Are you sure you want to delete this product?')) {
-        deleteProduct(id)
-      }
-    } else {
-      setPendingAction({ type: 'delete', data: id })
-      setIsVerifyModalOpen(true)
-    }
-  }
+  // Cashiers need the manager's password for any product change.
+  const request = (action: Pending) => (isAdmin ? run(action) : setPending(action))
 
-  const handleVerifySuccess = async (key: string) => {
-    if (!pendingAction) return
-
-    if (pendingAction.type === 'add') {
-      setAdminKey(key)
-      setEditingProduct(null)
-      setIsModalOpen(true)
-    } else if (pendingAction.type === 'edit') {
-      setAdminKey(key)
-      setEditingProduct(pendingAction.data)
-      setIsModalOpen(true)
-    } else if (pendingAction.type === 'delete') {
-      if (confirm('Are you sure you want to delete this product?')) {
-        const success = await deleteProduct(pendingAction.data, key)
-        if (!success) {
-          alert('Verification failed or unauthorized action.')
-        }
-      }
-    }
-    
-    setIsVerifyModalOpen(false)
-    setPendingAction(null)
-  }
-
-
-  const selectedProducts = useMemo(() => 
-    products.filter(p => selectedProductIds.includes(p.id)),
-    [products, selectedProductIds]
-  )
-
-  const handleSelectionToggle = (id: string, selected: boolean) => {
-    setSelectedProductIds(prev => 
-      selected ? [...prev, id] : prev.filter(item => item !== id)
-    )
-  }
-
-  const handleSelectAll = (selected: boolean) => {
-    setSelectedProductIds(selected ? products.map(p => p.id) : [])
-  }
+  const selectedProducts = useMemo(() => products.filter((p) => selectedIds.includes(p.id)), [products, selectedIds])
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 font-sans">
+    <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded bg-secondary flex items-center justify-center text-foreground border border-border">
+          <div className="w-10 h-10 rounded bg-secondary flex items-center justify-center border border-border">
             <Package size={20} />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-foreground">Inventory</h1>
-            <p className="text-muted-foreground text-xs font-medium">Monitor stock levels and manage product listings.</p>
+            <h1 className="text-xl font-bold tracking-tight">{t('inventory.title')}</h1>
+            <p className="text-muted-foreground text-sm">{t('inventory.subtitle')}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-           {selectedProductIds.length > 0 && (
-             <Button 
-               variant="outline" 
-               onClick={() => setIsPrintModalOpen(true)}
-               className="gap-1.5 h-10 px-4 border-border hover:bg-accent text-foreground text-xs font-semibold rounded-md"
-             >
-               <Printer size={16} />
-               Print Labels ({selectedProductIds.length})
-             </Button>
-           )}
-           <Button onClick={handleAddNew} className="gap-1.5 bg-primary text-primary-foreground hover:opacity-90 h-10 px-4 text-xs font-semibold rounded-md shadow-none cursor-pointer">
-            <Plus size={16} />
-            Add Product
+          {selectedIds.length > 0 && (
+            <Button variant="outline" onClick={() => setIsPrintModalOpen(true)} className="gap-1.5 h-10">
+              <Printer size={16} /> {t('inventory.printLabels', { count: selectedIds.length })}
+            </Button>
+          )}
+          <Button onClick={() => request({ type: 'add' })} className="gap-1.5 h-10">
+            <Plus size={16} /> {t('inventory.addProduct')}
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-2 relative group">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4 transition-colors group-focus-within:text-primary" />
-          <Input 
-            placeholder="Search by name, SKU, or barcode..." 
-            className="pl-10 h-10 bg-card border-border hover:border-primary/40 focus:border-primary/60 transition-all rounded-md text-sm font-medium"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-1 bg-secondary/80 p-0.5 rounded border border-border ml-auto">
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded bg-card border border-border shadow-sm text-foreground"><ListIcon size={16} /></Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded opacity-40 hover:opacity-100"><LayoutGrid size={16} /></Button>
-        </div>
+      <div className="relative max-w-2xl">
+        <Search className="absolute start-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+        <input
+          type="search"
+          placeholder={t('inventory.searchPlaceholder')}
+          aria-label={t('inventory.searchPlaceholder')}
+          className="w-full ps-10 pe-3 h-10 bg-card border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
       </div>
 
-      <InventoryTable 
+      {error != null && <ErrorNote>{i18n.error(error)}</ErrorNote>}
+
+      <InventoryTable
         products={products}
-        onEdit={handleEdit} 
-        onDelete={handleDelete}
-        selectedIds={selectedProductIds}
-        onSelectionToggle={handleSelectionToggle}
-        onSelectAll={handleSelectAll}
+        loading={isLoadingProducts}
+        searching={Boolean(searchQuery)}
+        onEdit={(product) => request({ type: 'edit', product })}
+        onDelete={(product) => request({ type: 'delete', product })}
+        selectedIds={selectedIds}
+        onSelectionToggle={(id, selected) => setSelectedIds((prev) => (selected ? [...prev, id] : prev.filter((x) => x !== id)))}
+        onSelectAll={(selected) => setSelectedIds(selected ? products.map((p) => p.id) : [])}
       />
 
-      {hasMoreProducts && (
-        <div className="flex flex-col items-center gap-2 py-6">
-           <Button 
-            variant="outline" 
-            onClick={handleLoadMore} 
+      <div className="flex flex-col items-center gap-2 py-4">
+        {products.length > 0 && <p className="text-xs text-muted-foreground">{t('common.showingOf', { shown: products.length, total: totalProducts })}</p>}
+        {hasMoreProducts && (
+          <Button
+            variant="outline"
             disabled={isLoadingProducts}
-            className="h-10 px-6 rounded-md border-border hover:bg-accent text-foreground font-semibold text-xs transition-all active:scale-[0.99]"
-           >
-              {isLoadingProducts ? 'Loading...' : 'Load Next 50 Products'}
-           </Button>
-           <p className="text-[9px] uppercase font-bold text-muted-foreground opacity-55 tracking-wider">
-             Showing {products.length} of {totalProducts} Products
-           </p>
-        </div>
-      )}
+            onClick={() => {
+              setPage(page + 1)
+              fetchProducts({ page: page + 1, search: searchQuery })
+            }}
+          >
+            {isLoadingProducts ? t('common.loading') : t('inventory.loadMore')}
+          </Button>
+        )}
+      </div>
 
-      <ProductModal 
-        isOpen={isModalOpen} 
-        onClose={() => {
-          setIsModalOpen(false)
-          setAdminKey(undefined)
-        }} 
-        product={editingProduct}
-        adminKey={adminKey}
-      />
-
-      <AdminVerifyModal 
-        isOpen={isVerifyModalOpen}
-        onClose={() => {
-          setIsVerifyModalOpen(false)
-          setPendingAction(null)
+      <ProductModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setAdminKey(undefined) }} product={editingProduct} adminKey={adminKey} />
+      <AdminVerifyModal
+        isOpen={pending !== null}
+        onClose={() => setPending(null)}
+        onVerify={(key) => {
+          if (pending) run(pending, key)
+          setPending(null)
         }}
-        onVerify={handleVerifySuccess}
       />
-
-      <PrintLabelsModal 
-        isOpen={isPrintModalOpen}
-        onClose={() => setIsPrintModalOpen(false)}
-        selectedProducts={selectedProducts}
-      />
+      {toDelete && (
+        <ConfirmDialog
+          title={t('inventory.deleteProduct', { name: toDelete.product.name })}
+          message={t('inventory.deleteConfirm', { name: toDelete.product.name })}
+          confirmLabel={t('common.delete')}
+          danger
+          onConfirm={() => remove(toDelete.product, toDelete.key)}
+          onClose={() => setToDelete(null)}
+        />
+      )}
+      {isPrintModalOpen && <PrintLabelsModal isOpen onClose={() => setIsPrintModalOpen(false)} selectedProducts={selectedProducts} />}
     </div>
   )
 }
-
-

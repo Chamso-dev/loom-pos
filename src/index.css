@@ -1,7 +1,10 @@
 @import "tailwindcss";
+@import "@fontsource-variable/inter/standard.css";
+@import "@fontsource-variable/noto-sans-arabic/standard.css";
 
 @theme {
-  --font-sans: "Inter", "Outfit", sans-serif;
+  /* Bundled so the till works without internet. Arabic glyphs come from Noto Sans Arabic. */
+  --font-sans: "Inter Variable", "Noto Sans Arabic Variable", system-ui, sans-serif;
 
   --radius-lg: 0.5rem;
   --radius-md: 0.375rem;
@@ -84,6 +87,20 @@
   
   body {
     @apply bg-background text-foreground antialiased font-sans min-h-screen transition-colors duration-200;
+  }
+
+  /* Arabic text reads better in Noto Sans Arabic; Latin words and digits fall back to Inter. */
+  html[dir="rtl"] {
+    --font-sans: "Noto Sans Arabic Variable", "Inter Variable", system-ui, sans-serif;
+  }
+  html[dir="rtl"] body {
+    line-height: 1.6;
+  }
+
+  /* Amounts, codes and phone numbers keep their digit order inside Arabic lines. */
+  .ltr-nums {
+    direction: ltr;
+    unicode-bidi: isolate;
   }
 }
 

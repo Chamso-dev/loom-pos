@@ -1,5 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { api, configureApi } from '@/lib/api'
+import { roundQuantity, unitRule, type Discount, type PaymentMethodCode } from '@/lib/domain'
+import type { Lang } from '@/i18n/define'
 
 export interface User {
   id: string
@@ -11,17 +14,25 @@ export interface User {
   createdAt: string
 }
 
-
 export interface StoreSettings {
   id: string
   name: string
   address: string
-  gstin: string
-  upiId: string
   phone: string
-  cashierPassword?: string | null
+  nif: string
+  rc: string
+  nis: string
+  articleNo: string
+  currency: 'DZD'
+  language: Lang
+  defaultPaymentMethod: PaymentMethodCode
+  ripAccount: string
+  ribAccount: string
+  receiptWidth: 58 | 80
+  receiptFooter: string
+  receiptShowTax: boolean
+  hasCashierPassword: boolean
 }
-
 
 export interface Product {
   id: string
@@ -29,89 +40,128 @@ export interface Product {
   sku: string
   barcode: string
   category: string
+  /** piece, kg, g, l, ml or box */
+  unit: string
   size?: string | null
   color?: string | null
   costPrice: number
+  /** Tax-included price per unit, in DZD. */
   sellingPrice: number
-  gst: number
+  taxRate: number
   stock: number
   supplier?: string | null
+  supplierId?: string | null
   createdAt: string
   updatedAt: string
 }
+
+export type ProductInput = Omit<Product, 'id' | 'createdAt' | 'updatedAt'>
 
 export interface CartItem {
   id: string
   productId: string
   name: string
   sku: string
+  unit: string
   size?: string | null
   price: number
   quantity: number
-  gst: number
-  stock: number // To prevent over-selling
+  taxRate: number
+  costPrice: number
+  /** Stock when added, to stop overselling. */
+  stock: number
 }
 
+export interface CustomerRef {
+  id: string
+  name: string
+  phone?: string | null
+  balance: number
+  creditLimit?: number | null
+}
+
+type Result = { ok: true } | { ok: false; error: unknown }
+
 interface AppState {
-  // Sidebar State
+  // Language
+  language: Lang
+  /** True once someone picked a language on this device; until then the store default applies. */
+  languageChosen: boolean
+  setLanguage: (lang: Lang) => void
+
+  // Sidebar
   isSidebarOpen: boolean
   toggleSidebar: () => void
   setSidebarOpen: (isOpen: boolean) => void
 
-  // Auth State
+  // Auth
   token: string | null
   user: User | null
-  login: (employeeId: string, password: string) => Promise<{ success: boolean, error?: string }>
+  login: (employeeId: string, password: string) => Promise<Result>
   logout: () => void
 
-
-  // Cart State
+  // Cart
   cart: CartItem[]
-  addToCart: (product: Product) => void
-  addByBarcode: (barcode: string) => Promise<boolean> // Returns true if found
+  discount: Discount | null
+  cartCustomer: CustomerRef | null
+  addToCart: (product: Product, quantity?: number) => void
+  addByBarcode: (barcode: string) => Promise<boolean>
   removeFromCart: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
+  setDiscount: (discount: Discount | null) => void
+  setCartCustomer: (customer: CustomerRef | null) => void
   clearCart: () => void
 
-  // Appearance State
+  // Appearance
   theme: 'dark' | 'light' | 'system'
   setTheme: (theme: 'dark' | 'light' | 'system') => void
 
-  // Inventory State
+  // Inventory
   products: Product[]
   isLoadingProducts: boolean
   hasMoreProducts: boolean
   totalProducts: number
-  fetchProducts: (params?: { page?: number, search?: string }) => Promise<void>
-  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>, adminKey?: string) => Promise<boolean>
-  updateProduct: (id: string, product: Partial<Product>, adminKey?: string) => Promise<boolean>
-  deleteProduct: (id: string, adminKey?: string) => Promise<boolean>
+  fetchProducts: (params?: { page?: number; search?: string }) => Promise<void>
+  addProduct: (product: ProductInput, adminKey?: string) => Promise<Result>
+  updateProduct: (id: string, product: Partial<ProductInput>, adminKey?: string) => Promise<Result>
+  deleteProduct: (id: string, adminKey?: string) => Promise<Result>
 
-  // Settings State
+  // Settings
   settings: StoreSettings | null
   fetchSettings: () => Promise<void>
-  updateSettings: (settings: Partial<StoreSettings>) => Promise<void>
+  updateSettings: (settings: Partial<StoreSettings> & { cashierPassword?: string | null }) => Promise<Result>
 
-  // Notification State
+  // Notifications
   lowStockProducts: Product[]
   fetchLowStockAlerts: () => Promise<void>
 
-  // Users State (Admin)
+  // Staff (admin)
   users: User[]
   fetchUsers: () => Promise<void>
-  addUser: (userData: any) => Promise<void>
-  updateUser: (id: string, userData: any) => Promise<void>
-  requestResetToken: (staffId: string, adminPassword?: string) => Promise<{ success: boolean, resetToken?: string, token?: string, error?: string }>
-  resetStaffPassword: (staffId: string, token: string, newPassword: string) => Promise<{ success: boolean, error?: string }>
-  changePassword: (employeeId: string, currentPassword: string, newPassword: string) => Promise<{ success: boolean, error?: string }>
+  addUser: (userData: Record<string, unknown>) => Promise<Result>
+  updateUser: (id: string, userData: Record<string, unknown>) => Promise<Result>
+  requestResetToken: (staffId: string) => Promise<{ success: boolean; resetToken?: string; error?: unknown }>
+  resetStaffPassword: (staffId: string, token: string, newPassword: string) => Promise<{ success: boolean; error?: unknown }>
+  changePassword: (employeeId: string, currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: unknown }>
 }
 
-
-
+const attempt = async (fn: () => Promise<unknown>): Promise<Result> => {
+  try {
+    await fn()
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, error }
+  }
+}
 
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
+      // Language
+      language: 'ar',
+      languageChosen: false,
+      setLanguage: (language) => set({ language, languageChosen: true }),
+
       // Sidebar
       isSidebarOpen: true,
       toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
@@ -120,84 +170,81 @@ export const useStore = create<AppState>()(
       // Auth
       token: null,
       user: null,
-      login: async (employeeId, password) => {
-        try {
-          const response = await fetch('/api/auth/login', {
+      login: async (employeeId, password) =>
+        attempt(async () => {
+          const { user, token } = await api<{ user: User; token: string }>('/auth/login', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ employeeId, password }),
+            body: { employeeId, password },
           })
-          if (!response.ok) {
-            const data = await response.json()
-            return { success: false, error: data.error || 'Login failed' }
-          }
-          const { user, token } = await response.json()
           set({ user, token })
-          return { success: true }
-        } catch (error) {
-          return { success: false, error: 'Connection error' }
-        }
-      },
-      logout: () => set({ user: null, token: null }),
-
+        }),
+      logout: () => set({ user: null, token: null, cartCustomer: null }),
 
       // Cart
       cart: [],
-      addToCart: (product) => set((state) => {
-        const existingItem = state.cart.find((i) => i.productId === product.id)
-        if (existingItem) {
-          return {
-            cart: state.cart.map((i) =>
-              i.productId === product.id
-                ? { ...i, quantity: Math.min(i.stock, i.quantity + 1) }
-                : i
-            ),
-          }
-        }
-        const newItem: CartItem = {
-          id: Math.random().toString(36).substr(2, 9),
-          productId: product.id,
-          name: product.name,
-          sku: product.sku,
-          size: product.size,
-          price: product.sellingPrice,
-          quantity: 1,
-          gst: product.gst,
-          stock: product.stock
-        }
-        return { cart: [...state.cart, newItem] }
-      }),
-      addByBarcode: async (barcode) => {
-        const product = get().products.find(p => p.barcode === barcode)
-        if (product) {
-          get().addToCart(product)
-          return true
-        }
-        // Fallback: query API
-        try {
-          const response = await fetch(`/api/products?search=${encodeURIComponent(barcode)}`)
-          if (response.ok) {
-            const data = await response.json()
-            const found = data.products?.find((p: any) => p.barcode === barcode || p.sku === barcode)
-            if (found) {
-              get().addToCart(found)
-              return true
+      discount: null,
+      cartCustomer: null,
+      addToCart: (product, quantity) =>
+        set((state) => {
+          // Weighed goods start at 1 kg or 1 L; the cashier then types the scale reading.
+          const step = quantity ?? 1
+          const existing = state.cart.find((i) => i.productId === product.id)
+          if (existing) {
+            return {
+              cart: state.cart.map((i) =>
+                i.productId === product.id
+                  ? { ...i, quantity: Math.min(i.stock, roundQuantity(i.quantity + step, i.unit)) }
+                  : i
+              ),
             }
           }
+          if (product.stock <= 0) return {}
+          const item: CartItem = {
+            id: Math.random().toString(36).slice(2, 11),
+            productId: product.id,
+            name: product.name,
+            sku: product.sku,
+            unit: product.unit || 'piece',
+            size: product.size,
+            price: product.sellingPrice,
+            quantity: Math.min(product.stock, roundQuantity(step, product.unit)),
+            taxRate: product.taxRate ?? 0,
+            costPrice: product.costPrice ?? 0,
+            stock: product.stock,
+          }
+          return { cart: [...state.cart, item] }
+        }),
+      addByBarcode: async (barcode) => {
+        const local = get().products.find((p) => p.barcode === barcode || p.sku === barcode)
+        if (local) {
+          get().addToCart(local)
+          return true
+        }
+        try {
+          const data = await api<{ products: Product[] }>('/products', { query: { search: barcode, limit: 5 } })
+          const found = data.products?.find((p) => p.barcode === barcode || p.sku === barcode)
+          if (found) {
+            get().addToCart(found)
+            return true
+          }
         } catch (error) {
-          console.error('Failed to lookup product by barcode:', error)
+          console.error('Barcode lookup failed', error)
         }
         return false
       },
-      removeFromCart: (productId) => set((state) => ({
-        cart: state.cart.filter((i) => i.productId !== productId),
-      })),
-      updateQuantity: (productId, quantity) => set((state) => ({
-        cart: state.cart.map((i) =>
-          i.productId === productId ? { ...i, quantity: Math.min(i.stock, Math.max(1, quantity)) } : i
-        ),
-      })),
-      clearCart: () => set({ cart: [] }),
+      removeFromCart: (productId) => set((state) => ({ cart: state.cart.filter((i) => i.productId !== productId) })),
+      updateQuantity: (productId, quantity) =>
+        set((state) => ({
+          cart: state.cart.map((i) => {
+            if (i.productId !== productId) return i
+            const smallest = unitRule(i.unit).decimals > 0 ? 10 ** -unitRule(i.unit).decimals : 1
+            const next = roundQuantity(Math.min(i.stock, Math.max(smallest, quantity)), i.unit)
+            return { ...i, quantity: next }
+          }),
+        })),
+      setDiscount: (discount) => set({ discount }),
+      setCartCustomer: (cartCustomer) => set({ cartCustomer }),
+      clearCart: () => set({ cart: [], discount: null, cartCustomer: null }),
 
       // Appearance
       theme: 'system',
@@ -212,255 +259,132 @@ export const useStore = create<AppState>()(
         const { page = 1, search = '' } = params
         set({ isLoadingProducts: true })
         try {
-          const query = new URLSearchParams()
-          query.set('page', page.toString())
-          query.set('limit', '50')
-          if (search) query.set('search', search)
-
-          const response = await fetch(`/api/products?${query.toString()}`)
-          const data = await response.json()
-          
-          set((state) => ({ 
+          const data = await api<{ products: Product[]; total: number; hasMore: boolean }>('/products', {
+            query: { page, limit: 50, search },
+          })
+          set((state) => ({
             products: page === 1 ? data.products : [...state.products, ...data.products],
             totalProducts: data.total,
             hasMoreProducts: data.hasMore,
-            isLoadingProducts: false 
           }))
         } catch (error) {
-          console.error('Failed to fetch products:', error)
+          console.error('Failed to fetch products', error)
+        } finally {
           set({ isLoadingProducts: false })
         }
       },
-      addProduct: async (productData, adminKey) => {
-        try {
-          const { token } = get()
-          const headers: Record<string, string> = { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-          if (adminKey) headers['x-admin-verification-key'] = adminKey
-
-          const response = await fetch('/api/products', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(productData),
-          })
-          
-          if (!response.ok) return false
-          
-          const nextProduct = await response.json()
-          set((state) => ({ products: [nextProduct, ...state.products] }))
-          return true
-        } catch (error) {
-          console.error('Failed to add product:', error)
-          return false
-        }
-      },
-      updateProduct: async (id, productData, adminKey) => {
-        try {
-          const { token } = get()
-          const headers: Record<string, string> = { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-          if (adminKey) headers['x-admin-verification-key'] = adminKey
-
-          const response = await fetch(`/api/products/${id}`, {
-            method: 'PUT',
-            headers,
-            body: JSON.stringify(productData),
-          })
-
-          if (!response.ok) return false
-
-          const updatedProduct = await response.json()
-          set((state) => ({
-            products: state.products.map((p) => (p.id === id ? updatedProduct : p)),
-          }))
-          return true
-        } catch (error) {
-          console.error('Failed to update product:', error)
-          return false
-        }
-      },
-      deleteProduct: async (id, adminKey) => {
-        try {
-          const { token } = get()
-          const headers: Record<string, string> = { 
-            'Authorization': `Bearer ${token}`
-          }
-          if (adminKey) headers['x-admin-verification-key'] = adminKey
-
-          const response = await fetch(`/api/products/${id}`, { 
-            method: 'DELETE',
-            headers
-          })
-          
-          if (!response.ok) return false
-
-          set((state) => ({
-            products: state.products.filter((p) => p.id !== id),
-          }))
-          return true
-        } catch (error) {
-          console.error('Failed to delete product:', error)
-          return false
-        }
-      },
+      addProduct: (productData, adminKey) =>
+        attempt(async () => {
+          const product = await api<Product>('/products', { method: 'POST', body: productData, adminKey })
+          set((state) => ({ products: [product, ...state.products], totalProducts: state.totalProducts + 1 }))
+          get().fetchLowStockAlerts()
+        }),
+      updateProduct: (id, productData, adminKey) =>
+        attempt(async () => {
+          const product = await api<Product>(`/products/${id}`, { method: 'PUT', body: productData, adminKey })
+          set((state) => ({ products: state.products.map((p) => (p.id === id ? product : p)) }))
+          get().fetchLowStockAlerts()
+        }),
+      deleteProduct: (id, adminKey) =>
+        attempt(async () => {
+          await api(`/products/${id}`, { method: 'DELETE', adminKey })
+          set((state) => ({ products: state.products.filter((p) => p.id !== id), totalProducts: state.totalProducts - 1 }))
+        }),
 
       // Settings
       settings: null,
       fetchSettings: async () => {
         try {
-          const response = await fetch('/api/settings')
-          if (!response.ok) throw new Error('Failed to fetch settings')
-          const settings = await response.json()
+          const settings = await api<StoreSettings>('/settings')
+          // A device with no language choice of its own follows the shop's default.
+          set((state) => ({ settings, ...(state.languageChosen ? {} : { language: settings.language }) }))
+        } catch (error) {
+          console.error('Failed to fetch settings', error)
+        }
+      },
+      updateSettings: (data) =>
+        attempt(async () => {
+          const { hasCashierPassword, id, ...current } = get().settings ?? ({} as StoreSettings)
+          const settings = await api<StoreSettings>('/settings', { method: 'PUT', body: { ...current, ...data } })
           set({ settings })
-        } catch (error) {
-          console.error('Failed to fetch settings:', error)
-        }
-      },
-      updateSettings: async (settingsData) => {
-        try {
-          const current = get().settings;
-          const payload = { ...current, ...settingsData };
-          const response = await fetch('/api/settings', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          })
-          if (!response.ok) throw new Error('Failed to update settings')
-          const updated = await response.json()
-          set({ settings: updated })
-        } catch (error) {
-          console.error('Failed to update settings:', error)
-        }
-      },
+        }),
 
       // Notifications
       lowStockProducts: [],
       fetchLowStockAlerts: async () => {
         try {
-          const response = await fetch('/api/inventory/low-stock')
-          if (!response.ok) throw new Error('Failed to fetch alerts')
-          const products = await response.json()
-          set({ lowStockProducts: products })
+          set({ lowStockProducts: await api<Product[]>('/inventory/low-stock') })
         } catch (error) {
-          console.error('Failed to fetch low stock alerts:', error)
+          console.error('Failed to fetch low stock alerts', error)
         }
       },
 
-      // Users (Admin)
+      // Staff
       users: [],
       fetchUsers: async () => {
         try {
-          const response = await fetch('/api/users', {
-            headers: { 'Authorization': `Bearer ${get().token}` }
-          })
-          if (!response.ok) throw new Error('Failed to fetch users')
-          const users = await response.json()
-          set({ users })
+          set({ users: await api<User[]>('/users') })
         } catch (error) {
-          console.error('Failed to fetch users:', error)
+          console.error('Failed to fetch users', error)
         }
       },
-      addUser: async (userData) => {
+      addUser: (userData) =>
+        attempt(async () => {
+          const user = await api<User>('/users', { method: 'POST', body: userData })
+          set((state) => ({ users: [user, ...state.users] }))
+        }),
+      updateUser: (id, userData) =>
+        attempt(async () => {
+          const user = await api<User>(`/users/${id}`, { method: 'PUT', body: userData })
+          set((state) => ({ users: state.users.map((u) => (u.id === id ? user : u)) }))
+        }),
+      requestResetToken: async (staffId) => {
         try {
-          const response = await fetch('/api/users', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${get().token}` },
-            body: JSON.stringify(userData),
-          })
-          if (!response.ok) throw new Error('Failed to add user')
-          const newUser = await response.json()
-          set((state) => ({ users: [newUser, ...state.users] }))
+          const { token } = await api<{ token: string }>(`/users/${staffId}/reset-token`, { method: 'POST' })
+          return { success: true, resetToken: token }
         } catch (error) {
-          console.error('Failed to add user:', error)
-        }
-      },
-      updateUser: async (id, userData) => {
-        try {
-          const response = await fetch(`/api/users/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${get().token}` },
-            body: JSON.stringify(userData),
-          })
-          if (!response.ok) throw new Error('Failed to update user')
-          const updatedUser = await response.json()
-          set((state) => ({
-            users: state.users.map((u) => (u.id === id ? updatedUser : u)),
-          }))
-        } catch (error) {
-          console.error('Failed to update user:', error)
-        }
-      },
-      requestResetToken: async (staffId, adminPassword) => {
-        const adminUser = get().user;
-        const token = get().token;
-        if (!adminUser || adminUser.role !== 'ADMIN' || !token) {
-          return { success: false, error: 'Unauthorized: Admin access required' };
-        }
-
-        try {
-          const response = await fetch(`/api/users/${staffId}/reset-token`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
-          });
-          
-          if (!response.ok) {
-            const data = await response.json();
-            return { success: false, error: data.error || 'Verification failed' };
-          }
-          
-          const { token: resetToken } = await response.json();
-          return { success: true, resetToken };
-        } catch (error) {
-          return { success: false, error: 'Connection failure' };
+          return { success: false, error }
         }
       },
       resetStaffPassword: async (staffId, resetToken, newPassword) => {
         try {
-          const response = await fetch(`/api/users/${staffId}/reset-password`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${get().token}` },
-            body: JSON.stringify({ token: resetToken, newPassword })
-          });
-          
-          if (!response.ok) {
-            const data = await response.json();
-            return { success: false, error: data.error || 'Failed to reset password' };
-          }
-          
-          return { success: true };
+          await api(`/users/${staffId}/reset-password`, { method: 'POST', body: { token: resetToken, newPassword } })
+          return { success: true }
         } catch (error) {
-          return { success: false, error: 'Connection failure' };
+          return { success: false, error }
         }
       },
       changePassword: async (employeeId, currentPassword, newPassword) => {
         try {
-          const response = await fetch('/api/auth/change-password', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ employeeId, currentPassword, newPassword }),
-          })
-          if (!response.ok) {
-            const error = await response.json()
-            throw new Error(error.error || 'Failed to change password')
-          }
+          await api('/auth/change-password', { method: 'POST', body: { employeeId, currentPassword, newPassword } })
           return { success: true }
-        } catch (error: any) {
-          console.error('Change password error:', error)
-          return { success: false, error: error.message }
+        } catch (error) {
+          return { success: false, error }
         }
       },
-
     }),
-
-
-
     {
       name: 'loom-pos-storage',
-      partialize: (state) => ({ user: state.user, cart: state.cart, theme: state.theme }),
+      version: 2,
+      partialize: (state) => ({
+        user: state.user,
+        cart: state.cart,
+        discount: state.discount,
+        theme: state.theme,
+        language: state.language,
+        languageChosen: state.languageChosen,
+        isSidebarOpen: state.isSidebarOpen,
+      }),
+      // Carts saved by the Indian version had GST and no unit; they are dropped.
+      migrate: (persisted: any, version) => {
+        if (version < 2 && persisted) return { ...persisted, cart: [], discount: null }
+        return persisted
+      },
     }
   )
 )
+
+configureApi({
+  getToken: () => useStore.getState().token,
+  onUnauthorized: () => useStore.getState().logout(),
+})

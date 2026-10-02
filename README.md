@@ -1,312 +1,164 @@
 <div align="center">
-  <img src="public/favicon.svg" alt="LoomPOS Logo" width="96" height="96" style="border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" />
+  <img src="public/favicon.svg" alt="LoomPOS Logo" width="96" height="96" />
 </div>
 
 # LoomPOS
 
-### *Modern, Enterprise-Grade Point of Sale & Inventory Management System*
+### Point of sale and stock management for Algerian shops
 
-LoomPOS is a high-performance, single-store Point of Sale (POS) system engineered for rapid retail operations. Built with a sleek desktop-first design, LoomPOS features sub-second barcode checkout, dynamic tax breaks (GST), offline state syncing, real-time analytics, and secure admin gates.
-
----
-
-<div align="center">
-
-[![React](https://img.shields.io/badge/Frontend-React%2018-61DAFB?logo=react&logoColor=black&style=flat-square)](#)
-[![Express](https://img.shields.io/badge/Backend-Express.js-000000?logo=express&logoColor=white&style=flat-square)](#)
-[![Prisma](https://img.shields.io/badge/ORM-Prisma-2D3748?logo=prisma&logoColor=white&style=flat-square)](#)
-[![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-4169E1?logo=postgresql&logoColor=white&style=flat-square)](#)
-[![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](#)
-[![Status](https://img.shields.io/badge/Status-Production--Ready-success?style=flat-square)](#)
-
-[Live Demo](#) 
-
-</div>
+LoomPOS is a single-store point of sale for groceries, supérettes and retail shops in Algeria. It works in Algerian dinars (DZD), speaks Arabic (right to left) and English, takes the payment methods Algerian customers actually use, sells by the piece or by weight, keeps customer credit (الكريدي) and supplier balances, and prints receipts for 58 mm and 80 mm thermal printers.
 
 ---
 
-## 📷 Screenshots
+## Screenshots
 
-| Admin Analytics & Reporting | POS Billing & UPI Checkout |
+| Dashboard (العربية) | Cash register (English) |
 | :---: | :---: |
-| ![Dashboard Screen](public/screens/dashboard.avif) <br> *Daily summaries, revenue analytics, and sales trends* | ![Billing Screen](public/screens/billing.avif) <br> *Sub-second scanning and dynamic UPI QR generation* |
+| ![Dashboard](public/screens/dashboard.png) | ![Cash register](public/screens/billing.png) |
 
 ---
 
-## ✨ Features
+## Features
 
-* ⚡ **Sub-Second Checkout**: Optimized cart management with integrated hardware barcode scanner support, instant item matching, and a keyboard/SKU autocomplete dropdown featuring full arrow key navigation and instant select shortcuts.
-* 📊 **Financial Analytics**: Real-time sales dashboards tracking daily revenue, order counts, tax aggregates, and 7-day performance logs.
-* 🧾 **Compliant GST Engine**: Automatic tax calculation with real-time grouping by GST rates (5%, 12%, 18%, 28%) and invoice generation.
-* 🖨️ **Multi-Format Printing**: Dedicated printing templates for standard 80mm thermal receipt printers and professional A4 tax invoices.
-* 📲 **Dynamic UPI QR Codes**: Dynamically encodes store credentials and exact payable totals into instant, scan-to-pay QR codes.
-* 🔒 **Multi-Tiered Security**: Granular, role-based access control (RBAC) separating administrative actions from cashier checkouts.
-* 📦 **Barcode Sheet Generator**: Utility to configure and print customized barcode sheet layouts for product inventory tagging.
-
----
-
-## 🛠️ Tech Stack
-
-### Frontend
-* **Core**: React 18, TypeScript, Tailwind CSS, Framer Motion, Lucide Icons
-* **State Management**: Zustand (with persistent local storage caching)
-* **Build System**: Vite
-
-### Backend
-* **Server**: Node.js, Express.js (TypeScript)
-* **Runtime Runner**: TSX runtime watcher
-
-### Database & ORM
-* **Database**: PostgreSQL
-* **ORM**: Prisma ORM (with native client query engine)
-
-### Authentication & Validation
-* **Security**: JSON Web Tokens (JWT), Bcrypt.js password hashing
-* **Validation**: Zod Schemas (API payloads validation)
+* **Algerian dinar throughout**: prices, costs, discounts, TVA, profit, refunds, credit and reports in DZD, formatted the Algerian way (`1 250,50 DA` / `1 250,50 دج`). The server recomputes every sale, so totals never come from the browser.
+* **Tax-included prices (TTC)**: shelf prices include TVA, as in Algerian retail. Rates of 0% (exempt goods, IFU flat-tax shops), 9% and 19%. Receipts show the TVA contained in the total.
+* **Algerian payment methods**: cash (espèces) with change, CIB and Edahabia cards on the terminal, BaridiMob, bank transfer (virement) and credit (à crédit). One sale can be split across several methods.
+* **Customer credit**: put all or part of a sale on a customer's account, with an optional credit limit. Repayments settle the oldest unpaid sales first.
+* **Refunds**: refund part or all of a sale, put items back in stock or not, and cancel unpaid credit before handing money back.
+* **Units and weights**: piece, kg, g, L, mL and box. Weighed goods take decimal quantities: 1,5 kg × 250 DA/kg = 375 DA.
+* **Suppliers and purchases**: record deliveries, update stock and cost prices, and track what the shop owes each supplier.
+* **Reports**: daily or monthly sales, refunds, TVA, cost, profit, money in by payment method, expected cash, and CSV export.
+* **Arabic and English**: every screen, receipt, error and message is translated. Arabic switches the whole layout to right to left.
+* **Receipts**: thermal tickets (58 or 80 mm) and A4 invoices with the shop's NIF, RC, NIS and AI numbers.
+* **Roles**: managers see everything; cashiers use the till, sales, customers and inventory, and need the manager's password to change products.
+* **Barcode labels**: print shelf and product labels on label rolls or A4 sheets.
 
 ---
 
-## 🏛️ Architecture Overview
+## Tech stack
 
-LoomPOS utilizes a decoupled client-server architecture designed for high availability and low latency:
-
-* **React Single Page Application**: Serves as the interactive desktop interface. Delegates state management (cart items, active sessions, and settings) to Zustand to avoid prop drilling and minimize re-renders.
-* **RESTful API Backend**: A stateless Express.js server that validates payload structures using Zod schemas and processes queries via Prisma.
-* **Transaction Safety**: All checkout operations run inside a database-level transaction (`prisma.$transaction`). If any product is out of stock or does not match inventory checks, the operation is rolled back, preventing partial writes.
+* **Frontend**: React 18, TypeScript, Tailwind CSS 4, Zustand, Vite, bundled Inter and Noto Sans Arabic fonts (works offline).
+* **Backend**: Node.js, Express, Prisma, PostgreSQL, Zod validation, JWT and bcrypt.
+* **Tests**: Vitest for the money, tax, units, payment and refund rules.
 
 ---
 
-## 📂 Project Structure
+## Architecture
 
-<details>
-<summary><b>📂 View Project Structure Tree</b></summary>
+* `src/lib/domain/` holds the business rules shared by the browser and the server: dinar formatting and rounding, units, TVA, payment methods, sale pricing, payment settlement, refunds and Algerian phone numbers. The till previews totals with these functions; the server recomputes them before saving.
+* `src/i18n/` is the translation system. Each feature keeps its English and Arabic text side by side in `src/i18n/messages/<feature>.ts`. TypeScript refuses to compile if the Arabic keys differ from the English ones. `useI18n()` gives components `t()`, Arabic plural rules, and formatters for money, quantities, dates, times and phone numbers.
+* `server/` is the Express API: `index.ts` (auth, staff, products, settings) and `routes/` for sales and refunds, customers, suppliers and purchases, and reports.
+* All checkout, refund, repayment and purchase operations run in database transactions.
+
+### Adding a payment method
+
+Add one entry to `PAYMENT_METHODS` in `src/lib/domain/payments.ts`, then its label and hint under `payments.methods` and `payments.hints` in `src/i18n/messages/common.ts` (both languages). The till, filters, reports and receipts pick it up automatically.
+
+### Adding a language
+
+Add the language code to `Lang` in `src/i18n/define.ts` and to `LANGUAGES` in `src/i18n/index.tsx`, then add its text to every file in `src/i18n/messages/`.
+
+---
+
+## Project structure
 
 ```
 loom-pos/
-├── prisma/                  # Database configuration and migrations
-│   ├── migrations/          # SQL database migration history
-│   └── schema.prisma        # Prisma schema and relationship definitions
-├── public/                  # Static public assets (custom favicon, logos)
-├── scripts/                 # CLI utility scripts (DB verification, password resets)
-├── server/                  # Backend REST API Server (Express.js)
-│   └── index.ts             # API endpoints, middleware, and server bootstrap
-├── src/                     # Frontend Client App (Vite + React)
-│   ├── components/          # Component architecture
-│   │   ├── auth/            # Auth gates & login screen
-│   │   ├── billing/         # Checkout carts, QR codes, print engines
-│   │   ├── dashboard/       # Sales charts & financial analytics
-│   │   ├── inventory/       # Product grids & barcode generators
-│   │   ├── layout/          # Application shell & sidebar layouts
-│   │   └── settings/        # Store settings & cashier configurations
-│   ├── hooks/               # Custom React hooks (global scanner)
-│   ├── lib/                 # Shared helpers (Prisma clients, formatters)
-│   ├── store/               # Zustand global store configuration
-│   └── App.tsx              # Application router and guards
-├── package.json             # Configuration scripts and dependencies
-└── vite.config.ts           # Bundler configuration
+├── prisma/                 # Schema and migrations
+├── scripts/seed.ts         # Creates the first accounts and empty store settings
+├── server/
+│   ├── index.ts            # Auth, staff, products, settings
+│   ├── context.ts          # Prisma, auth guards, translated error codes
+│   └── routes/             # sales, customers, suppliers, reports
+├── src/
+│   ├── components/         # billing, orders, customers, inventory, suppliers, reports, settings, dashboard, layout
+│   ├── i18n/               # Translation system and messages (ar, en)
+│   ├── lib/domain/         # Shared business rules, with tests
+│   ├── lib/api.ts          # API client with translated errors
+│   └── store/useStore.ts   # Global state, persisted language and cart
+└── vite.config.ts
 ```
-
-</details>
-
-
-## 🗄️ Database Schema Summary
-
-The database consists of 5 core models structured for strict transaction isolation and audit compliance:
-
-<details>
-<summary><b>📐 View Entity-Relationship Diagram (ERD) & Schema Details</b></summary>
-
-```mermaid
-erDiagram
-    User ||--o{ Order : processes
-    Order ||--|{ OrderItem : contains
-    Product ||--o{ OrderItem : details
-    
-    StoreSettings {
-        String id PK
-        String name
-        String address
-        String gstin
-        String upiId
-        String phone
-        String cashierPassword
-    }
-    User {
-        String id PK
-        String employeeId UK
-        String name
-        String role
-        String phone
-        String password
-        Boolean isActive
-    }
-    Product {
-        String id PK
-        String name
-        String sku UK
-        String barcode UK
-        String category
-        String size
-        String color
-        Float costPrice
-        Float sellingPrice
-        Float gst
-        Int stock
-        String supplier
-    }
-    Order {
-        String id PK
-        String invoiceNo UK
-        DateTime date
-        Float totalAmount
-        Float gstAmount
-        String paymentMethod
-        String customerName
-        String customerMobile
-        String userId FK
-    }
-    OrderItem {
-        String id PK
-        String orderId FK
-        String productId FK
-        Int quantity
-        Float price
-    }
-```
-
-</details>
 
 ---
 
-## 🚀 Installation
+## Installation
 
-### 1. Clone the repository
-```bash
-git clone https://github.com/your-username/loom-pos.git
-cd loom-pos
-```
-
-### 2. Install dependencies
 ```bash
 npm install
+cp .env.example .env          # then set DATABASE_URL and JWT_SECRET
+npx prisma migrate deploy
+npm run seed                  # creates admin/admin123 and cashier/cashier123
 ```
 
-### 3. Setup database migrations
-Configure your PostgreSQL URL (see the Environment Variables section below) and run:
-```bash
-npx prisma migrate dev --name init
-```
+The seed adds no products or sales. Enter your catalogue under **Inventory**, or record a delivery under **Purchases**.
 
-### 4. Seed demo data
-Populate the database with realistic products, staff accounts, and 7-day transaction logs to display graphics on the dashboard:
+### Upgrading an existing database
+
+The `algeria_localization` migration keeps existing data: old card and UPI sales become CIB and BaridiMob, old tax-exclusive line prices are restated tax included, and each old sale gets a payment record. Product prices are not converted between currencies: check them after upgrading.
+
+---
+
+## Running locally
+
 ```bash
-npm run seed
+npx tsx watch server/index.ts   # API on http://localhost:3001
+npm run dev                     # app on http://localhost:5173
+npm test                        # business rule tests
 ```
 
 ---
 
-## 🔑 Environment Variables
+## Environment variables
 
-Create a `.env` file in the root directory:
-
-| Variable | Description | Default / Example Value |
-| :--- | :--- | :--- |
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://postgres:postgres@localhost:5432/loompos?schema=public` |
-| `JWT_SECRET` | Cryptographic secret for signing tokens | `super-secret-cryptographic-hash-key-here` |
-
----
-
-## 💻 Running Locally
-
-Start the development environment by launching the API backend and Vite client.
-
-**1. Start the API Server:**
-```bash
-npx tsx watch server/index.ts
-```
-* Runs on `http://localhost:3001`
-* Creates a default admin account on startup: **Employee ID:** `admin` / **Password:** `admin123`
-
-**2. Start the Frontend Client:**
-```bash
-npm run dev
-```
-* Runs on `http://localhost:5173`
+| Variable | Description |
+| :--- | :--- |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `JWT_SECRET` | Secret used to sign login tokens |
+| `PORT` | API port (default 3001) |
 
 ---
 
-## 🔌 API Overview
+## API overview
 
-| Method | Endpoint | Description | Auth Required |
+| Method | Endpoint | Description | Auth |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/login` | Authenticate cashier/admin and retrieve JWT token | None |
-| `POST` | `/api/auth/change-password` | Update current user password | Bearer JWT |
-| `GET` | `/api/users` | List all staff members | Admin JWT |
-| `POST` | `/api/users` | Register a new cashier or admin account | Admin JWT |
-| `GET` | `/api/products` | Fetch paginated & searchable product catalog | None |
-| `POST` | `/api/products` | Add new product to inventory | Admin Key / JWT |
-| `PUT` | `/api/products/:id` | Modify an existing product catalog details | Admin Key / JWT |
-| `DELETE` | `/api/products/:id` | Remove a product from catalog | Admin Key / JWT |
-| `POST` | `/api/orders` | Create an invoice and update stock levels | None |
-| `GET` | `/api/orders` | Query invoice transaction history (with filters) | None |
-| `GET` | `/api/orders/:id` | Retrieve single transaction receipt details | None |
-| `GET` | `/api/settings` | Get invoice metadata (GSTIN, UPI ID, Address) | None |
-| `PUT` | `/api/settings` | Update company settings and company logo | Admin JWT |
-| `GET` | `/api/analytics/summary` | Retrieve sales revenue, orders count, and GST summaries | None |
-| `GET` | `/api/analytics/sales` | Retrieve 7-day revenue trend | None |
-| `GET` | `/api/inventory/low-stock` | Retrieve products with stock level <= 10 | None |
+| `POST` | `/api/auth/login` | Log in, returns a JWT | None |
+| `GET` | `/api/products` | Search the catalogue | None |
+| `POST/PUT/DELETE` | `/api/products[/:id]` | Manage products | Manager, or cashier with manager key |
+| `GET` | `/api/inventory/low-stock` | Products below their unit's threshold | None |
+| `POST` | `/api/orders` | Create a sale with split payments, change and credit | Staff |
+| `GET` | `/api/orders[/:id]` | Sales history and details | None |
+| `POST` | `/api/orders/:id/refunds` | Refund items from a sale | Staff |
+| `GET/POST/PUT` | `/api/customers[/:id]` | Customers and their accounts | Staff |
+| `POST` | `/api/customers/:id/payments` | Record a credit repayment | Staff |
+| `GET/POST/PUT` | `/api/suppliers[/:id]` | Suppliers and balances | Staff / Manager |
+| `POST` | `/api/suppliers/:id/payments` | Pay a supplier | Manager |
+| `GET/POST` | `/api/purchases` | Record goods received | Staff / Manager |
+| `GET` | `/api/reports?from&to&groupBy` | Daily or monthly report | Manager |
+| `GET` | `/api/analytics/summary` | Today so far | None |
+| `GET/PUT` | `/api/settings` | Shop, language, payments and receipts | PUT: Manager |
+
+Errors return a stable `code` (for example `INSUFFICIENT_STOCK` or `CREDIT_LIMIT_EXCEEDED`) that the app translates.
 
 ---
 
-## 📦 Core Modules
+## Deployment
 
-### 🛒 Checkout Engine
-Processes incoming billing carts through isolated transactions (`prisma.$transaction`) to perform absolute safety checks on available stock. Features a search-by-keyword autocomplete dropdown with full keyboard navigation (arrows + Enter/Escape shortcuts) to enable high-speed checkout without needing a mouse.
-
-### 📊 Reports & Analytics
-Aggregates sales records directly from the database to present real-time dashboards of business indicators. Measures overall GST collections and tracks payment breakdowns across CASH, UPI, and CARD.
-
-### 🏷️ Inventory & Barcode Preview
-Manages catalog attributes, stock configurations, and barcode labeling. Emits preview components styled to match real-world layout printing specs.
-
----
-
-## 🚀 Deployment
-
-### 1. Compile client assets
-Build the optimized static frontend bundle:
 ```bash
-npm run build
-```
-*Frontend assets are built to `/dist`, ready to be served by Nginx, Cloudflare, or Netlify.*
-
-### 2. Run API backend persistently
-Serve the backend API under process manager monitoring (PM2):
-```bash
-pm2 start npx --name "loompos-api" -- tsx server/index.ts
+npm run build                                     # static app in dist/
+pm2 start npx --name loompos-api -- tsx server/index.ts
 ```
 
 ---
 
-## 🔒 Security Standards
+## Security
 
-* **Bcrypt Hashing**: All individual and global passwords are encrypted using Bcrypt with 10 salt rounds before database storage.
-* **Token Integrity**: Authenticated routes verify session details using signed JSON Web Tokens expiring after 12 hours.
-* **Admin Verification Overrides**: Non-admin users attempting catalog or system updates must supply an authorized admin key passphrase passed via the custom header `x-admin-verification-key`.
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-1. Fork the Project.
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`).
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`).
-4. Push to the Branch (`git push origin feature/AmazingFeature`).
-5. Open a Pull Request.
+* Passwords are hashed with bcrypt; the shared cashier password is never sent to browsers.
+* Sessions use JWTs that expire after 12 hours.
+* Sales, refunds, credit and purchases require a signed-in user; settings, suppliers payments and reports require a manager.
 
 ---
 
-## 📄 License
+## License
 
-Distributed under the MIT License. See [LICENSE](LICENSE) for more details.
+MIT. See [LICENSE](LICENSE).

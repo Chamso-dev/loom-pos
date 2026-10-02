@@ -1,6 +1,6 @@
 /*
   Dashboard styles. Everything is scoped under .loom-dash so the rest of the app keeps its look.
-  Palette: indigo dye in three dips (cash, UPI, card), turmeric for low stock, madder for sold out.
+  Palette: indigo dye in several dips for payment methods, turmeric for credit and low stock, madder for sold out.
 */
 
 .loom-dash {
@@ -15,8 +15,11 @@
   --ld-turmeric-ink: #8a5d00;
   --ld-madder: #b3372e;
   --ld-on-indigo: #ffffff;
+  --ld-teal: #2f8f8a;
+  --ld-slate: #8b93a8;
 
-  font-family: 'Anek Latin Variable', 'Inter', sans-serif;
+  /* Anek Latin for figures; Arabic text falls back to Noto Sans Arabic. */
+  font-family: 'Anek Latin Variable', 'Noto Sans Arabic Variable', 'Inter Variable', sans-serif;
   font-variant-numeric: tabular-nums;
   color: var(--ld-ink);
   max-width: 1180px;
@@ -38,6 +41,8 @@
   --ld-turmeric-ink: #f0c869;
   --ld-madder: #ec8177;
   --ld-on-indigo: #10142b;
+  --ld-teal: #5cc4bd;
+  --ld-slate: #6b7389;
 }
 
 /* Hero: the day's figure and how it compares */
@@ -71,6 +76,14 @@
   font-weight: 650;
   font-stretch: 75%;
   letter-spacing: -0.01em;
+}
+
+.ld-figure-currency {
+  font-size: 0.42em;
+  font-weight: 600;
+  font-stretch: 87.5%;
+  margin-inline-start: 0.2em;
+  color: var(--ld-ink-soft);
 }
 
 .ld-figure-note {
@@ -110,6 +123,10 @@
 .ld-fact dt {
   font-size: 0.875rem;
   color: var(--ld-ink-soft);
+}
+
+.ld-fact-credit dd {
+  color: var(--ld-turmeric-ink);
 }
 
 .ld-fact dd {
@@ -318,6 +335,17 @@
   margin: 0 0 16px;
 }
 
+.ld-heading-hint {
+  margin: -12px 0 14px;
+  font-size: 0.8125rem;
+}
+
+.ld-dialog-subhead {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin: 20px 0 8px;
+}
+
 .ld-panel-foot {
   margin-top: auto;
   padding-top: 16px;
@@ -435,8 +463,11 @@ a.ld-item-name:hover {
 }
 
 .ld-dip-cash { background: var(--ld-indigo); }
-.ld-dip-upi { background: var(--ld-indigo-mid); }
-.ld-dip-card { background: var(--ld-indigo-pale); }
+.ld-dip-cib { background: var(--ld-indigo-mid); }
+.ld-dip-edahabia { background: var(--ld-indigo-pale); }
+.ld-dip-baridimob { background: var(--ld-teal); }
+.ld-dip-transfer { background: var(--ld-slate); }
+.ld-dip-credit { background: var(--ld-turmeric); }
 
 /* Latest bills table */
 

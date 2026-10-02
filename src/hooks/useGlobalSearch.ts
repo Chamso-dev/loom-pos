@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react'
+import { api } from '@/lib/api'
+import type { Product } from '@/store/useStore'
 
-export interface SearchResult {
+export interface OrderHit {
   id: string
-  title: string
-  subtitle: string
-  type: 'product' | 'order'
-  data: any
+  invoiceNo: string
+  customerName: string | null
+  totalAmount: number
 }
+
+export type SearchResult = { type: 'product'; id: string; data: Product } | { type: 'order'; id: string; data: OrderHit }
 
 export function useGlobalSearch() {
   const [query, setQuery] = useState('')
@@ -18,43 +21,28 @@ export function useGlobalSearch() {
       setResults([])
       return
     }
-
+    const controller = new AbortController()
     const timer = setTimeout(async () => {
       setIsLoading(true)
       try {
-        const [productsRes, ordersRes] = await Promise.all([
-          fetch(`/api/products?search=${query}&limit=5`),
-          fetch(`/api/orders?search=${query}&limit=5`)
+        const [products, orders] = await Promise.all([
+          api<{ products: Product[] }>('/products', { query: { search: query, limit: 5 }, signal: controller.signal }),
+          api<{ orders: OrderHit[] }>('/orders', { query: { search: query, limit: 5 }, signal: controller.signal }),
         ])
-
-        const productsData = await productsRes.json()
-        const ordersData = await ordersRes.json()
-
-        const formattedProducts: SearchResult[] = (productsData.products || []).map((p: any) => ({
-          id: p.id,
-          title: p.name,
-          subtitle: `${p.sku} • Stock: ${p.stock}`,
-          type: 'product',
-          data: p
-        }))
-
-        const formattedOrders: SearchResult[] = (ordersData.orders || []).map((o: any) => ({
-          id: o.id,
-          title: o.invoiceNo,
-          subtitle: `${o.customerName || 'Cash'} • ₹${o.totalAmount}`,
-          type: 'order',
-          data: o
-        }))
-
-        setResults([...formattedProducts, ...formattedOrders])
+        setResults([
+          ...(products.products ?? []).map((p) => ({ type: 'product' as const, id: p.id, data: p })),
+          ...(orders.orders ?? []).map((o) => ({ type: 'order' as const, id: o.id, data: o })),
+        ])
       } catch (error) {
-        console.error('Global search error:', error)
+        if ((error as Error).name !== 'AbortError') console.error('Global search failed', error)
       } finally {
         setIsLoading(false)
       }
     }, 300)
-
-    return () => clearTimeout(timer)
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
   }, [query])
 
   return { query, setQuery, results, isLoading }

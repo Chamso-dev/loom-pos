@@ -1,296 +1,250 @@
-import React, { useState, useEffect } from 'react'
-import { Store, MapPin, Hash, Phone, CreditCard, Save } from 'lucide-react'
-import { useStore } from '@/store/useStore'
+import { useEffect, useState, type ReactNode } from 'react'
+import { Save } from 'lucide-react'
+import { useStore, type StoreSettings } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
+import { ErrorNote, Field, SelectInput, TextArea, TextInput } from '@/components/ui/field'
+import { LANGUAGES, useI18n } from '@/i18n'
+import { PAYMENT_METHODS } from '@/lib/domain'
+import type { Lang } from '@/i18n/define'
 import { cn } from '@/lib/utils'
 
+type Form = Omit<StoreSettings, 'id' | 'hasCashierPassword' | 'currency'>
+
+const toForm = (s: StoreSettings | null): Form => ({
+  name: s?.name ?? 'LoomPOS',
+  address: s?.address ?? '',
+  phone: s?.phone ?? '',
+  nif: s?.nif ?? '',
+  rc: s?.rc ?? '',
+  nis: s?.nis ?? '',
+  articleNo: s?.articleNo ?? '',
+  language: s?.language ?? 'ar',
+  defaultPaymentMethod: s?.defaultPaymentMethod ?? 'CASH',
+  ripAccount: s?.ripAccount ?? '',
+  ribAccount: s?.ribAccount ?? '',
+  receiptWidth: s?.receiptWidth ?? 80,
+  receiptFooter: s?.receiptFooter ?? '',
+  receiptShowTax: s?.receiptShowTax ?? true,
+})
+
+function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+  return (
+    <section className="bg-card p-6 rounded-lg border border-border space-y-5">
+      <div>
+        <h2 className="text-base font-semibold">{title}</h2>
+        {hint && <p className="text-sm text-muted-foreground mt-0.5">{hint}</p>}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+const twentyDigits = (v: string) => !v || /^\d{20}$/.test(v.replace(/\s/g, ''))
+
 export default function SettingsPage() {
-  const { settings, updateSettings, user, changePassword } = useStore()
-  const [formData, setFormData] = useState({
-    name: '',
-    address: '',
-    gstin: '',
-    upiId: '',
-    phone: '',
-    cashierPassword: ''
-  })
-  
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  })
-  const [isChangingPassword, setIsChangingPassword] = useState(false)
-  const [passwordMessage, setPasswordMessage] = useState({ type: '', text: '' })
+  const { settings, updateSettings, user, changePassword, language, setLanguage } = useStore()
+  const i18n = useI18n()
+  const { t, method } = i18n
+  const [form, setForm] = useState<Form>(toForm(settings))
+  const [cashierPassword, setCashierPassword] = useState('')
+  const [removeShared, setRemoveShared] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<unknown>(null)
 
-  const [isSaving, setIsSaving] = useState(false)
+  const [pw, setPw] = useState({ current: '', next: '', confirm: '' })
+  const [pwMessage, setPwMessage] = useState<{ ok: boolean; text: string } | null>(null)
 
-  useEffect(() => {
-    if (settings) {
-      setFormData({
-        name: settings.name,
-        address: settings.address,
-        gstin: settings.gstin,
-        upiId: settings.upiId,
-        phone: settings.phone,
-        cashierPassword: settings.cashierPassword || ''
-      })
-    }
-  }, [settings])
+  useEffect(() => setForm(toForm(settings)), [settings])
 
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSaving(true)
-    await updateSettings(formData)
-    setIsSaving(false)
+  const set = <K extends keyof Form>(key: K, value: Form[K]) => {
+    setSaved(false)
+    setForm((f) => ({ ...f, [key]: value }))
   }
 
-  const handlePasswordChange = async (e: React.FormEvent) => {
+  const save = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user) return
-    
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordMessage({ type: 'error', text: 'Passwords do not match' })
+    if (cashierPassword && cashierPassword.length < 6) {
+      setError({ code: 'VALIDATION' })
       return
     }
-
-    setIsChangingPassword(true)
-    setPasswordMessage({ type: '', text: '' })
-    
-    const result = await changePassword(user.employeeId, passwordForm.currentPassword, passwordForm.newPassword)
-    
-    if (result.success) {
-      setPasswordMessage({ type: 'success', text: 'Password updated successfully' })
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
-    } else {
-      setPasswordMessage({ type: 'error', text: result.error || 'Failed to update password' })
-    }
-    setIsChangingPassword(false)
+    setSaving(true)
+    setError(null)
+    const result = await updateSettings({
+      ...form,
+      ...(removeShared ? { cashierPassword: null } : cashierPassword ? { cashierPassword } : {}),
+    })
+    setSaving(false)
+    if (result.ok) {
+      setSaved(true)
+      setCashierPassword('')
+      setRemoveShared(false)
+    } else setError(result.error)
   }
 
+  const savePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user) return
+    if (pw.next.length < 6) return setPwMessage({ ok: false, text: t('settings.passwordTooShort') })
+    if (pw.next !== pw.confirm) return setPwMessage({ ok: false, text: t('settings.passwordMismatch') })
+    const result = await changePassword(user.employeeId, pw.current, pw.next)
+    if (result.success) {
+      setPwMessage({ ok: true, text: t('settings.passwordChanged') })
+      setPw({ current: '', next: '', confirm: '' })
+    } else setPwMessage({ ok: false, text: i18n.error(result.error) })
+  }
 
   return (
-    <div className="p-8 max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground mb-1">Store Settings</h1>
-        <p className="text-sm text-muted-foreground">Configure your business details and credentials</p>
+        <h1 className="text-2xl font-semibold tracking-tight mb-1">{t('settings.title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('settings.subtitle')}</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="md:col-span-2 space-y-6">
-          <form onSubmit={handleSubmit} className="space-y-6 bg-card p-6 rounded-lg border border-border shadow-sm">
-            <div className="grid grid-cols-1 gap-6">
-              {/* Store Name */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Store Name</label>
-                <div className="relative group">
-                  <Store className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full bg-background border border-border h-10 pl-10 pr-4 rounded-md text-sm focus:outline-none focus:border-border transition-all"
-                    placeholder="Enter store name"
-                    required
-                  />
-                </div>
+      <form onSubmit={save} className="space-y-6">
+        <Section title={t('settings.localization')}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={t('settings.language')} hint={t('settings.languageHint')}>
+              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t('settings.language')}>
+                {LANGUAGES.map((l) => (
+                  <button
+                    key={l.code}
+                    type="button"
+                    role="radio"
+                    lang={l.code}
+                    aria-checked={language === l.code}
+                    onClick={() => {
+                      setLanguage(l.code as Lang)
+                      set('language', l.code as Lang)
+                    }}
+                    className={cn('h-10 rounded-md border text-sm font-semibold', language === l.code ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent')}
+                  >
+                    {l.label}
+                  </button>
+                ))}
               </div>
-
-              {/* Address */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Business Address</label>
-                <div className="relative group">
-                  <MapPin className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                  <textarea
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className="w-full bg-background border border-border min-h-[100px] pl-10 pr-4 py-2.5 rounded-md text-sm focus:outline-none focus:border-border transition-all resize-none"
-                    placeholder="Enter full address"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {/* GSTIN */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">GSTIN</label>
-                  <div className="relative group">
-                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input
-                      type="text"
-                      value={formData.gstin}
-                      onChange={(e) => setFormData({ ...formData, gstin: e.target.value })}
-                      className="w-full bg-background border border-border h-10 pl-10 pr-4 rounded-md text-sm focus:outline-none focus:border-border transition-all"
-                      placeholder="Enter GSTIN"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Phone */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Contact Phone</label>
-                  <div className="relative group">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input
-                      type="text"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full bg-background border border-border h-10 pl-10 pr-4 rounded-md text-sm focus:outline-none focus:border-border transition-all"
-                      placeholder="Enter phone number"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* UPI ID */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">UPI ID for Payments</label>
-                <div className="relative group">
-                  <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    value={formData.upiId}
-                    onChange={(e) => setFormData({ ...formData, upiId: e.target.value })}
-                    className="w-full bg-background border border-border h-10 pl-10 pr-4 rounded-md text-sm focus:outline-none focus:border-border transition-all font-mono"
-                    placeholder="Enter UPI ID (e.g. store@upi)"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Security Section (Global Cashier Password) */}
-              <div className="pt-6 border-t border-border/40 space-y-4">
-                <div className="flex items-center gap-2">
-                   <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Security & Access
-                   </span>
-                   <div className="flex-1 h-px bg-border/40" />
-                </div>
-                
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Global Cashier Password (OPTIONAL)</label>
-                  <div className="relative group">
-                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input
-                      type="text"
-                      value={formData.cashierPassword}
-                      onChange={(e) => setFormData({ ...formData, cashierPassword: e.target.value })}
-                      className="w-full bg-background border border-border h-10 pl-10 pr-4 rounded-md text-sm focus:outline-none focus:border-border transition-all font-mono"
-                      placeholder="Set a shared password for all cashiers"
-                    />
-                  </div>
-                  <p className="text-[11px] text-muted-foreground italic">If set, any active cashier can use this password to log in.</p>
-                </div>
-              </div>
-            </div>
-
-            <Button 
-              type="submit" 
-              variant="default" 
-              className="w-full h-10 text-sm font-medium"
-              disabled={isSaving}
-            >
-              <Save size={16} className="mr-2" />
-              {isSaving ? 'Saving Changes...' : 'Save Configuration'}
-            </Button>
-          </form>
-
-          {/* Individual Password Change Section */}
-          <form onSubmit={handlePasswordChange} className="space-y-6 bg-card p-6 rounded-lg border border-border shadow-sm">
-            <div className="space-y-1">
-               <h3 className="text-base font-semibold tracking-tight text-foreground">Security Credentials</h3>
-               <p className="text-xs text-muted-foreground">Manage your personal password</p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Current Password</label>
-                <input
-                  type="password"
-                  value={passwordForm.currentPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                  className="w-full bg-background border border-border h-10 px-3 rounded-md text-sm focus:outline-none focus:border-border transition-all"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">New Password</label>
-                  <input
-                    type="password"
-                    value={passwordForm.newPassword}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                    className="w-full bg-background border border-border h-10 px-3 rounded-md text-sm focus:outline-none focus:border-border transition-all"
-                    required
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Confirm New Password</label>
-                  <input
-                    type="password"
-                    value={passwordForm.confirmPassword}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                    className="w-full bg-background border border-border h-10 px-3 rounded-md text-sm focus:outline-none focus:border-border transition-all"
-                    required
-                  />
-                </div>
-              </div>
-
-              {passwordMessage.text && (
-                <div className={cn(
-                  "p-3 rounded-md text-xs font-medium",
-                  passwordMessage.type === 'success' ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" : "bg-destructive/10 text-destructive border border-destructive/20"
-                )}>
-                  {passwordMessage.text}
-                </div>
-              )}
-
-              <Button 
-                type="submit"
-                variant="outline"
-                className="w-full h-10 text-sm font-medium"
-                disabled={isChangingPassword}
-              >
-                {isChangingPassword ? 'Updating...' : 'Change Password'}
-              </Button>
-            </div>
-          </form>
-
-        </div>
-
-        <div className="space-y-6">
-          <div className="bg-accent/10 p-6 rounded-lg border border-border">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">Preview</h3>
-            <div className="space-y-4 text-sm">
-              <div>
-                <p className="text-[10px] uppercase text-muted-foreground font-medium mb-1">Header Logo</p>
-                <p className="text-lg font-semibold text-foreground tracking-tight uppercase">
-                  {formData.name.slice(0, 4)}<span className="text-muted-foreground">{formData.name.slice(4)}</span>
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase text-muted-foreground font-medium mb-1">Receipt Address</p>
-                <p className="font-medium whitespace-pre-wrap text-foreground/80">{formData.address}</p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase text-muted-foreground font-medium mb-1">GST Number</p>
-                <p className="font-mono font-semibold text-foreground">{formData.gstin}</p>
-              </div>
-            </div>
+            </Field>
+            <Field label={t('settings.currency')} hint={t('settings.currencyHint')}>
+              <SelectInput value="DZD" disabled>
+                <option value="DZD">{t('common.currency')}</option>
+              </SelectInput>
+            </Field>
           </div>
-          
-          <div className="bg-accent/5 p-6 rounded-lg border border-border/60">
-             <p className="text-xs text-muted-foreground leading-normal">
-               Note: These details will appear on all printed invoices and digital receipts generated by the system.
-             </p>
+        </Section>
+
+        <Section title={t('settings.store')}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={t('settings.storeName')} className="sm:col-span-2">
+              <TextInput value={form.name} onChange={(e) => set('name', e.target.value)} required />
+            </Field>
+            <Field label={t('settings.address')} className="sm:col-span-2">
+              <TextArea value={form.address} onChange={(e) => set('address', e.target.value)} placeholder={t('settings.addressPlaceholder')} />
+            </Field>
+            <Field label={t('settings.phone')}>
+              <TextInput value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder={t('common.phonePlaceholder')} dir="ltr" inputMode="tel" className="text-start" />
+            </Field>
           </div>
+        </Section>
+
+        <Section title={t('settings.identifiers')} hint={t('settings.identifiersHint')}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {(['nif', 'rc', 'nis', 'articleNo'] as const).map((k) => (
+              <Field key={k} label={t(`settings.${k}`)}>
+                <TextInput value={form[k]} onChange={(e) => set(k, e.target.value)} dir="ltr" className="text-start" />
+              </Field>
+            ))}
+          </div>
+        </Section>
+
+        <Section title={t('settings.payments')}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={t('settings.defaultMethod')} hint={t('settings.defaultMethodHint')} className="sm:col-span-2">
+              <SelectInput value={form.defaultPaymentMethod} onChange={(e) => set('defaultPaymentMethod', e.target.value as Form['defaultPaymentMethod'])}>
+                {PAYMENT_METHODS.filter((m) => !m.onAccount).map((m) => (
+                  <option key={m.code} value={m.code}>{method(m.code)}</option>
+                ))}
+              </SelectInput>
+            </Field>
+            <Field label={t('settings.rip')} hint={t('settings.ripHint')} error={!twentyDigits(form.ripAccount) ? t('settings.digitsWarning') : undefined}>
+              <TextInput value={form.ripAccount} onChange={(e) => set('ripAccount', e.target.value)} dir="ltr" inputMode="numeric" className="text-start" />
+            </Field>
+            <Field label={t('settings.rib')} hint={t('settings.ribHint')} error={!twentyDigits(form.ribAccount) ? t('settings.digitsWarning') : undefined}>
+              <TextInput value={form.ribAccount} onChange={(e) => set('ribAccount', e.target.value)} dir="ltr" inputMode="numeric" className="text-start" />
+            </Field>
+          </div>
+        </Section>
+
+        <Section title={t('settings.receipts')}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={t('settings.paperWidth')}>
+              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t('settings.paperWidth')}>
+                {([58, 80] as const).map((w) => (
+                  <button
+                    key={w}
+                    type="button"
+                    role="radio"
+                    aria-checked={form.receiptWidth === w}
+                    onClick={() => set('receiptWidth', w)}
+                    className={cn('h-10 rounded-md border text-sm font-semibold', form.receiptWidth === w ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent')}
+                  >
+                    {w === 58 ? t('settings.width58') : t('settings.width80')}
+                  </button>
+                ))}
+              </div>
+            </Field>
+            <Field label={t('settings.footer')}>
+              <TextInput value={form.receiptFooter} onChange={(e) => set('receiptFooter', e.target.value)} placeholder={t('settings.footerPlaceholder')} maxLength={200} />
+            </Field>
+            <label className="flex items-center gap-2 text-sm sm:col-span-2 cursor-pointer">
+              <input type="checkbox" checked={form.receiptShowTax} onChange={(e) => set('receiptShowTax', e.target.checked)} className="h-4 w-4 accent-primary" />
+              {t('settings.showTax')}
+            </label>
+          </div>
+        </Section>
+
+        <Section title={t('settings.security')} hint={settings?.hasCashierPassword ? t('settings.cashierPasswordSet') : t('settings.cashierPasswordUnset')}>
+          <div className="grid gap-4 sm:grid-cols-2 items-end">
+            <Field label={t('settings.newCashierPassword')} hint={t('settings.cashierPasswordHint')}>
+              <TextInput type="password" value={cashierPassword} onChange={(e) => setCashierPassword(e.target.value)} disabled={removeShared} dir="ltr" autoComplete="new-password" className="text-start" />
+            </Field>
+            {settings?.hasCashierPassword && (
+              <label className="flex items-center gap-2 text-sm cursor-pointer pb-6">
+                <input type="checkbox" checked={removeShared} onChange={(e) => setRemoveShared(e.target.checked)} className="h-4 w-4 accent-primary" />
+                {t('settings.removeCashierPassword')}
+              </label>
+            )}
+          </div>
+        </Section>
+
+        {error != null && <ErrorNote>{i18n.error(error)}</ErrorNote>}
+        <div className="flex items-center gap-4">
+          <Button type="submit" disabled={saving} className="gap-2 h-11 px-6">
+            <Save size={16} /> {saving ? t('common.saving') : t('settings.save')}
+          </Button>
+          {saved && <span role="status" className="text-sm font-medium text-emerald-700 dark:text-emerald-400">{t('settings.saved')}</span>}
         </div>
-      </div>
+      </form>
+
+      <form onSubmit={savePassword} className="bg-card p-6 rounded-lg border border-border space-y-4">
+        <h2 className="text-base font-semibold">{t('settings.myPassword')}</h2>
+        <Field label={t('settings.currentPassword')}>
+          <TextInput type="password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} required dir="ltr" autoComplete="current-password" className="text-start" />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label={t('settings.newPassword')}>
+            <TextInput type="password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} required dir="ltr" autoComplete="new-password" className="text-start" />
+          </Field>
+          <Field label={t('settings.confirmPassword')}>
+            <TextInput type="password" value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} required dir="ltr" autoComplete="new-password" className="text-start" />
+          </Field>
+        </div>
+        {pwMessage && (
+          <p role="status" className={cn('rounded-md px-3 py-2 text-sm font-medium', pwMessage.ok ? 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-300' : 'bg-destructive/10 text-destructive')}>
+            {pwMessage.text}
+          </p>
+        )}
+        <Button type="submit" variant="outline">{t('settings.changePassword')}</Button>
+      </form>
     </div>
   )
 }

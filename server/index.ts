@@ -1,39 +1,58 @@
 import express from 'express';
 import cors from 'cors';
-import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { ApiError, handle, JWT_SECRET, prisma, requireAdmin, requireAdminOrKey, sendError } from './context';
+import { salesRouter } from './routes/sales';
+import { customersRouter } from './routes/customers';
+import { suppliersRouter } from './routes/suppliers';
+import { reportsRouter } from './routes/reports';
+import {
+  isUnitCode,
+  normalizeAlgerianPhone,
+  PAYMENT_METHOD_CODES,
+  roundMoney,
+  roundQuantity,
+  UNIT_CODES,
+  UNITS,
+} from '../src/lib/domain';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_super_secret_key_123';
-
-
-const prisma = new PrismaClient();
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
+const optionalPhone = z
+  .string()
+  .trim()
+  .max(30)
+  .nullish()
+  .refine((v) => !v || normalizeAlgerianPhone(v) !== null, { message: 'INVALID_PHONE' })
+  .transform((v) => (v ? normalizeAlgerianPhone(v) : null));
+
 const productSchema = z.object({
-  name: z.string().min(1),
-  sku: z.string().min(1),
-  barcode: z.string().min(1),
-  category: z.string().min(1),
+  name: z.string().trim().min(1),
+  sku: z.string().trim().min(1),
+  barcode: z.string().trim().min(1),
+  category: z.string().trim().min(1),
+  unit: z.enum(UNIT_CODES).default('piece'),
   size: z.string().optional().nullable(),
   color: z.string().optional().nullable(),
-  costPrice: z.number().positive(),
+  costPrice: z.number().min(0),
   sellingPrice: z.number().positive(),
-  gst: z.number().min(0),
-  stock: z.number().int().min(0),
+  taxRate: z.number().min(0).max(100).default(0),
+  stock: z.number().min(0),
   supplier: z.string().optional().nullable(),
+  supplierId: z.string().optional().nullable(),
 });
 
 const userSchema = z.object({
   employeeId: z.string().min(1),
   name: z.string().min(1),
   role: z.enum(['ADMIN', 'CASHIER']),
-  phone: z.string().optional().nullable(),
+  phone: optionalPhone,
   password: z.string().min(6),
   isActive: z.boolean().optional(),
 });
@@ -43,787 +62,252 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-
 const settingsSchema = z.object({
-  name: z.string().min(1),
-  address: z.string().min(1),
-  gstin: z.string().min(1),
-  upiId: z.string().min(1),
-  phone: z.string().min(1),
-  cashierPassword: z.string().optional().nullable(),
+  name: z.string().trim().min(1).max(80),
+  address: z.string().trim().max(200).default(''),
+  phone: z
+    .string()
+    .trim()
+    .max(30)
+    .default('')
+    .refine((v) => !v || normalizeAlgerianPhone(v) !== null, { message: 'INVALID_PHONE' })
+    .transform((v) => (v ? normalizeAlgerianPhone(v)! : '')),
+  nif: z.string().trim().max(20).default(''),
+  rc: z.string().trim().max(30).default(''),
+  nis: z.string().trim().max(20).default(''),
+  articleNo: z.string().trim().max(20).default(''),
+  currency: z.literal('DZD').default('DZD'),
+  language: z.enum(['ar', 'en']).default('ar'),
+  defaultPaymentMethod: z.enum(PAYMENT_METHOD_CODES.filter((m) => m !== 'CREDIT') as [string, ...string[]]).default('CASH'),
+  ripAccount: z.string().trim().max(30).default(''),
+  ribAccount: z.string().trim().max(30).default(''),
+  receiptWidth: z.union([z.literal(58), z.literal(80)]).default(80),
+  receiptFooter: z.string().trim().max(200).default(''),
+  receiptShowTax: z.boolean().default(true),
+  /** A new shared cashier password, null to remove it, or absent to keep the current one. */
+  cashierPassword: z.string().min(6).nullish(),
 });
 
+/** Settings as sent to browsers: never the cashier password hash. */
+const publicSettings = (s: any) => {
+  const { cashierPassword, ...rest } = s;
+  return { ...rest, hasCashierPassword: Boolean(cashierPassword) };
+};
 
 // Auth & Users API
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { employeeId, password } = loginSchema.parse(req.body);
-    
-    // 1. Try individual password
-    let user = await prisma.user.findFirst({
-      where: { employeeId, isActive: true }
-    });
 
-    let isValid = false;
-    if (user && await bcrypt.compare(password, user.password)) {
-      isValid = true;
+app.post('/api/auth/login', handle(async (req, res) => {
+  const { employeeId, password } = loginSchema.parse(req.body);
+
+  // 1. Try the staff member's own password
+  let user = await prisma.user.findFirst({ where: { employeeId, isActive: true } });
+  let isValid = Boolean(user && (await bcrypt.compare(password, user.password)));
+
+  // 2. Otherwise try the shared cashier password (cashiers only)
+  if (!isValid && (!user || user.role === 'CASHIER')) {
+    const settings = await prisma.storeSettings.findFirst();
+    if (settings?.cashierPassword && (await bcrypt.compare(password, settings.cashierPassword))) {
+      user = user || (await prisma.user.findFirst({ where: { employeeId, isActive: true, role: 'CASHIER' } }));
+      if (user) isValid = true;
     }
-
-    // 2. If not found, try global cashier password (only for cashiers)
-    if (!isValid && (!user || user.role === 'CASHIER')) {
-      const settings = await prisma.storeSettings.findFirst();
-      if (settings?.cashierPassword && await bcrypt.compare(password, settings.cashierPassword)) {
-        user = user || await prisma.user.findFirst({
-          where: { employeeId, isActive: true, role: 'CASHIER' }
-        });
-        if (user) isValid = true;
-      }
-    }
-
-    if (!user || !isValid) {
-      return res.status(401).json({ error: 'Invalid credentials or account deactivated' });
-    }
-
-    const token = jwt.sign(
-      { id: user.id, employeeId: user.employeeId, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '12h' }
-    );
-
-    const { password: _, ...safeUser } = user;
-    res.json({ user: safeUser, token });
-  } catch (error) {
-    res.status(400).json({ error: 'Login failed' });
-  }
-});
-
-app.post('/api/auth/change-password', async (req, res) => {
-  try {
-    const { employeeId, currentPassword, newPassword } = z.object({
-      employeeId: z.string(),
-      currentPassword: z.string(),
-      newPassword: userSchema.shape.password
-    }).parse(req.body);
-
-    const user = await prisma.user.findFirst({
-      where: { employeeId }
-    });
-
-    if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
-      return res.status(401).json({ error: 'Current password verification failed' });
-    }
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { password: hashedPassword }
-    });
-
-    res.json({ message: 'Password changed successfully' });
-  } catch (error) {
-    res.status(400).json({ error: 'Failed to change password' });
-  }
-});
-
-
-const requireAdmin = async (req: any, res: any, next: any) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized: Missing token' });
   }
 
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
-    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
-    if (!user || user.role !== 'ADMIN' || !user.isActive) {
-      return res.status(403).json({ error: 'Forbidden: Admin access required' });
-    }
-    req.user = user;
-    next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+  if (!user || !isValid) throw new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid credentials or account deactivated');
+
+  const token = jwt.sign({ id: user.id, employeeId: user.employeeId, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
+  const { password: _, ...safeUser } = user;
+  res.json({ user: safeUser, token });
+}));
+
+app.post('/api/auth/change-password', handle(async (req, res) => {
+  const { employeeId, currentPassword, newPassword } = z
+    .object({ employeeId: z.string(), currentPassword: z.string(), newPassword: z.string().min(6) })
+    .parse(req.body);
+
+  const user = await prisma.user.findFirst({ where: { employeeId } });
+  if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
+    throw new ApiError(401, 'WRONG_CURRENT_PASSWORD', 'Current password verification failed');
   }
-};
+  await prisma.user.update({ where: { id: user.id }, data: { password: await bcrypt.hash(newPassword, 10) } });
+  res.json({ message: 'Password changed successfully' });
+}));
 
-const requireAdminOrKey = async (req: any, res: any, next: any) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized: Missing token' });
-  }
+app.get('/api/users', requireAdmin, handle(async (_req, res) => {
+  const users = await prisma.user.findMany({ orderBy: { createdAt: 'desc' } });
+  res.json(users.map(({ password, ...u }) => u));
+}));
 
-  const token = authHeader.split(' ')[1];
-  const adminKey = req.headers['x-admin-verification-key'];
+app.post('/api/users', requireAdmin, handle(async (req, res) => {
+  const data = userSchema.parse(req.body);
+  const exists = await prisma.user.findUnique({ where: { employeeId: data.employeeId } });
+  if (exists) throw new ApiError(409, 'EMPLOYEE_ID_TAKEN');
+  const user = await prisma.user.create({
+    data: { ...data, password: await bcrypt.hash(data.password, 10), id: crypto.randomUUID(), updatedAt: new Date() },
+  });
+  const { password, ...safeUser } = user;
+  res.status(201).json(safeUser);
+}));
 
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
-    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
-    
-    if (!user || !user.isActive) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    if (user.role === 'ADMIN') {
-      req.user = user;
-      return next();
-    }
-
-    // If cashier, check the admin key
-    if (adminKey) {
-      const admin = await prisma.user.findFirst({ where: { role: 'ADMIN', isActive: true } });
-      if (admin && await bcrypt.compare(adminKey, admin.password)) {
-        req.user = user;
-        return next();
-      }
-    }
-
-    return res.status(403).json({ error: 'Forbidden: Admin verification required' });
-  } catch (err) {
-    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
-  }
-};
-
-
-app.get('/api/users', requireAdmin, async (req, res) => {
-  try {
-    const users = await prisma.user.findMany({
-      orderBy: { createdAt: 'desc' }
-    });
-    res.json(users.map(({ password, ...u }) => u));
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch users' });
-  }
-});
-
-
-
-
-app.post('/api/users', requireAdmin, async (req: any, res) => {
-  try {
-    const validatedData = userSchema.parse(req.body);
-    validatedData.password = await bcrypt.hash(validatedData.password, 10);
-
-    const user = await prisma.user.create({
-      data: {
-        ...validatedData,
-        id: crypto.randomUUID(),
-        updatedAt: new Date()
-      }
-    });
-
-    const { password, ...safeUser } = user;
-    res.status(201).json(safeUser);
-
-  } catch (error) {
-    res.status(400).json({ error: 'Failed to create user' });
-  }
-});
-
-app.put('/api/users/:id', requireAdmin, async (req, res) => {
-  const { id } = req.params;
-  try {
-    const validatedData = userSchema.partial().parse(req.body);
-    if (validatedData.password && !validatedData.password.startsWith('$2a$')) {
-      validatedData.password = await bcrypt.hash(validatedData.password, 10);
-    }
-    const user = await prisma.user.update({
-      where: { id },
-      data: validatedData
-    });
-    const { password, ...safeUser } = user;
-    res.json(safeUser);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to update user' });
-  }
-});
+app.put('/api/users/:id', requireAdmin, handle(async (req, res) => {
+  const data = userSchema.partial().parse(req.body);
+  if (data.password) data.password = await bcrypt.hash(data.password, 10);
+  const user = await prisma.user.update({ where: { id: req.params.id }, data });
+  const { password, ...safeUser } = user;
+  res.json(safeUser);
+}));
 
 const resetTokens = new Map<string, { expiresAt: number }>();
 
-app.post('/api/users/:id/reset-token', requireAdmin, async (req, res) => {
-  const { id } = req.params;
-  try {
-    const token = crypto.randomUUID();
-    resetTokens.set(`${id}-${token}`, { expiresAt: Date.now() + 15 * 60 * 1000 });
-    res.json({ token });
-  } catch (error) {
-    res.status(400).json({ error: 'Failed to generate token' });
-  }
-});
+app.post('/api/users/:id/reset-token', requireAdmin, handle(async (req, res) => {
+  const token = crypto.randomUUID();
+  resetTokens.set(`${req.params.id}-${token}`, { expiresAt: Date.now() + 15 * 60 * 1000 });
+  res.json({ token });
+}));
 
-app.post('/api/users/:id/reset-password', async (req, res) => {
-  const { id } = req.params;
-  try {
-    const { token, newPassword } = z.object({
-      token: z.string(),
-      newPassword: z.string().min(6)
-    }).parse(req.body);
-
-    const tokenKey = `${id}-${token}`;
-    const tokenData = resetTokens.get(tokenKey);
-
-    if (!tokenData || tokenData.expiresAt < Date.now()) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await prisma.user.update({
-      where: { id },
-      data: { password: hashedPassword }
-    });
-
-    resetTokens.delete(tokenKey);
-    res.json({ message: 'Password reset successfully' });
-  } catch (error) {
-    res.status(400).json({ error: 'Failed to reset password' });
-  }
-});
+app.post('/api/users/:id/reset-password', handle(async (req, res) => {
+  const { token, newPassword } = z.object({ token: z.string(), newPassword: z.string().min(6) }).parse(req.body);
+  const tokenKey = `${req.params.id}-${token}`;
+  const tokenData = resetTokens.get(tokenKey);
+  if (!tokenData || tokenData.expiresAt < Date.now()) throw new ApiError(401, 'RESET_TOKEN_EXPIRED');
+  await prisma.user.update({ where: { id: req.params.id }, data: { password: await bcrypt.hash(newPassword, 10) } });
+  resetTokens.delete(tokenKey);
+  res.json({ message: 'Password reset successfully' });
+}));
 
 const initializeAdmin = async () => {
   const admin = await prisma.user.findUnique({ where: { employeeId: 'admin' } });
   if (!admin) {
-    const hashedPassword = await bcrypt.hash('admin123', 10);
     await prisma.user.create({
       data: {
         id: crypto.randomUUID(),
         employeeId: 'admin',
-        name: 'System Admin',
+        name: 'Admin',
         role: 'ADMIN',
-        password: hashedPassword,
+        password: await bcrypt.hash('admin123', 10),
         isActive: true,
-        updatedAt: new Date()
-      }
-
+        updatedAt: new Date(),
+      },
     });
     console.log('Default admin created: admin / admin123');
   }
-
 };
-initializeAdmin();
+initializeAdmin().catch((error) => console.error('Admin setup failed', error));
 
+// Products
 
+app.get('/api/products', handle(async (req, res) => {
+  const { page = '1', limit = '50', search = '' } = req.query;
+  const p = Math.max(1, parseInt(String(page)) || 1);
+  const l = Math.min(200, Math.max(1, parseInt(String(limit)) || 50));
 
-// Get products with pagination
-app.get('/api/products', async (req, res) => {
-  try {
-    const { page = '1', limit = '50', search = '' } = req.query;
-    const p = parseInt(String(page));
-    const l = parseInt(String(limit));
-    const skip = (p - 1) * l;
-
-    const where: any = {};
-    if (search) {
-      where.OR = [
-        { name: { contains: String(search) } },
-        { sku: { contains: String(search) } },
-        { barcode: { contains: String(search) } },
-      ];
-    }
-
-    const total = await prisma.product.count({ where });
-    const products = await prisma.product.findMany({
-      where,
-      skip,
-      take: l,
-      orderBy: { createdAt: 'desc' },
-    });
-
-    res.json({
-      products,
-      total,
-      page: p,
-      limit: l,
-      hasMore: skip + products.length < total
-    });
-  } catch (error) {
-    console.error('Fetch products error:', error);
-    res.status(500).json({ error: 'Failed to fetch products' });
+  const where: any = {};
+  if (search) {
+    const s = String(search);
+    where.OR = [
+      { name: { contains: s, mode: 'insensitive' } },
+      { sku: { contains: s, mode: 'insensitive' } },
+      { barcode: { contains: s } },
+      { category: { contains: s, mode: 'insensitive' } },
+    ];
   }
+
+  const [total, products] = await Promise.all([
+    prisma.product.count({ where }),
+    prisma.product.findMany({ where, skip: (p - 1) * l, take: l, orderBy: { createdAt: 'desc' } }),
+  ]);
+  res.json({ products, total, page: p, limit: l, hasMore: (p - 1) * l + products.length < total });
+}));
+
+const normalizeProduct = <T extends { unit?: string; stock?: number; costPrice?: number; sellingPrice?: number }>(data: T): T => ({
+  ...data,
+  ...(data.stock !== undefined ? { stock: roundQuantity(data.stock, data.unit) } : {}),
+  ...(data.costPrice !== undefined ? { costPrice: roundMoney(data.costPrice) } : {}),
+  ...(data.sellingPrice !== undefined ? { sellingPrice: roundMoney(data.sellingPrice) } : {}),
 });
 
-// Create product
-app.post('/api/products', requireAdminOrKey, async (req, res) => {
-  try {
-    const validatedData = productSchema.parse(req.body);
-    const product = await prisma.product.create({
-      data: {
-        ...validatedData as any,
-        id: crypto.randomUUID()
-      },
-    });
-
-    res.status(201).json(product);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ error: error.issues });
-    } else {
-      res.status(500).json({ error: 'Failed to create product' });
-    }
+async function assertCodesFree(sku?: string, barcode?: string, exceptId?: string) {
+  if (sku) {
+    const p = await prisma.product.findUnique({ where: { sku } });
+    if (p && p.id !== exceptId) throw new ApiError(409, 'SKU_TAKEN', undefined, { product: p.name });
   }
-});
-
-// Update product
-app.put('/api/products/:id', requireAdminOrKey, async (req, res) => {
-  const { id } = req.params;
-  try {
-    const validatedData = productSchema.partial().parse(req.body);
-    const product = await prisma.product.update({
-      where: { id },
-      data: validatedData as any,
-    });
-    res.json(product);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to update product' });
+  if (barcode) {
+    const p = await prisma.product.findUnique({ where: { barcode } });
+    if (p && p.id !== exceptId) throw new ApiError(409, 'BARCODE_TAKEN', undefined, { product: p.name });
   }
+}
+
+app.post('/api/products', requireAdminOrKey, handle(async (req, res) => {
+  const data = normalizeProduct(productSchema.parse(req.body));
+  await assertCodesFree(data.sku, data.barcode);
+  const product = await prisma.product.create({ data: { ...data, id: crypto.randomUUID(), updatedAt: new Date() } });
+  res.status(201).json(product);
+}));
+
+app.put('/api/products/:id', requireAdminOrKey, handle(async (req, res) => {
+  const partial = productSchema.partial().parse(req.body);
+  const current = await prisma.product.findUnique({ where: { id: req.params.id } });
+  if (!current) throw new ApiError(404, 'PRODUCT_NOT_FOUND');
+  const data = normalizeProduct({ unit: current.unit, ...partial });
+  await assertCodesFree(data.sku, data.barcode, current.id);
+  res.json(await prisma.product.update({ where: { id: current.id }, data }));
+}));
+
+app.delete('/api/products/:id', requireAdminOrKey, handle(async (req, res) => {
+  const used = await prisma.orderItem.count({ where: { productId: req.params.id } });
+  if (used) throw new ApiError(409, 'PRODUCT_HAS_SALES', 'Products with sales cannot be deleted');
+  await prisma.product.delete({ where: { id: req.params.id } });
+  res.status(204).send();
+}));
+
+// Low stock: each unit has its own threshold (10 pieces, 5 kg, 1 000 g…).
+app.get('/api/inventory/low-stock', handle(async (_req, res) => {
+  const products = await prisma.product.findMany({
+    where: {
+      OR: [
+        ...UNIT_CODES.map((unit) => ({ unit, stock: { lte: UNITS[unit].lowStockAt } })),
+        { unit: { notIn: [...UNIT_CODES] }, stock: { lte: UNITS.piece.lowStockAt } },
+      ],
+    },
+    orderBy: { stock: 'asc' },
+    take: 20,
+  });
+  // Most urgent first, relative to each unit's threshold.
+  products.sort(
+    (a, b) =>
+      a.stock / UNITS[isUnitCode(a.unit) ? a.unit : 'piece'].lowStockAt - b.stock / UNITS[isUnitCode(b.unit) ? b.unit : 'piece'].lowStockAt
+  );
+  res.json(products.slice(0, 10));
+}));
+
+// Settings
+
+async function currentSettings() {
+  return (await prisma.storeSettings.findFirst()) ?? (await prisma.storeSettings.create({ data: { id: '1' } }));
+}
+
+app.get('/api/settings', handle(async (_req, res) => {
+  res.json(publicSettings(await currentSettings()));
+}));
+
+app.put('/api/settings', requireAdmin, handle(async (req, res) => {
+  const { cashierPassword, ...data } = settingsSchema.parse(req.body);
+  const settings = await currentSettings();
+  const passwordUpdate =
+    cashierPassword === undefined ? {} : { cashierPassword: cashierPassword ? await bcrypt.hash(cashierPassword, 10) : null };
+  const updated = await prisma.storeSettings.update({ where: { id: settings.id }, data: { ...data, ...passwordUpdate } });
+  res.json(publicSettings(updated));
+}));
+
+app.use('/api', salesRouter);
+app.use('/api', customersRouter);
+app.use('/api', suppliersRouter);
+app.use('/api', reportsRouter);
+
+app.use('/api', (_req, res) => {
+  sendError(res, new ApiError(404, 'NOT_FOUND', 'Unknown API route'));
 });
 
-// Delete product
-app.delete('/api/products/:id', requireAdminOrKey, async (req, res) => {
-  const { id } = req.params;
-  try {
-    await prisma.product.delete({ where: { id } });
-    res.status(204).send();
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to delete product' });
-  }
-});
-
-// Low Stock Alerts API
-app.get('/api/inventory/low-stock', async (req, res) => {
-  try {
-    const products = await prisma.product.findMany({
-      where: {
-        stock: { lte: 10 }
-      },
-      orderBy: { stock: 'asc' },
-      take: 10 // Show top 10 most urgent
-    });
-    res.json(products);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch alert products' });
-  }
-});
-
-
-const orderSchema = z.object({
-  totalAmount: z.number().positive(),
-  gstAmount: z.number().min(0),
-  paymentMethod: z.string().min(1),
-  customerName: z.string().optional().nullable(),
-  customerMobile: z.string().optional().nullable(),
-  userId: z.string().optional().nullable(),
-  items: z.array(z.object({
-    productId: z.string().min(1),
-    quantity: z.number().int().positive(),
-    price: z.number().positive(),
-  })),
-});
-
-
-// Create Order & Update Stock
-app.post('/api/orders', async (req, res) => {
-  try {
-    const validatedData = orderSchema.parse(req.body);
-    const { totalAmount, gstAmount, paymentMethod, customerName, customerMobile, items, userId } = validatedData;
-
-
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Generate sequential invoice number
-      const orderCount = await tx.order.count();
-      const invoiceNo = `INV-${(orderCount + 1).toString().padStart(4, '0')}`;
-
-      // 2. Create the order
-      const order = await tx.order.create({
-        data: {
-          id: crypto.randomUUID(),
-          invoiceNo,
-          totalAmount,
-          gstAmount,
-          paymentMethod,
-          customerName,
-          customerMobile,
-          userId,
-        },
-
-        include: {
-
-          items: {
-            include: {
-              product: true
-            }
-          }
-        }
-      });
-
-      // 3. Process each item
-      for (const item of items) {
-        // Fetch current stock to check availability
-        const product = await tx.product.findUnique({
-          where: { id: item.productId },
-        });
-
-        if (!product) {
-          throw new Error(`Product ${item.productId} not found`);
-        }
-
-        if (product.stock < item.quantity) {
-          throw new Error(`Insufficient stock for ${product.name}`);
-        }
-
-        // Create order item
-        await tx.orderItem.create({
-          data: {
-            id: crypto.randomUUID(),
-            orderId: order.id,
-            productId: item.productId,
-            quantity: item.quantity,
-            price: item.price,
-          },
-        });
-
-
-        // Decrement stock
-        await tx.product.update({
-          where: { id: item.productId },
-          data: {
-            stock: {
-              decrement: item.quantity,
-            },
-          },
-        });
-      }
-
-      // 4. Return the full order with its newly created items
-      return await tx.order.findUnique({
-        where: { id: order.id },
-        include: {
-          items: {
-            include: {
-              product: true
-            }
-          }
-        }
-      });
-    });
-
-    res.status(201).json(result);
-  } catch (error: any) {
-    console.error('Order creation error:', error);
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ error: error.issues });
-    } else {
-      res.status(500).json({ error: error.message || 'Failed to process order' });
-    }
-  }
-});
-
-// Get all orders (with advanced filtering & pagination)
-app.get('/api/orders', async (req, res) => {
-  try {
-    const { search, startDate, endDate, methods, page = '1', limit = '50' } = req.query;
-    // console.log('Incoming Filters:', { search, startDate, endDate, methods, page, limit });
-    
-    const p = parseInt(String(page));
-    const l = parseInt(String(limit));
-    const skip = (p - 1) * l;
-
-    const where: any = {};
-
-    // 1. Text Search
-    if (search) {
-      where.OR = [
-        { invoiceNo: { contains: String(search) } },
-        { customerMobile: { contains: String(search) } },
-        { customerName: { contains: String(search) } },
-      ];
-    }
-
-    // 2. Date Range
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) {
-        where.date.gte = new Date(String(startDate));
-      }
-      if (endDate) {
-        const end = new Date(String(endDate));
-        end.setHours(23, 59, 59, 999);
-        where.date.lte = end;
-      }
-    }
-
-    // 3. Payment Methods
-    if (methods) {
-      const methodsArray = Array.isArray(methods) ? (methods as string[]) : [String(methods)];
-      const cleanMethods = methodsArray.filter(m => m && m.trim() !== '');
-      if (cleanMethods.length > 0) {
-        where.paymentMethod = { in: cleanMethods };
-      }
-    }
-
-    // Get total count for pagination metadata
-    const totalCount = await prisma.order.count({ where });
-
-    const orders = await prisma.order.findMany({
-      where,
-      skip,
-      take: l,
-      orderBy: { date: 'desc' },
-      include: {
-        processedBy: {
-          select: { name: true, employeeId: true, isActive: true }
-        },
-        _count: {
-          select: { items: true }
-        }
-      }
-    });
-
-
-    res.json({
-      orders,
-      total: totalCount,
-      page: p,
-      limit: l,
-      hasMore: skip + orders.length < totalCount
-    });
-  } catch (error) {
-    console.error('Pagination API error:', error);
-    res.status(500).json({ error: 'Failed to fetch partitioned orders' });
-  }
-});
-
-// Get single order with full details
-app.get('/api/orders/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    const order = await prisma.order.findUnique({
-      where: { id },
-      include: {
-        processedBy: {
-          select: { name: true, employeeId: true, isActive: true }
-        },
-        items: {
-          include: {
-            product: true
-          }
-        }
-      }
-    });
-
-    if (!order) return res.status(404).json({ error: 'Order not found' });
-    res.json(order);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch order details' });
-  }
-});
-
-// Settings API
-app.get('/api/settings', async (req, res) => {
-  try {
-    let settings = await prisma.storeSettings.findFirst();
-    if (!settings) {
-      settings = await prisma.storeSettings.create({
-        data: {
-          id: '1',
-          name: 'LOOMPOS',
-          address: '123 Trend Avenue, Mumbai',
-          gstin: '27AAAAA0000A1Z5',
-          upiId: 'store@upi',
-          phone: '+91 98765 43210',
-        }
-      });
-
-    }
-    res.json(settings);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch settings' });
-  }
-});
-
-app.put('/api/settings', async (req, res) => {
-  try {
-    const validatedData = settingsSchema.parse(req.body);
-    if (validatedData.cashierPassword && !validatedData.cashierPassword.startsWith('$2a$')) {
-      validatedData.cashierPassword = await bcrypt.hash(validatedData.cashierPassword, 10);
-    }
-    const settings = await prisma.storeSettings.findFirst();
-    
-    let updated;
-    if (settings) {
-      updated = await prisma.storeSettings.update({
-        where: { id: settings.id },
-        data: validatedData,
-      });
-    } else {
-      updated = await prisma.storeSettings.create({
-        data: { 
-          ...validatedData, 
-          id: '1',
-          updatedAt: new Date()
-        },
-      });
-
-    }
-    res.json(updated);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ error: error.issues });
-    } else {
-      res.status(500).json({ error: 'Failed to update settings' });
-    }
-  }
-});
-
-
-// Analytics: Today's Summary
-app.get('/api/analytics/summary', async (req, res) => {
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const stats = await prisma.order.aggregate({
-      where: { date: { gte: today } },
-      _sum: { totalAmount: true, gstAmount: true },
-      _count: { id: true }
-    });
-
-    const paymentModes = await prisma.order.groupBy({
-      by: ['paymentMethod'],
-      where: { date: { gte: today } },
-      _sum: { totalAmount: true }
-    });
-
-    res.json({
-      revenue: stats._sum.totalAmount || 0,
-      gst: stats._sum.gstAmount || 0,
-      orders: stats._count.id || 0,
-      paymentBreakdown: paymentModes
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch summary' });
-  }
-});
-
-// Analytics: Last 7 Days Sales
-app.get('/api/analytics/sales', async (req, res) => {
-  try {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
-
-    const orders = await prisma.order.findMany({
-      where: { date: { gte: sevenDaysAgo } },
-      select: { date: true, totalAmount: true },
-      orderBy: { date: 'asc' }
-    });
-
-    // Grouping by date
-    const dailyData: Record<string, number> = {};
-    orders.forEach(o => {
-      const dateStr = o.date.toISOString().split('T')[0];
-      dailyData[dateStr] = (dailyData[dateStr] || 0) + o.totalAmount;
-    });
-
-    const result = Object.entries(dailyData).map(([date, amount]) => ({
-      date,
-      amount
-    })).sort((a, b) => a.date.localeCompare(b.date));
-
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch sales data' });
-  }
-});
-
-// Analytics: today's pace against the past week, the week by day, and today's best sellers.
-// Days use the server's local calendar, the same as /api/analytics/summary.
-app.get('/api/analytics/today', async (req, res) => {
-  try {
-    const dayKey = (d: Date) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const since = new Date(today);
-    since.setDate(since.getDate() - 7);
-
-    const orders = await prisma.order.findMany({
-      where: { date: { gte: since } },
-      select: { date: true, totalAmount: true },
-    });
-
-    // Sales per hour for today and for each of the previous 7 days.
-    const todayKey = dayKey(today);
-    const todayByHour: number[] = new Array(24).fill(0);
-    const pastDays: Record<string, number[]> = {};
-    const weekTotals: Record<string, { amount: number; orders: number }> = {};
-
-    for (const o of orders) {
-      const key = dayKey(o.date);
-      const hour = o.date.getHours();
-      if (key === todayKey) {
-        todayByHour[hour] += o.totalAmount;
-      } else {
-        (pastDays[key] ??= new Array(24).fill(0))[hour] += o.totalAmount;
-      }
-      const w = (weekTotals[key] ??= { amount: 0, orders: 0 });
-      w.amount += o.totalAmount;
-      w.orders += 1;
-    }
-
-    // An average day only counts past days that had at least one sale.
-    const pastDayList = Object.values(pastDays);
-    const comparedDays = pastDayList.length;
-    const averageByHour = todayByHour.map((_, h) =>
-      comparedDays ? pastDayList.reduce((sum, day) => sum + day[h], 0) / comparedDays : 0
-    );
-
-    // Last 7 days including today, oldest first, with empty days kept as zero.
-    const week = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(today);
-      d.setDate(d.getDate() - (6 - i));
-      const key = dayKey(d);
-      return { date: key, amount: weekTotals[key]?.amount ?? 0, orders: weekTotals[key]?.orders ?? 0 };
-    });
-
-    const items = await prisma.orderItem.findMany({
-      where: { order: { date: { gte: today } } },
-      select: {
-        productId: true,
-        quantity: true,
-        price: true,
-        product: { select: { name: true, size: true, color: true, sku: true } },
-      },
-    });
-
-    type TopItem = { productId: string; name: string; size: string | null; color: string | null; sku: string; quantity: number; revenue: number };
-    const byProduct = new Map<string, TopItem>();
-    for (const item of items) {
-      const entry = byProduct.get(item.productId) ?? {
-        productId: item.productId,
-        name: item.product.name,
-        size: item.product.size,
-        color: item.product.color,
-        sku: item.product.sku,
-        quantity: 0,
-        revenue: 0,
-      };
-      entry.quantity += item.quantity;
-      entry.revenue += item.price * item.quantity;
-      byProduct.set(item.productId, entry);
-    }
-    const topItems = [...byProduct.values()]
-      .sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue)
-      .slice(0, 5);
-
-    res.json({ todayByHour, averageByHour, comparedDays, week, topItems, generatedAt: new Date().toISOString() });
-  } catch (error) {
-    console.error('Today analytics error:', error);
-    res.status(500).json({ error: 'Failed to fetch today analytics' });
-  }
-});
-
-const PORT = 3001;
+const PORT = Number(process.env.PORT) || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

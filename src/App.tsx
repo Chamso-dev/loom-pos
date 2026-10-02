@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
+import { BrowserRouter, MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import Shell from './components/layout/Shell'
 import PageWrapper from './components/layout/PageWrapper'
@@ -9,85 +10,83 @@ import Dashboard from './components/dashboard/Dashboard'
 import OrderHistoryPage from './components/orders/OrderHistoryPage'
 import SettingsPage from './components/settings/SettingsPage'
 import StaffPage from './components/settings/StaffPage'
+import CustomersPage from './components/customers/CustomersPage'
+import SuppliersPage from './components/suppliers/SuppliersPage'
+import PurchasesPage from './components/suppliers/PurchasesPage'
+import ReportsPage from './components/reports/ReportsPage'
 import LoginPage from './components/auth/LoginPage'
 import AuthGuard from './components/auth/AuthGuard'
-
-import { useEffect } from 'react'
 import { useStore } from './store/useStore'
+import { applyDocumentLanguage } from './i18n'
+
+/** Keeps <html lang dir> and the dark class in step with the store. */
+function useDocumentPreferences() {
+  const language = useStore((s) => s.language)
+  const theme = useStore((s) => s.theme)
+
+  useEffect(() => applyDocumentLanguage(language), [language])
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const apply = () => {
+      const dark = theme === 'dark' || (theme === 'system' && media.matches)
+      document.documentElement.classList.toggle('dark', dark)
+    }
+    apply()
+    media.addEventListener('change', apply)
+    return () => media.removeEventListener('change', apply)
+  }, [theme])
+}
+
+const page = (element: React.ReactNode, requiredRole?: 'ADMIN') => (
+  <AuthGuard requiredRole={requiredRole}>
+    <Shell>
+      <PageWrapper>{element}</PageWrapper>
+    </Shell>
+  </AuthGuard>
+)
 
 function AppContent() {
   const location = useLocation()
   const { fetchSettings, fetchLowStockAlerts, user } = useStore()
+  useDocumentPreferences()
 
   useEffect(() => {
     fetchSettings()
     if (user) fetchLowStockAlerts()
-  }, [user])
+  }, [user, fetchSettings, fetchLowStockAlerts])
 
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/login" element={<LoginPage />} />
-        
-        <Route path="/" element={
-          <AuthGuard requiredRole="ADMIN">
-            <Shell>
-              <PageWrapper><Dashboard /></PageWrapper>
-            </Shell>
-          </AuthGuard>
-        } />
-        
-        <Route path="/inventory" element={
-          <AuthGuard>
-            <Shell>
-              <PageWrapper><InventoryPage /></PageWrapper>
-            </Shell>
-          </AuthGuard>
-        } />
-        
-        <Route path="/billing" element={
-          <AuthGuard>
-            <Shell>
-              <PageWrapper><BillingPage /></PageWrapper>
-            </Shell>
-          </AuthGuard>
-        } />
-        
-        <Route path="/orders" element={
-          <AuthGuard>
-            <Shell>
-              <PageWrapper><OrderHistoryPage /></PageWrapper>
-            </Shell>
-          </AuthGuard>
-        } />
-        
-        <Route path="/settings" element={
-          <AuthGuard requiredRole="ADMIN">
-            <Shell>
-              <PageWrapper><SettingsPage /></PageWrapper>
-            </Shell>
-          </AuthGuard>
-        } />
-
-        <Route path="/staff" element={
-          <AuthGuard requiredRole="ADMIN">
-            <Shell>
-              <PageWrapper><StaffPage /></PageWrapper>
-            </Shell>
-          </AuthGuard>
-        } />
+        <Route path="/" element={page(<Dashboard />, 'ADMIN')} />
+        <Route path="/billing" element={page(<BillingPage />)} />
+        <Route path="/orders" element={page(<OrderHistoryPage />)} />
+        <Route path="/customers" element={page(<CustomersPage />)} />
+        <Route path="/inventory" element={page(<InventoryPage />)} />
+        <Route path="/purchases" element={page(<PurchasesPage />, 'ADMIN')} />
+        <Route path="/suppliers" element={page(<SuppliersPage />, 'ADMIN')} />
+        <Route path="/reports" element={page(<ReportsPage />, 'ADMIN')} />
+        <Route path="/settings" element={page(<SettingsPage />, 'ADMIN')} />
+        <Route path="/staff" element={page(<StaffPage />, 'ADMIN')} />
       </Routes>
     </AnimatePresence>
   )
 }
 
-
-function App() {
+export default function App() {
+  // The single-file demo build keeps routes in memory: it runs inside a frame at a fixed URL.
+  if (import.meta.env.VITE_ROUTER === 'memory') {
+    return (
+      <MemoryRouter initialEntries={['/login']}>
+        <AppContent />
+      </MemoryRouter>
+    )
+  }
   return (
     <BrowserRouter>
       <AppContent />
     </BrowserRouter>
   )
 }
-
-export default App

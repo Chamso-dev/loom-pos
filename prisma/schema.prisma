@@ -7,72 +7,238 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Amounts are Algerian dinars (DZD) with up to 2 decimals.
+// Selling prices are tax-included (TTC), as on Algerian shelf labels.
+
 model Order {
   id             String      @id @default(cuid())
-
   invoiceNo      String      @unique
   date           DateTime    @default(now())
+  /// Sum of line totals before discount.
+  subtotal       Float       @default(0)
+  discountAmount Float       @default(0)
+  /// What the customer owes for the sale (subtotal - discount).
   totalAmount    Float
-  gstAmount      Float
+  /// TVA contained in totalAmount.
+  taxAmount      Float       @default(0)
+  /// Money collected at the till, change excluded.
+  amountPaid     Float       @default(0)
+  /// Cash tendered beyond the amount due, handed back.
+  changeGiven    Float       @default(0)
+  /// Part of the sale still owed on the customer's credit account.
+  balanceDue     Float       @default(0)
+  refundedAmount Float       @default(0)
+  /// PAID, CREDIT (balance still owed), PARTIALLY_REFUNDED or REFUNDED.
+  status         String      @default("PAID")
+  /// Main payment method, or SPLIT when several were used. Details live in Payment.
   paymentMethod  String
+  customerId     String?
+  customer       Customer?   @relation(fields: [customerId], references: [id])
   customerName   String?
   customerMobile String?
   userId         String?
   processedBy    User?       @relation(fields: [userId], references: [id])
   items          OrderItem[]
+  payments       Payment[]
+  refunds        Refund[]
 
+  @@index([date])
+  @@index([customerId])
 }
 
 model OrderItem {
-  id        String  @id @default(cuid())
-
-  orderId   String
-  productId String
-  quantity  Int
-  price     Float
-  product   Product @relation(fields: [productId], references: [id])
-  order     Order   @relation(fields: [orderId], references: [id])
+  id               String       @id @default(cuid())
+  orderId          String
+  productId        String
+  /// Decimal for products sold by weight or volume (1.5 kg).
+  quantity         Float
+  unit             String       @default("piece")
+  /// Tax-included unit price at the time of sale.
+  price            Float
+  /// Unit cost at the time of sale, for profit.
+  costPrice        Float        @default(0)
+  taxRate          Float        @default(0)
+  refundedQuantity Float        @default(0)
+  product          Product      @relation(fields: [productId], references: [id])
+  order            Order        @relation(fields: [orderId], references: [id])
+  refundItems      RefundItem[]
 }
 
+model Payment {
+  id         String    @id @default(cuid())
+  /// SALE for money taken with a sale, REPAYMENT for credit paid back later.
+  kind       String    @default("SALE")
+  method     String
+  amount     Float
+  /// Cash handed over when it exceeded the amount.
+  tendered   Float?
+  reference  String?
+  orderId    String?
+  order      Order?    @relation(fields: [orderId], references: [id])
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  userId     String?
+  createdAt  DateTime  @default(now())
 
+  @@index([createdAt])
+  @@index([orderId])
+}
 
+model Customer {
+  id          String    @id @default(cuid())
+  name        String
+  phone       String?   @unique
+  address     String?
+  /// Optional ceiling for the amount a customer may owe.
+  creditLimit Float?
+  /// What the customer currently owes the shop.
+  balance     Float     @default(0)
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  orders      Order[]
+  payments    Payment[]
+}
+
+model Refund {
+  id        String       @id @default(cuid())
+  refundNo  String       @unique
+  orderId   String
+  order     Order        @relation(fields: [orderId], references: [id])
+  amount    Float
+  /// Part of the refund that cancelled credit still owed on the sale.
+  toCredit  Float        @default(0)
+  /// Part handed back to the customer.
+  paidOut   Float        @default(0)
+  method    String
+  reason    String?
+  restock   Boolean      @default(true)
+  userId    String?
+  createdAt DateTime     @default(now())
+  items     RefundItem[]
+
+  @@index([createdAt])
+}
+
+model RefundItem {
+  id          String    @id @default(cuid())
+  refundId    String
+  refund      Refund    @relation(fields: [refundId], references: [id])
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id])
+  quantity    Float
+  amount      Float
+}
 
 model Product {
-  id           String      @id @default(cuid())
-
-  name         String
-  sku          String      @unique
-  barcode      String      @unique
-  category     String
-  size         String?
-  color        String?
-  costPrice    Float
-  sellingPrice Float
-  gst          Float       @default(0)
-  stock        Int         @default(0)
-  supplier     String?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @default(now()) @updatedAt
-  items        OrderItem[]
-
+  id            String         @id @default(cuid())
+  name          String
+  sku           String         @unique
+  barcode       String         @unique
+  category      String
+  /// piece, kg, g, l, ml or box.
+  unit          String         @default("piece")
+  size          String?
+  color         String?
+  costPrice     Float
+  /// Tax-included (TTC) price per unit.
+  sellingPrice  Float
+  /// TVA rate included in sellingPrice: 0, 9 or 19.
+  taxRate       Float          @default(0)
+  stock         Float          @default(0)
+  supplier      String?
+  supplierId    String?
+  supplierRef   Supplier?      @relation(fields: [supplierId], references: [id])
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @default(now()) @updatedAt
+  items         OrderItem[]
+  purchaseItems PurchaseItem[]
 }
 
+model Supplier {
+  id        String            @id @default(cuid())
+  name      String
+  phone     String?
+  address   String?
+  /// What the shop currently owes this supplier.
+  balance   Float             @default(0)
+  notes     String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @default(now()) @updatedAt
+  products  Product[]
+  purchases Purchase[]
+  payments  SupplierPayment[]
+}
+
+model Purchase {
+  id          String            @id @default(cuid())
+  purchaseNo  String            @unique
+  supplierId  String?
+  supplier    Supplier?         @relation(fields: [supplierId], references: [id])
+  /// Supplier's own invoice or delivery note number.
+  reference   String?
+  date        DateTime          @default(now())
+  totalAmount Float
+  amountPaid  Float             @default(0)
+  balanceDue  Float             @default(0)
+  userId      String?
+  items       PurchaseItem[]
+  payments    SupplierPayment[]
+
+  @@index([date])
+}
+
+model PurchaseItem {
+  id         String   @id @default(cuid())
+  purchaseId String
+  purchase   Purchase @relation(fields: [purchaseId], references: [id])
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  quantity   Float
+  unitCost   Float
+}
+
+model SupplierPayment {
+  id         String    @id @default(cuid())
+  /// Empty for goods bought and paid on the spot without a supplier account.
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
+  purchaseId String?
+  purchase   Purchase? @relation(fields: [purchaseId], references: [id])
+  method     String
+  amount     Float
+  reference  String?
+  userId     String?
+  createdAt  DateTime  @default(now())
+}
 
 model StoreSettings {
-  id              String   @id @default(cuid())
-
-  name            String   @default("LOOMPOS")
-  address         String   @default("123 Trend Avenue, Mumbai")
-  gstin           String   @default("27AAAAA0000A1Z5")
-  upiId           String   @default("store@upi")
-  phone           String   @default("+91 98765 43210")
-  cashierPassword String?
-  updatedAt       DateTime @default(now()) @updatedAt
+  id                   String   @id @default(cuid())
+  name                 String   @default("LoomPOS")
+  address              String   @default("")
+  phone                String   @default("")
+  /// Algerian business identifiers printed on receipts.
+  nif                  String   @default("")
+  rc                   String   @default("")
+  nis                  String   @default("")
+  articleNo            String   @default("")
+  currency             String   @default("DZD")
+  /// Default interface and receipt language for new devices: ar or en.
+  language             String   @default("ar")
+  defaultPaymentMethod String   @default("CASH")
+  /// BaridiMob account (RIP) and bank account (RIB) shown when customers pay by transfer.
+  ripAccount           String   @default("")
+  ribAccount           String   @default("")
+  /// Thermal roll width in mm: 58 or 80.
+  receiptWidth         Int      @default(80)
+  receiptFooter        String   @default("")
+  receiptShowTax       Boolean  @default(true)
+  cashierPassword      String?
+  updatedAt            DateTime @default(now()) @updatedAt
 }
 
 model User {
   id         String   @id @default(cuid())
-
   employeeId String   @unique
   name       String
   role       String   @default("CASHIER")
@@ -83,5 +249,3 @@ model User {
   updatedAt  DateTime @default(now()) @updatedAt
   orders     Order[]
 }
-
-

@@ -1,17 +1,14 @@
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { ReactNode } from 'react'
 
-interface PageWrapperProps {
-  children: ReactNode
-}
-
-export default function PageWrapper({ children }: PageWrapperProps) {
+export default function PageWrapper({ children }: { children: ReactNode }) {
+  const reduce = useReducedMotion()
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={reduce ? false : { opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      exit={reduce ? undefined : { opacity: 0 }}
+      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
     >
       {children}
     </motion.div>
