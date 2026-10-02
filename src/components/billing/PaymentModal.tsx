@@ -173,9 +173,9 @@ export default function PaymentModal({ total, onClose }: { total: number; onClos
             const isCash = line.method === 'CASH'
             return (
               <li key={line.key} className="rounded-lg border border-border p-3 space-y-3">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <label className="sr-only" htmlFor={`method-${line.key}`}>{t('common.method')}</label>
-                  <div className="relative flex-1">
+                  <div className="relative flex-1 min-w-[9rem]">
                     <PaymentIcon method={line.method} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                     <select
                       id={`method-${line.key}`}
@@ -195,7 +195,7 @@ export default function PaymentModal({ total, onClose }: { total: number; onClos
                     onChange={(e) => update(line.key, { text: e.target.value })}
                     onFocus={(e) => e.currentTarget.select()}
                     aria-label={isCash ? t('billing.cashReceived') : t('billing.amountCharged')}
-                    className="w-40 h-10 text-base font-semibold"
+                    className="w-[8.5rem] sm:w-40 h-10 text-base font-semibold"
                   />
                   {lines.length > 1 && (
                     <button type="button" onClick={() => remove(line.key)} aria-label={t('billing.removePayment')} className="p-2 text-muted-foreground hover:text-destructive">

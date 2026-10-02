@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* Explicit so builds rooted elsewhere (the single-file demo in demo/) still find every class. */
+@source "../src";
 @import "@fontsource-variable/inter/standard.css";
 @import "@fontsource-variable/noto-sans-arabic/standard.css";
 

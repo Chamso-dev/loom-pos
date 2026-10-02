@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Bell, Search, User, Package, Receipt, Loader2, X, Sun, Moon, Settings } from 'lucide-react'
+import { Bell, Search, User, Package, Receipt, Loader2, X, Sun, Moon, Settings, Menu } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '@/store/useStore'
 import { useGlobalSearch, type SearchResult } from '@/hooks/useGlobalSearch'
@@ -11,7 +11,7 @@ export default function Header() {
   const [isOpen, setIsOpen] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
-  const { lowStockProducts, user, logout, setTheme, theme } = useStore()
+  const { lowStockProducts, user, logout, setTheme, theme, setMobileNavOpen } = useStore()
   const { t, qty, money, code } = useI18n()
 
   const { query, setQuery, results, isLoading } = useGlobalSearch()
@@ -61,8 +61,16 @@ export default function Header() {
   const orderHits = results.filter((r): r is Extract<SearchResult, { type: 'order' }> => r.type === 'order')
 
   return (
-    <header className="h-16 flex items-center justify-between gap-4 px-6 bg-card border-b border-border sticky top-0 z-40 font-sans print:hidden">
-      <div className="flex-1 flex items-center max-w-xl relative">
+    <header className="h-16 flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-6 bg-card border-b border-border sticky top-0 z-30 font-sans print:hidden">
+      <button
+        type="button"
+        onClick={() => setMobileNavOpen(true)}
+        aria-label={t('nav.expand')}
+        className="md:hidden shrink-0 p-2 -ms-1 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+      >
+        <Menu size={20} />
+      </button>
+      <div className="flex-1 min-w-0 flex items-center max-w-xl relative">
         <div className="relative w-full group">
           <Search
             className={cn(
@@ -168,7 +176,7 @@ export default function Header() {
         )}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1 sm:gap-3 shrink-0">
         <LanguageSwitcher compact />
 
         <div className="relative" ref={notificationsRef}>
@@ -188,7 +196,7 @@ export default function Header() {
           </button>
 
           {showNotifications && (
-            <div className="absolute top-12 end-0 w-80 bg-card border border-border shadow-lg rounded-md overflow-hidden z-50">
+            <div className="absolute top-12 end-0 w-[min(20rem,calc(100vw-1.5rem))] bg-card border border-border shadow-lg rounded-md overflow-hidden z-50">
               <div className="p-3 border-b border-border bg-accent/15 flex items-center justify-between">
                 <h3 className="text-sm font-semibold">{t('layout.restockTitle')}</h3>
                 {lowStockProducts.length > 0 && (
@@ -253,7 +261,7 @@ export default function Header() {
               showProfileMenu && 'bg-accent'
             )}
           >
-            <div className="w-7 h-7 rounded bg-secondary flex items-center justify-center text-foreground border border-border">
+            <div className="hidden sm:flex w-7 h-7 rounded bg-secondary items-center justify-center text-foreground border border-border">
               <User size={14} />
             </div>
             {user && (

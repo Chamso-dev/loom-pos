@@ -16,9 +16,9 @@ export type { Lang } from './define'
 export type TKey = MessageKey<Messages>
 export type TVars = Record<string, string | number | null | undefined>
 
-export const LANGUAGES: Array<{ code: Lang; label: string; dir: 'rtl' | 'ltr' }> = [
-  { code: 'ar', label: 'العربية', dir: 'rtl' },
-  { code: 'en', label: 'English', dir: 'ltr' },
+export const LANGUAGES: Array<{ code: Lang; label: string; short: string; dir: 'rtl' | 'ltr' }> = [
+  { code: 'ar', label: 'العربية', short: 'ع', dir: 'rtl' },
+  { code: 'en', label: 'English', short: 'EN', dir: 'ltr' },
 ]
 
 export const dirOf = (lang: Lang) => (lang === 'ar' ? 'rtl' : 'ltr')

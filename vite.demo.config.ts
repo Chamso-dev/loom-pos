@@ -24,5 +24,11 @@ export default defineConfig({
     emptyOutDir: true,
     assetsInlineLimit: 100_000_000,
     chunkSizeWarningLimit: 5_000,
+    // A classic script with 2018-level syntax runs in older phone browsers and in
+    // embedded viewers that do not run module scripts. demo/finalize.mjs places it.
+    target: 'es2018',
+    modulePreload: false,
+    cssCodeSplit: false,
+    rollupOptions: { output: { format: 'iife' } },
   },
 })

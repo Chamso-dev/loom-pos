@@ -118,7 +118,7 @@ export default function OrderHistoryPage() {
               e.preventDefault()
               fetchOrders(1)
             }}
-            className="relative"
+            className="relative flex-1 sm:flex-none"
           >
             <Search className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <input
@@ -127,7 +127,7 @@ export default function OrderHistoryPage() {
               aria-label={t('orders.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="bg-background w-72 h-10 ps-9 pe-3 rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm"
+              className="bg-background w-full sm:w-72 h-10 ps-9 pe-3 rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm"
             />
           </form>
           <div className="relative">
@@ -136,7 +136,7 @@ export default function OrderHistoryPage() {
               {filtersActive && <span className="w-1.5 h-1.5 bg-primary rounded-full" />}
             </Button>
             {showFilters && (
-              <div className="absolute top-12 end-0 w-[380px] bg-card border border-border shadow-lg rounded-lg p-5 z-50 space-y-5">
+              <div className="absolute top-12 end-0 w-[min(380px,calc(100vw-1.5rem))] bg-card border border-border shadow-lg rounded-lg p-4 sm:p-5 z-50 space-y-5">
                 <div className="space-y-2">
                   <span className="text-xs font-semibold text-muted-foreground">{t('orders.quickDates')}</span>
                   <div className="grid grid-cols-3 gap-2">
@@ -225,7 +225,7 @@ export default function OrderHistoryPage() {
         </div>
       </div>
 
-      <div className="bg-card rounded-lg border border-border overflow-x-auto">
+      <div className="relative bg-card rounded-lg border border-border overflow-x-auto">
         <table className="w-full text-start text-sm">
           <thead>
             <tr className="border-b border-border bg-accent/20 text-xs text-muted-foreground">

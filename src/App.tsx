@@ -16,6 +16,7 @@ import PurchasesPage from './components/suppliers/PurchasesPage'
 import ReportsPage from './components/reports/ReportsPage'
 import LoginPage from './components/auth/LoginPage'
 import AuthGuard from './components/auth/AuthGuard'
+import ErrorBoundary from './components/ErrorBoundary'
 import { useStore } from './store/useStore'
 import { applyDocumentLanguage } from './i18n'
 
@@ -79,14 +80,18 @@ export default function App() {
   // The single-file demo build keeps routes in memory: it runs inside a frame at a fixed URL.
   if (import.meta.env.VITE_ROUTER === 'memory') {
     return (
-      <MemoryRouter initialEntries={['/login']}>
-        <AppContent />
-      </MemoryRouter>
+      <ErrorBoundary>
+        <MemoryRouter initialEntries={['/login']}>
+          <AppContent />
+        </MemoryRouter>
+      </ErrorBoundary>
     )
   }
   return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }

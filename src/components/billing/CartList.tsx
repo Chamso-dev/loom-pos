@@ -62,7 +62,7 @@ export default function CartList() {
 
   if (cart.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground bg-accent/10 rounded-xl border-2 border-dashed border-border/60 p-12">
+      <div className="lg:h-full flex flex-col items-center justify-center text-center text-muted-foreground bg-accent/10 rounded-xl border-2 border-dashed border-border/60 p-8 sm:p-12">
         <ShoppingBag size={56} className="mb-4 opacity-20" />
         <h3 className="text-lg font-semibold text-foreground/70">{t('billing.emptyTitle')}</h3>
         <p className="text-sm mt-1">{t('billing.emptyHint')}</p>
@@ -71,7 +71,7 @@ export default function CartList() {
   }
 
   return (
-    <ul className="flex flex-col gap-2 overflow-y-auto pe-1 custom-scrollbar font-sans">
+    <ul className="flex flex-col gap-2 lg:overflow-y-auto pe-1 custom-scrollbar font-sans">
       {cart.map((item) => (
         <li key={item.id} className="group flex flex-wrap sm:flex-nowrap items-center gap-3 p-3 bg-card border border-border rounded-md">
           <div className="flex-1 min-w-[10rem]">

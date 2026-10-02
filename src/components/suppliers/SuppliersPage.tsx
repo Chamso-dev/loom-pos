@@ -232,7 +232,7 @@ export default function SuppliersPage() {
         </div>
         <Button className="ms-auto gap-1.5" onClick={() => setEditing(null)}><Plus size={16} /> {t('suppliers.addSupplier')}</Button>
       </div>
-      <div className="bg-card rounded-lg border border-border overflow-x-auto">
+      <div className="relative bg-card rounded-lg border border-border overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-secondary/40 text-xs text-muted-foreground border-b border-border">
             <tr>

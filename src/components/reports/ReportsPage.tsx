@@ -254,7 +254,7 @@ export default function ReportsPage() {
             ))}
           </section>
 
-          <section className="rounded-lg border border-border bg-card overflow-x-auto">
+          <section className="relative rounded-lg border border-border bg-card overflow-x-auto">
             <h2 className="font-semibold p-4 pb-0">{t('reports.breakdown')}</h2>
             {report.rows.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">{t('reports.empty')}</p>

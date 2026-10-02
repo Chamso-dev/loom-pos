@@ -12,7 +12,7 @@
     "postinstall": "prisma generate",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc -p tsconfig.server.json",
-    "build:demo": "vite build --config vite.demo.config.ts"
+    "build:demo": "vite build --config vite.demo.config.ts && node demo/finalize.mjs"
   },
   "prisma": {
     "seed": "tsx scripts/seed.ts"

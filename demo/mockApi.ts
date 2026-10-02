@@ -731,13 +731,16 @@ export function installMockApi() {
   seedData()
   const realFetch = window.fetch.bind(window)
   window.fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
-    const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, window.location.href)
-    if (!url.pathname.startsWith('/api/')) return realFetch(input, init)
+    // Parsed by hand: inside a sandboxed frame the page address is about:srcdoc,
+    // which cannot serve as a base for new URL('/api/...').
+    const raw = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    const match = raw.match(/^(?:[a-z]+:\/\/[^/]+)?\/api\/([^?#]*)(?:\?([^#]*))?/i)
+    if (!match) return realFetch(input, init)
     await new Promise((r) => setTimeout(r, 40 + Math.random() * 80))
     const headers = new Headers(init.headers)
     const body = init.body ? JSON.parse(String(init.body)) : {}
     try {
-      const [status, data] = await route((init.method ?? 'GET').toUpperCase(), url.pathname.slice(5), url.searchParams, body, headers)
+      const [status, data] = await route((init.method ?? 'GET').toUpperCase(), match[1], new URLSearchParams(match[2] ?? ''), body, headers)
       return status === 204 ? new Response(null, { status }) : new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } })
     } catch (error) {
       const e = error instanceof HttpError ? error : new HttpError(500, 'SERVER_ERROR')

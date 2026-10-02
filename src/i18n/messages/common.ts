@@ -57,6 +57,9 @@ export const common = defineMessages({
     searchPlaceholder: 'Search…',
     required: 'Required',
     language: 'Language',
+    crashTitle: 'LoomPOS stopped working',
+    crashHint: 'Reload the page to continue. Sales already saved are kept.',
+    reload: 'Reload',
   },
   ar: {
     appName: 'LoomPOS',
@@ -114,6 +117,9 @@ export const common = defineMessages({
     searchPlaceholder: 'بحث…',
     required: 'مطلوب',
     language: 'اللغة',
+    crashTitle: 'توقف LoomPOS عن العمل',
+    crashHint: 'أعد تحميل الصفحة للمتابعة. المبيعات المحفوظة لا تضيع.',
+    reload: 'إعادة التحميل',
   },
 })
 

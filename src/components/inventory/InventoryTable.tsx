@@ -38,7 +38,7 @@ export default function InventoryTable({ products, loading, searching, onEdit, o
   const allSelected = selectedIds.length === products.length
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-card">
+    <div className="relative overflow-x-auto rounded-lg border border-border bg-card">
       <table className="w-full text-start text-sm">
         <thead className="bg-secondary/40 text-muted-foreground border-b border-border text-xs">
           <tr>

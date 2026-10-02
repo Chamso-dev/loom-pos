@@ -38,13 +38,13 @@ export default function BillingSummary() {
 
   return (
     <>
-      <section className="h-full flex flex-col border border-border bg-card rounded-md overflow-hidden font-sans">
+      <section className="lg:h-full flex flex-col border border-border bg-card rounded-md lg:overflow-hidden font-sans">
         <header className="flex items-center gap-2 border-b border-border px-4 py-3 shrink-0">
           <Receipt size={16} className="text-muted-foreground" />
           <h2 className="text-sm font-semibold">{t('billing.summary')}</h2>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-5 custom-scrollbar">
+        <div className="flex-1 lg:overflow-y-auto p-4 space-y-5 custom-scrollbar">
           <div className="space-y-2">
             <span className="text-xs font-semibold text-muted-foreground">{t('billing.customer')}</span>
             {cartCustomer ? (
@@ -157,9 +157,10 @@ export default function BillingSummary() {
           </dl>
         </div>
 
-        <footer className="p-4 border-t border-border shrink-0 bg-secondary/30">
-          <Button size="lg" disabled={cart.length === 0} onClick={() => setShowPayment(true)} className="w-full h-12 text-base font-semibold">
+        <footer className="p-3 sm:p-4 border-t border-border shrink-0 bg-card max-lg:sticky max-lg:bottom-0 max-lg:rounded-b-md max-lg:shadow-[0_-6px_16px_-10px_rgb(0_0_0/0.35)] max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <Button size="lg" disabled={cart.length === 0} onClick={() => setShowPayment(true)} className="w-full h-12 text-base font-semibold gap-3">
             {t('billing.takePayment')}
+            {cart.length > 0 && <span className="lg:hidden tabular-nums">{money(totals.total)}</span>}
           </Button>
         </footer>
       </section>

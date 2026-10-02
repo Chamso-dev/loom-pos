@@ -89,10 +89,12 @@ interface AppState {
   languageChosen: boolean
   setLanguage: (lang: Lang) => void
 
-  // Sidebar
+  // Sidebar: collapsed or expanded on desktop, a slide-in menu on phones
   isSidebarOpen: boolean
   toggleSidebar: () => void
   setSidebarOpen: (isOpen: boolean) => void
+  isMobileNavOpen: boolean
+  setMobileNavOpen: (isOpen: boolean) => void
 
   // Auth
   token: string | null
@@ -166,6 +168,8 @@ export const useStore = create<AppState>()(
       isSidebarOpen: true,
       toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
       setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
+      isMobileNavOpen: false,
+      setMobileNavOpen: (isOpen) => set({ isMobileNavOpen: isOpen }),
 
       // Auth
       token: null,

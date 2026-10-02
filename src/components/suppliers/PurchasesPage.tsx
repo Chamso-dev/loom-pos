@@ -246,7 +246,7 @@ export default function PurchasesPage() {
         <Button className="gap-1.5" onClick={() => setCreating(true)}><Plus size={16} /> {t('purchases.newPurchase')}</Button>
       </div>
       {notice && <p className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-800 dark:text-emerald-300">{notice}</p>}
-      <div className="bg-card rounded-lg border border-border overflow-x-auto">
+      <div className="relative bg-card rounded-lg border border-border overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-secondary/40 text-xs text-muted-foreground border-b border-border">
             <tr>

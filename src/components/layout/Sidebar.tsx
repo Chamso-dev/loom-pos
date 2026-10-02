@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 import { useStore } from '@/store/useStore'
 import { useI18n, type TKey } from '@/i18n'
 import ThemeToggle from './ThemeToggle'
+import { useIsPhone } from '@/hooks/useMediaQuery'
 import Logo from '../ui/logo'
 
 const NAV_ITEMS: Array<{ icon: typeof Package; label: TKey; href: string; adminOnly?: boolean }> = [
@@ -35,9 +36,12 @@ const NAV_ITEMS: Array<{ icon: typeof Package; label: TKey; href: string; adminO
 
 export default function Sidebar() {
   const location = useLocation()
-  const { isSidebarOpen, toggleSidebar, settings, user, logout } = useStore()
+  const { isSidebarOpen: desktopOpen, toggleSidebar, settings, user, logout, isMobileNavOpen, setMobileNavOpen } = useStore()
   const navigate = useNavigate()
   const { t } = useI18n()
+  const isPhone = useIsPhone()
+  // On a phone the menu is always shown in full; it slides in and out instead of collapsing.
+  const isSidebarOpen = isPhone || desktopOpen
 
   const items = NAV_ITEMS.filter((item) => user && (user.role === 'ADMIN' || !item.adminOnly))
   const storeName = settings?.name || t('common.appName')
@@ -45,10 +49,18 @@ export default function Sidebar() {
   const CollapseIcon = isSidebarOpen ? ChevronLeft : ChevronRight
 
   return (
+    <>
+    {isPhone && isMobileNavOpen && (
+      <div className="fixed inset-0 z-40 bg-black/40" aria-hidden="true" onClick={() => setMobileNavOpen(false)} />
+    )}
     <aside
+      aria-hidden={isPhone && !isMobileNavOpen ? true : undefined}
+      // A closed phone menu cannot be reached by keyboard (React 18 needs inert as a string).
+      {...(isPhone && !isMobileNavOpen ? ({ inert: '' } as Record<string, string>) : {})}
       className={cn(
-        'fixed start-0 top-0 h-screen bg-card border-e border-border transition-all duration-200 z-50 print:hidden',
-        isSidebarOpen ? 'w-64' : 'w-20'
+        'fixed start-0 top-0 h-[100dvh] bg-card border-e border-border transition-all duration-200 z-50 print:hidden',
+        isSidebarOpen ? 'w-64' : 'w-20',
+        isPhone && !isMobileNavOpen && 'ltr:-translate-x-full rtl:translate-x-full'
       )}
     >
       <div className="flex flex-col h-full font-sans">
@@ -59,7 +71,7 @@ export default function Sidebar() {
             <Logo title={t('common.appName')} className="w-6 h-6 rounded shrink-0" />
           )}
           <button
-            onClick={toggleSidebar}
+            onClick={() => (isPhone ? setMobileNavOpen(false) : toggleSidebar())}
             aria-label={isSidebarOpen ? t('nav.collapse') : t('nav.expand')}
             className="p-1.5 hover:bg-accent rounded-md transition-colors"
           >
@@ -123,5 +135,6 @@ export default function Sidebar() {
         </div>
       </div>
     </aside>
+    </>
   )
 }

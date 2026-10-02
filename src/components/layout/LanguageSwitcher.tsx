@@ -27,7 +27,14 @@ export default function LanguageSwitcher({ compact = false }: { compact?: boolea
             lang === l.code ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
           )}
         >
-          {l.label}
+          {compact ? (
+            <>
+              <span className="sm:hidden" aria-hidden="true">{l.short}</span>
+              <span className="max-sm:sr-only">{l.label}</span>
+            </>
+          ) : (
+            l.label
+          )}
         </button>
       ))}
     </div>

@@ -27,7 +27,7 @@ export default function BillingPage() {
   }, [fetchProducts])
 
   return (
-    <div className="h-[calc(100vh-6.5rem)] flex flex-col gap-5 font-sans">
+    <div className="lg:h-[calc(100vh-6.5rem)] flex flex-col gap-4 sm:gap-5 font-sans">
       <div className="flex flex-wrap items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded bg-secondary flex items-center justify-center text-foreground border border-border">
@@ -46,12 +46,12 @@ export default function BillingPage() {
         </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0 overflow-hidden">
-        <div className="lg:col-span-2 flex flex-col gap-4 min-h-0">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 min-h-0 lg:overflow-hidden">
+        <div className="lg:col-span-2 flex flex-col gap-4 lg:min-h-0">
           <div className="shrink-0">
             <ScannerInput />
           </div>
-          <div className="flex-1 min-h-0 flex flex-col gap-2">
+          <div className="flex-1 lg:min-h-0 flex flex-col gap-2">
             <div className="flex items-center justify-between px-1">
               <h2 className="text-sm font-semibold text-muted-foreground">
                 {t('billing.basket')}
@@ -70,7 +70,7 @@ export default function BillingPage() {
             <CartList />
           </div>
         </div>
-        <div className="lg:col-span-1 flex flex-col min-h-0">
+        <div className="lg:col-span-1 flex flex-col lg:min-h-0">
           <BillingSummary />
         </div>
       </div>
