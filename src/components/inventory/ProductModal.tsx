@@ -6,6 +6,7 @@ import { DecimalInput, ErrorNote, Field, SelectInput, TextInput } from '@/compon
 import { useStore, type Product, type ProductInput } from '@/store/useStore'
 import { useI18n } from '@/i18n'
 import { formatNumber, includedTax, parseDecimal, roundMoney, TAX_RATES, UNIT_CODES, unitRule, type UnitCode } from '@/lib/domain'
+import { cn, signTone } from '@/lib/utils'
 
 interface ProductModalProps {
   product?: Product | null
@@ -190,7 +191,7 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
         </Field>
 
         {margin !== null && (
-          <p className="md:col-span-2 text-sm text-muted-foreground">
+          <p className={cn('md:col-span-2 text-sm', signTone(margin) ?? 'text-muted-foreground')}>
             {t('inventory.marginPreview', { unit: unitShort, amount: money(margin), percent: netPrice > 0 ? percent((margin / netPrice) * 100) : '' })}
           </p>
         )}

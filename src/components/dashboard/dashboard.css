@@ -1,22 +1,24 @@
 /*
   Dashboard styles. Everything is scoped under .loom-dash so the rest of the app keeps its look.
-  Palette: indigo dye in several dips for payment methods, turmeric for credit and low stock, madder for sold out.
+  Palette: blue in several shades for payment methods, turmeric for credit and low stock,
+  green for gains and red for losses and sold-out stock.
 */
 
 .loom-dash {
-  --ld-ink: #1c2347;
-  --ld-ink-soft: #565d7e;
-  --ld-indigo: #2f44a8;
-  --ld-indigo-mid: #7d8bd3;
-  --ld-indigo-pale: #c3caee;
-  --ld-thread: #c9cddb;
-  --ld-panel: #f3f4f9;
+  --ld-ink: #15233a;
+  --ld-ink-soft: #53627a;
+  --ld-blue: #1a5fd0;
+  --ld-blue-mid: #6b9ce8;
+  --ld-blue-pale: #c2d7f7;
+  --ld-thread: #c7d0dd;
+  --ld-panel: #f1f5fa;
   --ld-turmeric: #e3a72f;
   --ld-turmeric-ink: #8a5d00;
-  --ld-madder: #b3372e;
-  --ld-on-indigo: #ffffff;
+  --ld-madder: #c0362c;
+  --ld-gain: #15803d;
+  --ld-on-blue: #ffffff;
   --ld-teal: #2f8f8a;
-  --ld-slate: #8b93a8;
+  --ld-slate: #8b96a8;
 
   font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
@@ -29,19 +31,20 @@
 }
 
 .dark .loom-dash {
-  --ld-ink: #e4e7f4;
-  --ld-ink-soft: #a0a6c2;
-  --ld-indigo: #93a3f5;
-  --ld-indigo-mid: #5b69b8;
-  --ld-indigo-pale: #343e73;
-  --ld-thread: #3a3f55;
-  --ld-panel: #161a2c;
+  --ld-ink: #e3e9f2;
+  --ld-ink-soft: #9aa8bc;
+  --ld-blue: #5ea1ff;
+  --ld-blue-mid: #3770cc;
+  --ld-blue-pale: #1f3a66;
+  --ld-thread: #334055;
+  --ld-panel: #121a27;
   --ld-turmeric: #e9b949;
   --ld-turmeric-ink: #f0c869;
-  --ld-madder: #ec8177;
-  --ld-on-indigo: #10142b;
+  --ld-madder: #f0857a;
+  --ld-gain: #4fd18b;
+  --ld-on-blue: #071428;
   --ld-teal: #5cc4bd;
-  --ld-slate: #6b7389;
+  --ld-slate: #6b778b;
 }
 
 /* Hero: the day's figure and how it compares */
@@ -100,11 +103,11 @@
 
 .ld-compare-gap {
   font-weight: 650;
-  color: var(--ld-indigo);
+  color: var(--ld-gain);
 }
 
 .ld-compare-gap.is-behind {
-  color: var(--ld-ink);
+  color: var(--ld-madder);
 }
 
 .ld-facts {
@@ -128,6 +131,16 @@
   color: var(--ld-turmeric-ink);
 }
 
+.ld-fact-gain dd,
+.ld-gain {
+  color: var(--ld-gain);
+}
+
+.ld-fact-loss dd,
+.ld-loss {
+  color: var(--ld-madder);
+}
+
 .ld-fact dd {
   margin: 0;
   font-family: var(--font-display);
@@ -146,8 +159,8 @@
   padding: 0 20px;
   border-radius: 999px;
   border: 0;
-  background: var(--ld-indigo);
-  color: var(--ld-on-indigo);
+  background: var(--ld-blue);
+  color: var(--ld-on-blue);
   font: inherit;
   font-size: 1rem;
   font-weight: 600;
@@ -160,12 +173,12 @@
 
 .ld-button-quiet {
   background: transparent;
-  color: var(--ld-indigo);
-  box-shadow: inset 0 0 0 1.5px var(--ld-indigo);
+  color: var(--ld-blue);
+  box-shadow: inset 0 0 0 1.5px var(--ld-blue);
 }
 
 .ld-link {
-  color: var(--ld-indigo);
+  color: var(--ld-blue);
   font-weight: 600;
   text-decoration: underline;
   text-decoration-thickness: 1px;
@@ -177,7 +190,7 @@
 }
 
 .loom-dash :focus-visible {
-  outline: 2px solid var(--ld-indigo);
+  outline: 2px solid var(--ld-blue);
   outline-offset: 3px;
   border-radius: 4px;
 }
@@ -195,7 +208,7 @@
 
 .ld-thread-today {
   fill: none;
-  stroke: var(--ld-indigo);
+  stroke: var(--ld-blue);
   stroke-width: 4;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -222,7 +235,7 @@
 }
 
 .ld-thread-knot {
-  fill: var(--ld-indigo);
+  fill: var(--ld-blue);
   stroke: var(--color-background);
   stroke-width: 3;
   paint-order: stroke;
@@ -259,7 +272,7 @@
 .ld-swatch-line {
   width: 24px;
   height: 0;
-  border-top: 4px solid var(--ld-indigo);
+  border-top: 4px solid var(--ld-blue);
   border-radius: 2px;
 }
 
@@ -390,7 +403,7 @@
 }
 
 a.ld-item-name:hover {
-  color: var(--ld-indigo);
+  color: var(--ld-blue);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -462,9 +475,9 @@ a.ld-item-name:hover {
   vertical-align: 0;
 }
 
-.ld-dip-cash { background: var(--ld-indigo); }
-.ld-dip-cib { background: var(--ld-indigo-mid); }
-.ld-dip-edahabia { background: var(--ld-indigo-pale); }
+.ld-dip-cash { background: var(--ld-blue); }
+.ld-dip-cib { background: var(--ld-blue-mid); }
+.ld-dip-edahabia { background: var(--ld-blue-pale); }
 .ld-dip-baridimob { background: var(--ld-teal); }
 .ld-dip-transfer { background: var(--ld-slate); }
 .ld-dip-credit { background: var(--ld-turmeric); }
@@ -561,11 +574,11 @@ a.ld-item-name:hover {
   max-width: 36px;
   min-height: 3px;
   border-radius: 6px 6px 2px 2px;
-  background: var(--ld-indigo-pale);
+  background: var(--ld-blue-pale);
 }
 
 .ld-week-day.is-today .ld-week-bar {
-  background: var(--ld-indigo);
+  background: var(--ld-blue);
 }
 
 .ld-week-day.is-today .ld-week-amount,
@@ -698,8 +711,8 @@ a.ld-item-name:hover {
 .ld-dialog-total {
   margin: 0 0 4px;
   font-family: var(--font-display);
-  font-size: clamp(2.5rem, 8vw, 3.25rem);
-  line-height: 1;
+  font-size: clamp(1.625rem, 6.5vw, 2.375rem);
+  line-height: 1.05;
   font-weight: 800;
   letter-spacing: -0.035em;
 }

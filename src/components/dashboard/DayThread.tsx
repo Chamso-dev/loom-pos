@@ -58,7 +58,10 @@ export default function DayThread({ shape, comparedDays, now }: DayThreadProps) 
 
   const averageEndY = average.length ? average[average.length - 1][1] : 0
   const knotLabelY = knot ? knot[1] - 16 : 0
-  const averageLabelY = isClosed && Math.abs(knotLabelY - (averageEndY - 10)) < 22 ? averageEndY + 22 : averageEndY - 10
+  // Late in the day both labels sit near the right edge. When they would touch, lift the average
+  // label above today's label, or drop it under today's knot when there is no room above.
+  const labelsMeet = !!knot && knot[0] > width - 440 && Math.abs(knotLabelY - (averageEndY - 10)) < 22
+  const averageLabelY = !labelsMeet ? averageEndY - 10 : knotLabelY - 22 >= 12 ? knotLabelY - 22 : knot[1] + 28
 
   const description = hasAverage
     ? t('dashboard.threadDescription', { total: money(todayTotal), byNow: money(averageByNow), end: money(averageTotal) })

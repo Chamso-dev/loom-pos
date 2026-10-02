@@ -49,6 +49,10 @@
   --color-input: oklch(92% 0.003 260);
   --color-ring: oklch(40% 0.01 260);
 
+  /* Money that comes in (profit) and goes out (losses, refunds). */
+  --color-gain: oklch(52% 0.15 150); /* green-700 */
+  --color-loss: oklch(55% 0.21 27); /* red-600 */
+
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
 
@@ -94,6 +98,9 @@
     --color-border: oklch(22% 0.005 260); /* zinc-800 */
     --color-input: oklch(22% 0.005 260);
     --color-ring: oklch(85% 0.003 260);
+
+    --color-gain: oklch(78% 0.17 155);
+    --color-loss: oklch(72% 0.17 22);
   }
 
   *, ::after, ::before {

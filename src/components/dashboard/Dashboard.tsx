@@ -137,7 +137,7 @@ export default function Dashboard() {
               <dt>{t('dashboard.averageBill')}</dt>
               <dd>{money(averageBill)}</dd>
             </div>
-            <div className="ld-fact">
+            <div className={`ld-fact${summary.profit > 0 ? ' ld-fact-gain' : summary.profit < 0 ? ' ld-fact-loss' : ''}`}>
               <dt>{t('dashboard.profit')}</dt>
               <dd>{money(summary.profit)}</dd>
             </div>

@@ -83,7 +83,7 @@ export default function InventoryTable({ products, loading, searching, onEdit, o
                   <p className="text-xs text-muted-foreground">{t('inventory.cost', { amount: money(product.costPrice) })}</p>
                   {product.taxRate > 0 && <p className="text-xs text-muted-foreground">{t('inventory.taxRate', { rate: product.taxRate })}</p>}
                   {product.sellingPrice > 0 && product.taxRate === 0 && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className={cn('text-xs', product.sellingPrice < product.costPrice ? 'font-semibold text-loss' : 'text-muted-foreground')}>
                       {t('inventory.margin', { percent: percent(((product.sellingPrice - product.costPrice) / product.sellingPrice) * 100) })}
                     </p>
                   )}

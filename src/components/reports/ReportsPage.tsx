@@ -6,7 +6,7 @@ import { ErrorNote } from '@/components/ui/field'
 import { useI18n, type TKey } from '@/i18n'
 import { api } from '@/lib/api'
 import { localDate } from '../dashboard/dayMath'
-import { cn } from '@/lib/utils'
+import { cn, signTone } from '@/lib/utils'
 
 interface Row {
   period: string
@@ -190,7 +190,7 @@ export default function ReportsPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">{t('reports.profit')}</p>
-                  <p className={cn('font-display text-3xl font-bold tabular-nums', totals.profit < 0 && 'text-destructive')}>{money(totals.profit)}</p>
+                  <p className={cn('font-display text-3xl font-bold tabular-nums', signTone(totals.profit))}>{money(totals.profit)}</p>
                   <p className="text-xs text-muted-foreground">{t('reports.profitHint')}</p>
                 </div>
               </div>
@@ -207,7 +207,7 @@ export default function ReportsPage() {
                 ).map(([k, v]) => (
                   <div key={k} className="flex justify-between border-b border-border/60 py-1.5">
                     <dt className="text-muted-foreground">{t(k)}</dt>
-                    <dd className="tabular-nums font-medium">{money(v)}</dd>
+                    <dd className={cn('tabular-nums font-medium', k === 'reports.refunds' && v > 0 && 'text-loss')}>{money(v)}</dd>
                   </div>
                 ))}
               </dl>
@@ -280,11 +280,11 @@ export default function ReportsPage() {
                         <td className="px-4 py-2.5 whitespace-nowrap">{isTotal ? t('reports.totalRow') : periodLabel(r.period)}</td>
                         <td className="px-4 py-2.5 text-end tabular-nums">{i18n.number(r.orders)}</td>
                         <td className="px-4 py-2.5 text-end tabular-nums">{money(r.sales)}</td>
-                        <td className="px-4 py-2.5 text-end tabular-nums">{r.refunds ? money(r.refunds) : '–'}</td>
+                        <td className={cn('px-4 py-2.5 text-end tabular-nums', r.refunds > 0 && 'text-loss')}>{r.refunds ? money(r.refunds) : '–'}</td>
                         <td className="px-4 py-2.5 text-end tabular-nums">{money(r.net)}</td>
                         <td className="px-4 py-2.5 text-end tabular-nums">{money(r.tax)}</td>
                         <td className="px-4 py-2.5 text-end tabular-nums">{money(r.cost)}</td>
-                        <td className="px-4 py-2.5 text-end tabular-nums">{money(r.profit)}</td>
+                        <td className={cn('px-4 py-2.5 text-end tabular-nums', signTone(r.profit))}>{money(r.profit)}</td>
                       </tr>
                     )
                   })}

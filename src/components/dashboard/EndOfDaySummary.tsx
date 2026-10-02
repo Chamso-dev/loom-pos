@@ -82,7 +82,7 @@ export default function EndOfDaySummary({ summary, onClose }: { summary: DaySumm
           {summary.refunds > 0 && (
             <div className="ld-list-row">
               <dt className="ld-item-name">{t('dashboard.eodRefunds')}</dt>
-              <dd className="ld-item-value">−{money(summary.refunds)}</dd>
+              <dd className="ld-item-value ld-loss">−{money(summary.refunds)}</dd>
             </div>
           )}
           {summary.creditGiven > 0 && (
