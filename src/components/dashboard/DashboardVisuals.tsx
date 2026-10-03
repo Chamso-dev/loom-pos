@@ -14,13 +14,3 @@ export function useSize<T extends HTMLElement>() {
   }, [])
   return [ref, size.width, size.height] as const
 }
-
-/** A ratio against a whole: the fill carries the tone, the track is a light step of the same color. */
-export function Meter({ value, tone = 'blue', className }: { value: number; tone?: 'blue' | 'gain' | 'credit' | 'low' | 'out'; className?: string }) {
-  const pct = Math.max(0, Math.min(1, value)) * 100
-  return (
-    <span className={`ld-meter ld-meter-${tone}${className ? ` ${className}` : ''}`} aria-hidden="true">
-      <span style={{ width: `${pct}%` }} />
-    </span>
-  )
-}

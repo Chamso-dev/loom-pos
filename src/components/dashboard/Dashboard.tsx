@@ -1,17 +1,17 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { isToday } from 'date-fns'
 import './dashboard.css'
+import './overview.css'
 import { useStore } from '@/store/useStore'
 import { useI18n } from '@/i18n'
 import { api } from '@/lib/api'
-import { change, isRangeKey, RANGE_KEYS, unitRule, type Overview, type RangeKey } from '@/lib/domain'
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
-import { Meter } from './DashboardVisuals'
-import { ComparisonLine, HourBars, RankBars } from './OverviewCharts'
+import { change, expiryStatus, isRangeKey, RANGE_KEYS, type Overview, type RangeKey } from '@/lib/domain'
+import { ArrowDownRight, ArrowUpRight, CalendarDays, Check, ChevronDown, RefreshCw } from 'lucide-react'
+import { ChartLegend, ComparisonLine, HourBars, RankBars } from './OverviewCharts'
 import { MethodList } from '@/components/ui/badges'
-import ExpiryBadge from '@/components/inventory/ExpiryBadge'
 import EndOfDaySummary, { type DaySummary } from './EndOfDaySummary'
+import { hourLabel } from './dayMath'
 
 interface Bill {
   id: string
@@ -30,13 +30,6 @@ type Metric = 'sales' | 'orders' | 'averageSale' | 'profit'
 
 const REFRESH_MS = 2 * 60 * 1000
 const RANGE_STORAGE = 'loompos.dashboard.range'
-const DIP_CLASS: Record<string, string> = {
-  CASH: 'ld-dip-cash',
-  CIB: 'ld-dip-cib',
-  EDAHABIA: 'ld-dip-edahabia',
-  BARIDIMOB: 'ld-dip-baridimob',
-  TRANSFER: 'ld-dip-transfer',
-}
 
 /** The last period picked, if the browser lets us read it. */
 function savedRange(): RangeKey {
@@ -48,6 +41,11 @@ function savedRange(): RangeKey {
   }
 }
 
+/**
+ * The manager's overview, laid out like a commerce admin's analytics page: a period picker,
+ * one card with a tab per key figure and its chart against the previous period, then a grid
+ * of report cards.
+ */
 export default function Dashboard() {
   const navigate = useNavigate()
   const { lowStockProducts, expiringProducts, fetchLowStockAlerts } = useStore()
@@ -60,6 +58,7 @@ export default function Dashboard() {
   const [summary, setSummary] = useState<DaySummary | null>(null)
   const [bills, setBills] = useState<Bill[] | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading')
+  const [refreshing, setRefreshing] = useState(false)
   const [updatedAt, setUpdatedAt] = useState(() => new Date())
   const [showEOD, setShowEOD] = useState(false)
   // Only the newest request may update the page: a slow answer for an old period is dropped.
@@ -67,6 +66,7 @@ export default function Dashboard() {
 
   const load = useCallback(async (key: RangeKey) => {
     const ticket = ++latest.current
+    setRefreshing(true)
     const [o, s, b] = await Promise.allSettled([
       api<Overview>('/analytics/overview', { query: { range: key } }),
       api<DaySummary>('/analytics/summary'),
@@ -78,6 +78,7 @@ export default function Dashboard() {
     if (s.status === 'fulfilled') setSummary(s.value)
     if (b.status === 'fulfilled') setBills(b.value.orders)
     setUpdatedAt(new Date())
+    setRefreshing(false)
     setStatus((prev) => (o.status === 'fulfilled' || prev === 'ready' ? 'ready' : 'failed'))
   }, [fetchLowStockAlerts])
 
@@ -98,14 +99,12 @@ export default function Dashboard() {
 
   if (status === 'loading' && !overview) {
     return (
-      <div className="loom-dash" aria-busy="true" aria-label={t('dashboard.loadingLabel')}>
-        <div className="ld-skeleton" style={{ height: 44, maxWidth: 560 }} />
-        <div className="ld-kpis">
-          {[0, 1, 2, 3].map((i) => <div key={i} className="ld-skeleton" style={{ height: 150 }} />)}
-        </div>
-        <div className="ld-grid">
-          <div className="ld-skeleton ld-span-2" style={{ height: 360 }} />
-          <div className="ld-skeleton" style={{ height: 360 }} />
+      <div className="loom-dash sp" aria-busy="true" aria-label={t('dashboard.loadingLabel')}>
+        <div className="sp-skeleton" style={{ height: 28, width: 180 }} />
+        <div className="sp-skeleton" style={{ height: 32, width: 260 }} />
+        <div className="sp-skeleton" style={{ height: 420 }} />
+        <div className="sp-grid">
+          {[0, 1, 2].map((i) => <div key={i} className="sp-skeleton" style={{ height: 300 }} />)}
         </div>
       </div>
     )
@@ -113,10 +112,10 @@ export default function Dashboard() {
 
   if (status === 'failed' || !overview) {
     return (
-      <div className="loom-dash">
-        <div className="ld-alert" role="alert">
+      <div className="loom-dash sp">
+        <div className="sp-card sp-alert" role="alert">
           <p>{t('dashboard.ov.loadError')}</p>
-          <button className="ld-button" onClick={() => { setStatus('loading'); load(range) }}>
+          <button className="sp-btn" onClick={() => { setStatus('loading'); load(range) }}>
             {t('common.retry')}
           </button>
         </div>
@@ -127,19 +126,19 @@ export default function Dashboard() {
   const o = overview
   // While another period loads, the last one stays on screen, dimmed.
   const stale = o.range !== range
-  const compareTo = new Date(o.compareTo)
-  const compareCaption =
+  const from = new Date(o.from)
+  const lastCurrent = new Date(new Date(o.to).getTime() - 1)
+  const previousFrom = new Date(o.previousFrom)
+  const previousEnd = new Date(new Date(o.compareTo).getTime() - 1)
+  const singleDay = o.granularity === 'hour'
+  const span = (a: Date, b: Date) => (singleDay ? i18n.date(a, 'medium') : `${i18n.date(a, 'dayShort')} – ${i18n.date(b, 'medium')}`)
+  const legend = { current: span(from, lastCurrent), previous: span(previousFrom, previousEnd) }
+  const compareName =
     o.range === 'today'
-      ? t('dashboard.ov.compareToday', { time: i18n.time(compareTo) })
+      ? t('dashboard.ov.compareToday', { time: i18n.time(new Date(o.compareTo)) })
       : o.range === 'yesterday'
         ? t('dashboard.ov.compareYesterday')
-        : t('dashboard.ov.comparePeriod', { from: i18n.date(new Date(o.previousFrom), 'dayShort'), to: i18n.date(new Date(compareTo.getTime() - 1), 'dayShort') })
-  const seriesLabels =
-    o.range === 'today'
-      ? { current: t('dashboard.ov.ranges.today'), previous: t('dashboard.ov.yesterday') }
-      : o.range === 'yesterday'
-        ? { current: t('dashboard.ov.yesterday'), previous: t('dashboard.ov.dayBefore') }
-        : { current: t('dashboard.ov.current'), previous: t('dashboard.ov.previous') }
+        : t('dashboard.ov.comparePeriod', { from: i18n.date(previousFrom, 'dayShort'), to: i18n.date(previousEnd, 'dayShort') })
 
   const tone = (v: number) => (v > 0 ? 'gain' : v < 0 ? 'loss' : undefined)
   const metrics: Array<{ key: Metric; title: string; hint: string; value: number; previous: number; change: number | null; format: (v: number) => string; tone?: 'gain' | 'loss' }> = [
@@ -151,185 +150,159 @@ export default function Dashboard() {
   const pointsOf = (key: Metric) => o.series.map((p) => ({ at: p.at, previousAt: p.previousAt, value: p[key], previous: p.previous[key] }))
   const shown = metrics.find((m) => m.key === metric) ?? metrics[0]
   const nowHour = o.range === 'today' ? new Date(o.to).getHours() : null
+  const moneyIn = o.methods.reduce((sum, m) => sum + m.amount, 0)
+  const busiest = o.hours.reduce((best, h, i) => (h.current > o.hours[best].current ? i : best), 0)
+
+  // Arrow keys move between the metric tabs, in reading order.
+  const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    const forward = (e.key === 'ArrowRight') !== (i18n.dir === 'rtl')
+    const index = metrics.findIndex((m) => m.key === metric)
+    const next = metrics[(index + (forward ? 1 : metrics.length - 1)) % metrics.length]
+    setMetric(next.key)
+    document.getElementById(`sp-tab-${next.key}`)?.focus()
+    e.preventDefault()
+  }
 
   return (
-    <div className="loom-dash">
-      <header className="ld-top">
-        <div>
-          <h1 className="ld-title">{t('dashboard.ov.title')}</h1>
-          <p className="ld-subtitle">
-            {compareCaption}
-            <span aria-hidden="true"> · </span>
-            {t('dashboard.ov.updated', { time: i18n.time(updatedAt) })}
-          </p>
+    <div className="loom-dash sp">
+      <header className="sp-head">
+        <h1 className="sp-title">{t('dashboard.ov.title')}</h1>
+        <div className="sp-head-actions">
+          <span className="sp-subdued">{t('dashboard.ov.updated', { time: i18n.time(updatedAt) })}</span>
+          <button className="sp-btn sp-btn-icon" onClick={() => load(range)} aria-label={t('dashboard.ov.refresh')} title={t('dashboard.ov.refresh')}>
+            <RefreshCw size={16} className={refreshing ? 'sp-spin' : undefined} aria-hidden="true" />
+          </button>
+          <button className="sp-btn sp-btn-primary" onClick={() => setShowEOD(true)} disabled={!summary}>
+            {t('dashboard.closeDay')}
+          </button>
         </div>
-        <button className="ld-button" onClick={() => setShowEOD(true)} disabled={!summary}>
-          {t('dashboard.closeDay')}
-        </button>
       </header>
 
-      <div className="ld-ranges" role="group" aria-label={t('dashboard.ov.rangeLabel')}>
-        {RANGE_KEYS.map((key) => (
-          <button key={key} type="button" className="ld-range" aria-pressed={range === key} onClick={() => pickRange(key)}>
-            {t(`dashboard.ov.ranges.${key}`)}
-          </button>
-        ))}
+      <div className="sp-filters">
+        <RangePicker value={range} onChange={pickRange} />
+        <span className="sp-chip">{t('dashboard.ov.compareTo', { label: compareName })}</span>
       </div>
 
-      <div className={`ld-body${stale ? ' is-stale' : ''}`} aria-busy={stale}>
-        <section className="ld-kpis" aria-label={t(`dashboard.ov.ranges.${o.range}`)}>
-          {metrics.map((m) => (
-            <button
-              key={m.key}
-              type="button"
-              className="ld-kpi"
-              aria-pressed={metric === m.key}
-              title={m.hint}
-              onClick={() => setMetric(m.key)}
-            >
-              <span className="ld-kpi-title">{m.title}</span>
-              <span className="ld-kpi-row">
-                <span className={`ld-kpi-value${m.tone ? ` ld-${m.tone}` : ''}`}>{m.format(m.value)}</span>
-                <ChangeBadge value={m.change} />
-              </span>
-              <span className="ld-kpi-previous">{seriesLabels.previous}: {m.format(m.previous)}</span>
-              <ComparisonLine compact points={pointsOf(m.key)} granularity={o.granularity} format={m.format} labels={seriesLabels} title={m.title} />
-              <span className="ld-sr-only">{t('dashboard.ov.showChart', { metric: m.title })}</span>
-            </button>
-          ))}
-        </section>
-
-        <div className="ld-grid">
-          <section className="ld-panel ld-span-2" aria-labelledby="ld-chart-heading">
-            <div className="ld-panel-head">
-              <div>
-                <h2 id="ld-chart-heading" className="ld-heading">{t('dashboard.ov.overTime', { metric: shown.title })}</h2>
-                <p className="ld-chart-total">
-                  <span className={shown.tone ? `ld-${shown.tone}` : undefined}>{shown.format(shown.value)}</span>
-                  <ChangeBadge value={shown.change} />
-                </p>
-              </div>
-              <ul className="ld-thread-legend" aria-hidden="true">
-                <li><span className="ld-swatch-line" />{seriesLabels.current}</li>
-                <li><span className="ld-swatch-dash" />{seriesLabels.previous}</li>
-              </ul>
-            </div>
+      <div className={`sp-body${stale ? ' is-stale' : ''}`} aria-busy={stale}>
+        <section className="sp-card sp-main" aria-label={t('dashboard.ov.overTime', { metric: shown.title })}>
+          <div className="sp-tabs" role="tablist" aria-label={t(`dashboard.ov.ranges.${o.range}`)} onKeyDown={onTabKey}>
+            {metrics.map((m) => (
+              <button
+                key={m.key}
+                id={`sp-tab-${m.key}`}
+                type="button"
+                role="tab"
+                aria-selected={metric === m.key}
+                aria-controls="sp-main-chart"
+                tabIndex={metric === m.key ? 0 : -1}
+                className="sp-tab"
+                onClick={() => setMetric(m.key)}
+              >
+                <span className="sp-metric-title" title={m.hint}>{m.title}</span>
+                <span className="sp-tab-row">
+                  <span className={`sp-tab-value${m.tone ? ` sp-${m.tone}` : ''}`}>{m.format(m.value)}</span>
+                  <Change value={m.change} />
+                </span>
+                <ComparisonLine compact points={pointsOf(m.key)} granularity={o.granularity} format={m.format} labels={legend} title={m.title} />
+              </button>
+            ))}
+          </div>
+          <div id="sp-main-chart" role="tabpanel" aria-labelledby={`sp-tab-${shown.key}`} className="sp-main-chart">
             <ComparisonLine
               points={pointsOf(metric)}
               granularity={o.granularity}
               format={shown.format}
               formatAxis={metric === 'orders' ? (v) => i18n.number(v, 1) : moneyShort}
-              labels={seriesLabels}
+              labels={legend}
               title={t('dashboard.ov.chartLabel', { title: shown.title, value: shown.format(shown.value), previous: shown.format(shown.previous) })}
             />
-            {o.totals.orders === 0 && <p className="ld-empty">{t('dashboard.ov.empty')}</p>}
-          </section>
+            <ChartLegend current={legend.current} previous={legend.previous} />
+          </div>
+        </section>
 
-          <section className="ld-panel" aria-labelledby="ld-breakdown-heading">
-            <h2 id="ld-breakdown-heading" className="ld-heading">{t('dashboard.ov.breakdown')}</h2>
-            <dl className="ld-breakdown">
-              <BreakdownRow label={t('dashboard.ov.grossSales')} value={o.totals.grossSales} previous={o.previous.grossSales} />
-              <BreakdownRow label={t('dashboard.ov.discounts')} value={o.totals.discounts} previous={o.previous.discounts} minus />
-              <BreakdownRow label={t('dashboard.ov.returns')} value={o.totals.returns} previous={o.previous.returns} minus />
-              <BreakdownRow label={t('dashboard.ov.netSales')} value={o.totals.netSales} previous={o.previous.netSales} total />
-              <BreakdownRow label={t('dashboard.ov.tax')} value={o.totals.tax} previous={o.previous.tax} minus />
-              <BreakdownRow label={t('dashboard.ov.cost')} value={o.totals.cost} previous={o.previous.cost} minus />
-              <BreakdownRow label={t('dashboard.ov.grossProfit')} value={o.totals.profit} previous={o.previous.profit} total tone={tone(o.totals.profit)} />
+        <div className="sp-grid">
+          <Card id="breakdown" title={t('dashboard.ov.breakdown')} hint={t('dashboard.ov.netSalesHint')} link={{ to: '/reports', label: t('dashboard.ov.viewReport') }}>
+            <dl className="sp-rows">
+              <Row label={t('dashboard.ov.grossSales')} value={o.totals.grossSales} previous={o.previous.grossSales} />
+              <Row label={t('dashboard.ov.discounts')} value={o.totals.discounts} previous={o.previous.discounts} minus />
+              <Row label={t('dashboard.ov.returns')} value={o.totals.returns} previous={o.previous.returns} minus />
+              <Row label={t('dashboard.ov.netSales')} value={o.totals.netSales} previous={o.previous.netSales} total />
+              <Row label={t('dashboard.ov.tax')} value={o.totals.tax} previous={o.previous.tax} minus />
+              <Row label={t('dashboard.ov.cost')} value={o.totals.cost} previous={o.previous.cost} minus />
+              <Row label={t('dashboard.ov.grossProfit')} value={o.totals.profit} previous={o.previous.profit} total tone={tone(o.totals.profit)} />
             </dl>
-          </section>
+          </Card>
 
-          <section className="ld-panel" aria-labelledby="ld-methods-heading">
-            <h2 id="ld-methods-heading" className="ld-heading">{t('dashboard.ov.paymentMethods')}</h2>
-            <p className="ld-empty ld-heading-hint">{t('dashboard.ov.paymentHint')}</p>
-            <RankBars
-              empty={t('dashboard.noPayments')}
-              rows={o.methods.map((m) => ({ key: m.method, name: i18n.method(m.method), value: m.amount, dip: DIP_CLASS[m.method] ?? 'ld-dip-transfer' }))}
-            />
-          </section>
+          <Card id="methods" title={t('dashboard.ov.paymentMethods')} hint={t('dashboard.ov.paymentHint')} headline={money(moneyIn)}>
+            <RankBars empty={t('dashboard.noPayments')} rows={o.methods.map((m) => ({ key: m.method, name: i18n.method(m.method), value: m.amount }))} />
+          </Card>
 
-          <section className="ld-panel" aria-labelledby="ld-cats-heading">
-            <h2 id="ld-cats-heading" className="ld-heading">{t('dashboard.byCategory')}</h2>
+          <Card id="categories" title={t('dashboard.byCategory')} headline={money(o.categories.reduce((s, c) => s + c.revenue, 0))}>
             <RankBars
               empty={t('dashboard.noCategories')}
               rows={o.categories.map((c) => ({ key: c.category ?? '\u0000other', name: c.category ? <bdi>{c.category}</bdi> : t('dashboard.otherCategories'), value: c.revenue, other: !c.category }))}
             />
-          </section>
+          </Card>
 
-          <section className="ld-panel" aria-labelledby="ld-top-heading">
-            <h2 id="ld-top-heading" className="ld-heading">{t('dashboard.ov.topProducts')}</h2>
+          <Card id="products" title={t('dashboard.ov.topProducts')} link={{ to: '/inventory', label: t('dashboard.ov.viewReport') }}>
             <RankBars
               empty={t('dashboard.ov.empty')}
-              rows={o.topProducts.map((p) => ({
-                key: p.productId,
-                name: <bdi>{p.name}</bdi>,
-                value: p.revenue,
-                detail: t('dashboard.sold', { qty: qty(p.quantity, p.unit, true) }),
-              }))}
+              rows={o.topProducts.map((p) => ({ key: p.productId, name: <bdi>{p.name}</bdi>, value: p.revenue, detail: t('dashboard.sold', { qty: qty(p.quantity, p.unit, true) }) }))}
             />
-          </section>
+          </Card>
 
-          <section className="ld-panel ld-span-2" aria-labelledby="ld-hours-heading">
-            <h2 id="ld-hours-heading" className="ld-heading">{t('dashboard.ov.hours')}</h2>
-            <p className="ld-empty ld-heading-hint">{o.granularity === 'hour' ? t('dashboard.ov.hoursHintToday') : t('dashboard.ov.hoursHintPeriod')}</p>
-            <HourBars hours={o.hours} labels={seriesLabels} nowHour={nowHour} />
-          </section>
+          <Card
+            id="hours"
+            title={t('dashboard.ov.hours')}
+            headline={o.hours[busiest].current > 0 ? t('dashboard.ov.busiest', { hour: `\u2066${t('dashboard.hourRange', { from: hourLabel(busiest), to: hourLabel(busiest + 1) })}\u2069` }) : undefined}
+            className="sp-card-chart"
+          >
+            {o.totals.orders > 0 ? <HourBars values={o.hours.map((h) => h.current)} nowHour={nowHour} /> : <p className="sp-empty">{t('dashboard.noSalesHours')}</p>}
+          </Card>
 
-          <section className="ld-panel" aria-labelledby="ld-alerts-heading">
-            <h2 id="ld-alerts-heading" className="ld-heading">{t('dashboard.ov.alerts')}</h2>
+          <Card id="alerts" title={t('dashboard.ov.alerts')} link={{ to: '/inventory', label: t('dashboard.openInventory') }}>
             {lowStockProducts.length || expiringProducts.length ? (
-              <ul className="ld-list">
+              <ul className="sp-list">
                 {lowStockProducts.slice(0, 4).map((p) => (
-                  <li key={`low-${p.id}`} className="ld-list-row">
-                    <Link className="ld-item-name" to={`/inventory?search=${encodeURIComponent(p.barcode)}`}><bdi>{p.name}</bdi></Link>
-                    <span className={`ld-item-value ${p.stock <= 0 ? 'ld-stock-out' : 'ld-stock-low'}`}>
-                      <span className="ld-stock-mark" aria-hidden="true" />
+                  <li key={`low-${p.id}`} className="sp-list-row">
+                    <Link className="sp-list-name" to={`/inventory?search=${encodeURIComponent(p.barcode)}`}><bdi>{p.name}</bdi></Link>
+                    <span className={`sp-badge ${p.stock <= 0 ? 'is-critical' : 'is-warning'}`}>
                       {p.stock <= 0 ? t('dashboard.soldOut') : t('dashboard.left', { qty: qty(p.stock, p.unit, true) })}
-                    </span>
-                    <span className="ld-row-meter" title={t('dashboard.stockMeter', { qty: qty(p.stock, p.unit, true), threshold: qty(unitRule(p.unit).lowStockAt, p.unit, true) })}>
-                      <Meter value={p.stock / unitRule(p.unit).lowStockAt} tone={p.stock <= 0 ? 'out' : 'low'} />
                     </span>
                   </li>
                 ))}
                 {expiringProducts.slice(0, 3).map((p) => (
-                  <li key={`exp-${p.id}`} className="ld-list-row">
-                    <Link className="ld-item-name" to={`/inventory?search=${encodeURIComponent(p.barcode)}`}><bdi>{p.name}</bdi></Link>
-                    <ExpiryBadge value={p.expiryDate} onlyWarnings />
+                  <li key={`exp-${p.id}`} className="sp-list-row">
+                    <Link className="sp-list-name" to={`/inventory?search=${encodeURIComponent(p.barcode)}`}><bdi>{p.name}</bdi></Link>
+                    <ExpiryText value={p.expiryDate} />
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="ld-empty">{t('dashboard.ov.noAlerts')}</p>
+              <p className="sp-empty">{t('dashboard.ov.noAlerts')}</p>
             )}
-            <p className="ld-panel-foot">
-              <Link className="ld-link" to="/inventory">{t('dashboard.openInventory')}</Link>
-            </p>
-          </section>
+          </Card>
 
-          <section className="ld-panel" aria-labelledby="ld-credit-heading">
-            <h2 id="ld-credit-heading" className="ld-heading">{t('dashboard.ov.credit')}</h2>
-            <dl className="ld-breakdown">
-              <BreakdownRow label={t('dashboard.ov.creditGiven')} value={o.totals.creditGiven} previous={o.previous.creditGiven} invert />
-              <BreakdownRow label={t('dashboard.ov.repaid')} value={o.totals.repayments} previous={o.previous.repayments} />
-              <BreakdownRow label={t('dashboard.ov.owedNow')} value={o.owedByCustomers} total />
+          <Card id="credit" title={t('dashboard.ov.credit')} headline={money(o.owedByCustomers)} headlineNote={t('dashboard.ov.owedNow')} link={{ to: '/customers', label: t('dashboard.ov.seeCustomers') }}>
+            <dl className="sp-rows">
+              <Row label={t('dashboard.ov.creditGiven')} value={o.totals.creditGiven} previous={o.previous.creditGiven} invert />
+              <Row label={t('dashboard.ov.repaid')} value={o.totals.repayments} previous={o.previous.repayments} />
             </dl>
-            <p className="ld-panel-foot">
-              <Link className="ld-link" to="/customers">{t('dashboard.ov.seeCustomers')}</Link>
-            </p>
-          </section>
+          </Card>
 
-          <section className="ld-panel ld-span-2" aria-labelledby="ld-bills-heading">
-            <h2 id="ld-bills-heading" className="ld-heading">{t('dashboard.latestBills')}</h2>
+          <Card id="bills" title={t('dashboard.latestBills')} className="sp-span-2" link={{ to: '/orders', label: t('dashboard.seeAll') }}>
             {bills?.length ? (
-              <div className="ld-table-wrap">
-                <table className="ld-table">
+              <div className="sp-table-wrap">
+                <table className="sp-table">
                   <thead>
                     <tr>
-                      <th scope="col">{t('dashboard.time')}</th>
                       <th scope="col">{t('dashboard.receipt')}</th>
+                      <th scope="col">{t('dashboard.time')}</th>
                       <th scope="col">{t('dashboard.customer')}</th>
-                      <th scope="col" className="ld-num">{t('dashboard.items')}</th>
                       <th scope="col">{t('dashboard.paidBy')}</th>
-                      <th scope="col" className="ld-num">{t('dashboard.amount')}</th>
+                      <th scope="col" className="sp-num">{t('dashboard.items')}</th>
+                      <th scope="col" className="sp-num">{t('dashboard.amount')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -338,14 +311,14 @@ export default function Dashboard() {
                       const methods = [...(bill.payments ?? []).map((p) => p.method), ...(bill.totalAmount - bill.amountPaid > 0.004 ? ['CREDIT'] : [])]
                       return (
                         <tr key={bill.id} onClick={() => navigate(`/orders?orderId=${bill.id}`)}>
-                          <td className="ld-table-muted">{isToday(when) ? i18n.time(when) : i18n.date(when, 'medium')}</td>
                           <td>
-                            <Link className="ld-link" to={`/orders?orderId=${bill.id}`} onClick={(e) => e.stopPropagation()}>{code(bill.invoiceNo)}</Link>
+                            <Link className="sp-strong-link" to={`/orders?orderId=${bill.id}`} onClick={(e) => e.stopPropagation()}>{code(bill.invoiceNo)}</Link>
                           </td>
-                          <td>{bill.customerName || <span className="ld-table-muted">{t('common.walkIn')}</span>}</td>
-                          <td className="ld-num">{i18n.number(bill._count.items)}</td>
+                          <td className="sp-subdued">{isToday(when) ? i18n.time(when) : i18n.date(when, 'medium')}</td>
+                          <td>{bill.customerName || <span className="sp-subdued">{t('common.walkIn')}</span>}</td>
                           <td><MethodList methods={methods.length ? methods : [bill.paymentMethod]} /></td>
-                          <td className="ld-num">{money(bill.totalAmount)}</td>
+                          <td className="sp-num">{i18n.number(bill._count.items)}</td>
+                          <td className="sp-num">{money(bill.totalAmount)}</td>
                         </tr>
                       )
                     })}
@@ -353,14 +326,11 @@ export default function Dashboard() {
                 </table>
               </div>
             ) : (
-              <p className="ld-empty">
-                {t('dashboard.noBills')} <Link className="ld-link" to="/billing">{t('dashboard.openBilling')}</Link>
+              <p className="sp-empty">
+                {t('dashboard.noBills')} <Link className="sp-link" to="/billing">{t('dashboard.openBilling')}</Link>
               </p>
             )}
-            <p className="ld-panel-foot">
-              <Link className="ld-link" to="/orders">{t('dashboard.seeAll')}</Link>
-            </p>
-          </section>
+          </Card>
         </div>
       </div>
 
@@ -369,56 +339,144 @@ export default function Dashboard() {
   )
 }
 
-/**
- * ↑ 12 % in green or ↓ 5 % in red against the previous period; a dash when there is nothing to
- * compare with. Neutral badges keep the arrow but no color, for lines that are neither good nor bad.
- */
-function ChangeBadge({ value, invert = false, neutral = false }: { value: number | null; invert?: boolean; neutral?: boolean }) {
-  const { t, percent } = useI18n()
-  if (value === null) {
-    return <span className="ld-change is-none" title={t('dashboard.ov.noEarlier')} aria-label={t('dashboard.ov.noEarlier')}>–</span>
+/** The period picker: a button with the chosen period that opens the list of periods. */
+function RangePicker({ value, onChange }: { value: RangeKey; onChange: (key: RangeKey) => void }) {
+  const { t } = useI18n()
+  const [open, setOpen] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  const button = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const outside = (e: MouseEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', outside)
+    box.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus()
+    return () => document.removeEventListener('mousedown', outside)
+  }, [open])
+
+  const close = () => {
+    setOpen(false)
+    button.current?.focus()
   }
+  const onMenuKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const items = [...(box.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') ?? [])]
+    const at = items.indexOf(document.activeElement as HTMLButtonElement)
+    if (e.key === 'Escape') close()
+    else if (e.key === 'ArrowDown') items[(at + 1) % items.length]?.focus()
+    else if (e.key === 'ArrowUp') items[(at - 1 + items.length) % items.length]?.focus()
+    else return
+    e.preventDefault()
+  }
+
+  return (
+    <div className="sp-picker" ref={box} onKeyDown={open ? onMenuKey : undefined}>
+      <button ref={button} type="button" className="sp-btn" aria-haspopup="menu" aria-expanded={open} aria-label={`${t('dashboard.ov.rangeLabel')}: ${t(`dashboard.ov.ranges.${value}`)}`} onClick={() => setOpen(!open)}>
+        <CalendarDays size={16} aria-hidden="true" />
+        {t(`dashboard.ov.ranges.${value}`)}
+        <ChevronDown size={14} aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="sp-menu" role="menu" aria-label={t('dashboard.ov.rangeLabel')}>
+          {RANGE_KEYS.map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="menuitemradio"
+              aria-checked={value === key}
+              className="sp-menu-item"
+              onClick={() => {
+                onChange(key)
+                close()
+              }}
+            >
+              <span>{t(`dashboard.ov.ranges.${key}`)}</span>
+              {value === key && <Check size={16} aria-hidden="true" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** A report card: title (dotted underline when it has an explanation), optional headline figure and a link to the full report. */
+function Card({
+  id,
+  title,
+  hint,
+  headline,
+  headlineNote,
+  link,
+  className,
+  children,
+}: {
+  id: string
+  title: string
+  hint?: string
+  headline?: ReactNode
+  headlineNote?: string
+  link?: { to: string; label: string }
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <section className={`sp-card${className ? ` ${className}` : ''}`} aria-labelledby={`sp-${id}-title`}>
+      <div className="sp-card-head">
+        <h2 id={`sp-${id}-title`} className={`sp-card-title${hint ? ' sp-metric-title' : ''}`} title={hint}>{title}</h2>
+        {link && <Link className="sp-link sp-card-link" to={link.to}>{link.label}</Link>}
+      </div>
+      {headline && (
+        <p className="sp-headline">
+          {headline}
+          {headlineNote && <span className="sp-subdued">{headlineNote}</span>}
+        </p>
+      )}
+      <div className="sp-card-body">{children}</div>
+    </section>
+  )
+}
+
+/**
+ * The change against the previous period: an arrow and a percent, green when it is good news
+ * and red when it is bad; a dash when there is nothing to compare with. Neutral changes keep
+ * the arrow but no color, for lines that are neither good nor bad.
+ */
+function Change({ value, invert = false, neutral = false }: { value: number | null; invert?: boolean; neutral?: boolean }) {
+  const { t, percent } = useI18n()
+  if (value === null) return <span className="sp-change" title={t('dashboard.ov.noEarlier')} aria-label={t('dashboard.ov.noEarlier')}>—</span>
   const rounded = Math.round(Math.abs(value) * 100)
-  const up = value > 0
   const text = percent(rounded)
-  if (rounded === 0) return <span className="ld-change is-flat">{text}</span>
-  // A rise is good for sales and bad for credit.
+  if (rounded === 0) return <span className="sp-change">{text}</span>
+  const up = value > 0
   const good = invert ? !up : up
   return (
-    <span className={`ld-change ${neutral ? 'is-flat' : good ? 'is-good' : 'is-bad'}`} aria-label={t(up ? 'dashboard.ov.up' : 'dashboard.ov.down', { percent: text })}>
+    <span className={`sp-change ${neutral ? '' : good ? 'is-good' : 'is-bad'}`} aria-label={t(up ? 'dashboard.ov.up' : 'dashboard.ov.down', { percent: text })}>
       {up ? <ArrowUpRight size={14} aria-hidden="true" /> : <ArrowDownRight size={14} aria-hidden="true" />}
       {text}
     </span>
   )
 }
 
-/**
- * One line of a money breakdown: deductions with a minus sign, totals on a rule, and the change
- * against the previous period. Deductions follow sales up and down, so their change is not colored.
- */
-function BreakdownRow({
-  label,
-  value,
-  previous,
-  minus = false,
-  invert = false,
-  total = false,
-  tone,
-}: {
-  label: ReactNode
-  value: number
-  previous?: number
-  minus?: boolean
-  invert?: boolean
-  total?: boolean
-  tone?: 'gain' | 'loss'
-}) {
+/** One line of a money breakdown: deductions with a minus sign, totals in bold on a rule. Deductions follow sales up and down, so their change is not colored. */
+function Row({ label, value, previous, minus = false, invert = false, total = false, tone }: { label: string; value: number; previous?: number; minus?: boolean; invert?: boolean; total?: boolean; tone?: 'gain' | 'loss' }) {
   const { money } = useI18n()
   return (
-    <div className={`ld-breakdown-row${total ? ' is-total' : ''}`}>
+    <div className={`sp-row${total ? ' is-total' : ''}`}>
       <dt>{label}</dt>
-      <dd className={`ld-breakdown-value${tone ? ` ld-${tone}` : ''}`}>{minus && value !== 0 ? money(-value) : money(value)}</dd>
-      <dd className="ld-breakdown-change">{previous !== undefined && <ChangeBadge value={change(value, previous)} invert={invert} neutral={minus} />}</dd>
+      <dd className={`sp-row-value${tone ? ` sp-${tone}` : ''}`}>{minus && value !== 0 ? money(-value) : money(value)}</dd>
+      <dd className="sp-row-change">{previous !== undefined && <Change value={change(value, previous)} invert={invert} neutral={minus} />}</dd>
     </div>
   )
+}
+
+/** Where a product stands against its expiry date, as a badge: red once expired, amber when close. */
+function ExpiryText({ value }: { value?: string | null }) {
+  const { t } = useI18n()
+  const status = expiryStatus(value)
+  if (!status || status.state === 'ok') return null
+  const label =
+    status.state === 'expired' ? t('inventory.expiry.expired', { count: -status.days }) : status.state === 'today' ? t('inventory.expiry.today') : t('inventory.expiry.soon', { count: status.days })
+  return <span className={`sp-badge ${status.state === 'expired' ? 'is-critical' : 'is-warning'}`}>{label}</span>
 }

@@ -1,0 +1,773 @@
+/*
+  Dashboard overview, in the style of a commerce admin's analytics page: a gray canvas, white
+  cards with a fine border, small dark text, one blue for data and a dashed lighter blue for
+  the comparison period. Everything is scoped under .sp.
+*/
+
+.sp-canvas {
+  background: #f1f1f1;
+  min-height: calc(100dvh - 57px);
+}
+
+.dark .sp-canvas {
+  background: #0d0d0e;
+}
+
+.loom-dash.sp {
+  --sp-text: #303030;
+  --sp-text-2: #616161;
+  --sp-card: #ffffff;
+  --sp-border: rgba(0, 0, 0, 0.08);
+  --sp-divider: #ebebeb;
+  --sp-fill: #f1f1f1;
+  --sp-hover: #f7f7f7;
+  --sp-shadow: 0 0 0 1px rgba(0, 0, 0, 0.07), 0 1px 0 0 rgba(26, 26, 26, 0.08);
+  --sp-series: #1f8ae0;
+  --sp-series-2: #8ec6f2;
+  --sp-wash: rgba(31, 138, 224, 0.14);
+  --sp-gain: #0f7a40;
+  --sp-loss: #c4290f;
+  --sp-btn: #ffffff;
+  --sp-btn-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.12), inset 0 0 0 1px rgba(0, 0, 0, 0.1), 0 1px 0 rgba(0, 0, 0, 0.04);
+  --sp-primary: #303030;
+  --sp-on-primary: #ffffff;
+  --sp-critical-bg: #fedad9;
+  --sp-critical-text: #8e1f0b;
+  --sp-warning-bg: #ffeb78;
+  --sp-warning-text: #4f4700;
+  --sp-skeleton: #e3e3e3;
+
+  max-width: 1200px;
+  gap: 16px;
+  color: var(--sp-text);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.dark .loom-dash.sp {
+  --sp-text: #e3e3e3;
+  --sp-text-2: #a6a6a6;
+  --sp-card: #1c1c1d;
+  --sp-border: rgba(255, 255, 255, 0.08);
+  --sp-divider: #2c2c2e;
+  --sp-fill: #2a2a2c;
+  --sp-hover: #242426;
+  --sp-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 1px 0 0 rgba(0, 0, 0, 0.4);
+  --sp-series: #4aa8f5;
+  --sp-series-2: #3f6f96;
+  --sp-wash: rgba(74, 168, 245, 0.18);
+  --sp-gain: #4fcf8a;
+  --sp-loss: #ff7b66;
+  --sp-btn: #2a2a2c;
+  --sp-btn-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 1px 0 rgba(0, 0, 0, 0.3);
+  /* Filled buttons stay dark with white text in dark mode too: the app's deep blue. */
+  --sp-primary: #0f67e0;
+  --sp-on-primary: #ffffff;
+  --sp-critical-bg: rgba(255, 110, 90, 0.18);
+  --sp-critical-text: #ffb4a6;
+  --sp-warning-bg: rgba(255, 214, 80, 0.16);
+  --sp-warning-text: #ffd966;
+  --sp-skeleton: #2a2a2c;
+}
+
+/* Headings use the plain interface font here, not the app's display face. */
+.sp h1,
+.sp h2 {
+  font-family: var(--font-sans);
+}
+
+.sp :focus-visible {
+  outline: 2px solid var(--sp-series);
+  outline-offset: 2px;
+}
+
+.sp-subdued { color: var(--sp-text-2); }
+.sp-gain { color: var(--sp-gain); }
+.sp-loss { color: var(--sp-loss); }
+
+.sp-link {
+  color: var(--sp-series);
+  font-weight: 550;
+  text-decoration: none;
+}
+
+.sp-link:hover { text-decoration: underline; }
+
+/* Page header */
+
+.sp-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.sp-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.sp-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Buttons: white with a fine bevel; the primary one dark. */
+
+.sp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--sp-btn);
+  box-shadow: var(--sp-btn-shadow);
+  color: var(--sp-text);
+  font: inherit;
+  font-weight: 550;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sp-btn:hover { background: var(--sp-hover); }
+
+.sp-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.sp-btn-icon {
+  width: 32px;
+  padding: 0;
+  justify-content: center;
+}
+
+.sp-btn-primary,
+.sp-btn-primary:hover {
+  background: var(--sp-primary);
+  color: var(--sp-on-primary);
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.3), 0 1px 0 rgba(0, 0, 0, 0.08);
+}
+
+.sp-btn-primary:hover { filter: brightness(1.15); }
+
+.sp-spin { animation: sp-spin 0.9s linear infinite; }
+
+@keyframes sp-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Filters: the period picker and what it is compared with. */
+
+.sp-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.sp-picker { position: relative; }
+
+.sp-menu {
+  position: absolute;
+  z-index: 20;
+  inset-inline-start: 0;
+  top: calc(100% + 6px);
+  min-width: 220px;
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--sp-card);
+  box-shadow: 0 0 0 1px var(--sp-border), 0 8px 24px -6px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+}
+
+.sp-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sp-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.sp-menu-item:hover,
+.sp-menu-item:focus-visible { background: var(--sp-hover); outline: none; }
+.sp-menu-item[aria-checked='true'] { background: var(--sp-fill); font-weight: 600; }
+
+.sp-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px dashed var(--sp-border);
+  color: var(--sp-text-2);
+  background: transparent;
+}
+
+/* Body; while another period loads, the last one stays, dimmed. */
+
+.sp-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: opacity 150ms ease-out;
+}
+
+.sp-body.is-stale { opacity: 0.5; }
+
+/* Cards */
+
+.sp-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--sp-card);
+  box-shadow: var(--sp-shadow);
+}
+
+.sp-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.sp-card-title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+/* Titles with an explanation get a dotted underline; the explanation shows on hover. */
+.sp-metric-title {
+  width: fit-content;
+  text-decoration: underline dotted;
+  text-decoration-color: var(--sp-text-2);
+  text-underline-offset: 4px;
+  cursor: help;
+}
+
+.sp-card-link {
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.sp-headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 0 0 12px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sp-headline .sp-subdued {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.sp-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sp-card-head + .sp-card-body { margin-top: 12px; }
+
+.sp-empty {
+  margin: 0;
+  color: var(--sp-text-2);
+}
+
+/* Grid of report cards */
+
+.sp-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sp-span-2 { grid-column: span 2; }
+
+@media (max-width: 1100px) {
+  .sp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .sp-grid { grid-template-columns: minmax(0, 1fr); }
+  .sp-span-2 { grid-column: auto; }
+}
+
+/* The main card: a tab per figure, the chosen figure's chart underneath. */
+
+.sp-main { padding: 8px; }
+
+.sp-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.sp-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 12px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sp-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.sp-tab:hover { background: var(--sp-hover); }
+.sp-tab[aria-selected='true'] { background: var(--sp-fill); }
+
+.sp-tab .sp-metric-title {
+  font-weight: 600;
+  color: var(--sp-text);
+}
+
+.sp-tab-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+}
+
+.sp-tab-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.sp-tab .sp-line { margin-top: 6px; }
+
+.sp-main-chart { padding: 16px 8px 4px; }
+
+@media (max-width: 900px) {
+  /* Phones and small tablets: the tabs scroll sideways, like the admin app. */
+  .sp-tabs {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .sp-tab { flex: 0 0 auto; min-width: 150px; }
+}
+
+/* Change against the previous period */
+
+.sp-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-size: 0.8125rem;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--sp-text-2);
+}
+
+.sp-change.is-good { color: var(--sp-gain); }
+.sp-change.is-bad { color: var(--sp-loss); }
+
+/* Charts */
+
+.sp-line,
+.sp-hours { position: relative; }
+
+.sp-line svg,
+.sp-hours svg {
+  display: block;
+  overflow: visible;
+  touch-action: pan-y;
+}
+
+.sp-line.is-compact { height: 32px; }
+
+.sp-gridline {
+  stroke: var(--sp-divider);
+  stroke-width: 1;
+}
+
+.sp-axis {
+  fill: var(--sp-text-2);
+  font-size: 11px;
+}
+
+.sp-wash-top { stop-color: var(--sp-wash); }
+.sp-wash-bottom { stop-color: var(--sp-wash); stop-opacity: 0; }
+
+.sp-line-current {
+  fill: none;
+  stroke: var(--sp-series);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sp-line-previous {
+  fill: none;
+  stroke: var(--sp-series-2);
+  stroke-width: 2;
+  stroke-dasharray: 4 4;
+  stroke-linecap: round;
+}
+
+.sp-line.is-compact .sp-line-current,
+.sp-line.is-compact .sp-line-previous { stroke-width: 1.5; }
+.sp-line.is-compact .sp-line-previous { stroke-dasharray: 3 3; }
+
+.sp-line-dot { fill: var(--sp-series); }
+
+.sp-crosshair line {
+  stroke: var(--sp-text-2);
+  stroke-width: 1;
+  opacity: 0.5;
+}
+
+.sp-crosshair-current {
+  fill: var(--sp-series);
+  stroke: var(--sp-card);
+  stroke-width: 2;
+  paint-order: stroke;
+}
+
+.sp-crosshair-previous {
+  fill: var(--sp-series-2);
+  stroke: var(--sp-card);
+  stroke-width: 2;
+  paint-order: stroke;
+}
+
+.sp-hours {
+  flex: 1;
+  min-height: 220px;
+}
+
+.sp-hours svg {
+  position: absolute;
+  inset: 0;
+}
+
+.sp-col-hit {
+  fill: transparent;
+  outline: none;
+}
+
+.sp-col.is-active .sp-col-hit,
+.sp-col-hit:focus-visible { fill: var(--sp-hover); }
+
+.sp-col-bar { fill: var(--sp-series); }
+.sp-col.is-active .sp-col-bar { filter: brightness(1.12); }
+
+/* Tooltip */
+
+.sp-tip {
+  position: absolute;
+  z-index: 5;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--sp-card);
+  color: var(--sp-text);
+  box-shadow: 0 0 0 1px var(--sp-border), 0 8px 20px -6px rgba(0, 0, 0, 0.28);
+  font-size: 0.75rem;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.sp-tip.is-below { transform: translate(-50%, 0); }
+
+.sp-tip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sp-tip-row em {
+  font-style: normal;
+  color: var(--sp-text-2);
+}
+
+.sp-tip-row strong {
+  margin-inline-start: auto;
+  padding-inline-start: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Legend keys: a solid line for this period, a dashed one for the previous. */
+
+.sp-key {
+  display: inline-block;
+  flex: none;
+  width: 16px;
+  height: 0;
+  border-top: 2px solid var(--sp-series);
+  border-radius: 2px;
+}
+
+.sp-key.is-previous {
+  border-top-style: dashed;
+  border-color: var(--sp-series-2);
+}
+
+.sp-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 20px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+  color: var(--sp-text-2);
+}
+
+.sp-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Breakdown rows */
+
+.sp-rows { margin: 0; }
+
+.sp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 4.5rem;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+}
+
+.sp-row dt { color: var(--sp-text); }
+.sp-row dd { margin: 0; }
+
+.sp-row-value {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sp-row-change {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sp-row.is-total {
+  margin-top: 4px;
+  padding-top: 11px;
+  border-top: 1px solid var(--sp-divider);
+}
+
+.sp-row.is-total dt,
+.sp-row.is-total .sp-row-value { font-weight: 650; }
+
+/* Ranked bars */
+
+.sp-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sp-bar-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.sp-bar-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sp-bar-value {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sp-bar-share {
+  display: inline-block;
+  min-width: 3.25em;
+  margin-inline-start: 8px;
+  text-align: end;
+  color: var(--sp-text-2);
+}
+
+.sp-bar-detail {
+  grid-column: 1 / -1;
+  margin-top: -4px;
+  font-size: 0.75rem;
+  color: var(--sp-text-2);
+}
+
+.sp-bar-track {
+  grid-column: 1 / -1;
+  display: block;
+  height: 8px;
+}
+
+.sp-bar {
+  display: block;
+  height: 100%;
+  border-start-end-radius: 4px;
+  border-end-end-radius: 4px;
+  background: var(--sp-series);
+}
+
+.sp-bar.is-other { background: var(--sp-series-2); }
+
+/* Lists with badges */
+
+.sp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sp-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--sp-divider);
+}
+
+.sp-list-row:first-child { border-top: 0; padding-top: 0; }
+
+.sp-list-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sp-text);
+  font-weight: 550;
+}
+
+.sp-list-name:hover { text-decoration: underline; }
+
+.sp-badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 550;
+  white-space: nowrap;
+  background: var(--sp-fill);
+  color: var(--sp-text);
+}
+
+.sp-badge.is-critical { background: var(--sp-critical-bg); color: var(--sp-critical-text); }
+.sp-badge.is-warning { background: var(--sp-warning-bg); color: var(--sp-warning-text); }
+
+/* Recent sales table, edge to edge in its card */
+
+.sp-table-wrap {
+  margin: 0 -16px -16px;
+  overflow-x: auto;
+}
+
+.sp-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.sp-table th {
+  padding: 8px 16px;
+  background: var(--sp-hover);
+  border-top: 1px solid var(--sp-divider);
+  border-bottom: 1px solid var(--sp-divider);
+  color: var(--sp-text-2);
+  font-size: 0.75rem;
+  font-weight: 550;
+  text-align: start;
+  white-space: nowrap;
+}
+
+.sp-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--sp-divider);
+  white-space: nowrap;
+}
+
+.sp-table tbody tr:last-child td { border-bottom: 0; }
+.sp-table tbody tr { cursor: pointer; }
+.sp-table tbody tr:hover td { background: var(--sp-hover); }
+
+.sp-table .sp-num {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.sp-strong-link {
+  color: var(--sp-text);
+  font-weight: 650;
+}
+
+.sp-strong-link:hover { text-decoration: underline; }
+
+/* Loading and errors */
+
+.sp-skeleton {
+  border-radius: 12px;
+  background: var(--sp-skeleton);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sp-skeleton { animation: ld-pulse 1.4s ease-in-out infinite; }
+}
+
+.sp-alert {
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.sp-alert p { margin: 0; }
+
+@media (max-width: 520px) {
+  .sp-title { font-size: 1.125rem; }
+  .sp-head-actions .sp-subdued { display: none; }
+  .sp-tab-value { font-size: 1.0625rem; }
+  .sp-main-chart { padding-inline: 0; }
+}
