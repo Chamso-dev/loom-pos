@@ -8,6 +8,7 @@ import { useI18n } from '@/i18n'
 import { api } from '@/lib/api'
 import { PAYMENT_METHOD_CODES } from '@/lib/domain'
 import { cn } from '@/lib/utils'
+import { LoadError } from '@/components/ui/field'
 import OrderDetailModal from './OrderDetailModal'
 
 const STATUSES = ['CREDIT', 'PARTIALLY_REFUNDED', 'REFUNDED'] as const
@@ -21,6 +22,7 @@ export default function OrderHistoryPage() {
 
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<unknown>(null)
   const [search, setSearch] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [startDate, setStartDate] = useState('')
@@ -35,6 +37,7 @@ export default function OrderHistoryPage() {
   const fetchOrders = useCallback(
     async (p = 1, overrides: Partial<{ search: string; startDate: string; endDate: string; methods: string[]; status: string }> = {}) => {
       setLoading(true)
+      setLoadError(null)
       try {
         const data = await api<{ orders: any[]; total: number; hasMore: boolean }>('/orders', {
           query: {
@@ -53,6 +56,7 @@ export default function OrderHistoryPage() {
         setPage(p)
       } catch (error) {
         console.error('Failed to fetch sales', error)
+        setLoadError(error)
       } finally {
         setLoading(false)
       }
@@ -67,14 +71,14 @@ export default function OrderHistoryPage() {
 
   useEffect(() => {
     if (!orderIdFromUrl) return
-    api(`/orders/${orderIdFromUrl}`).then(setSelected).catch(() => {})
+    api(`/orders/${orderIdFromUrl}`).then(setSelected).catch(setLoadError)
   }, [orderIdFromUrl])
 
   const openOrder = async (id: string) => {
     try {
       setSelected(await api(`/orders/${id}`))
     } catch (error) {
-      console.error(error)
+      setLoadError(error)
     }
   }
 
@@ -225,24 +229,25 @@ export default function OrderHistoryPage() {
         </div>
       </div>
 
+      {loadError != null && <LoadError message={i18n.error(loadError)} retryLabel={t('common.retry')} onRetry={() => fetchOrders(1)} />}
       <div className="relative bg-card rounded-lg border border-border overflow-x-auto">
         <table className="w-full text-start text-sm">
           <thead>
             <tr className="border-b border-border bg-accent/20 text-xs text-muted-foreground">
-              <th className="px-4 py-3 text-start font-semibold">{t('orders.receiptNo')}</th>
-              <th className="px-4 py-3 text-start font-semibold">{t('orders.dateTime')}</th>
-              <th className="px-4 py-3 text-start font-semibold">{t('orders.customer')}</th>
-              <th className="px-4 py-3 text-end font-semibold">{t('orders.total')}</th>
-              <th className="px-4 py-3 text-start font-semibold">{t('orders.paidBy')}</th>
-              <th className="px-4 py-3 text-start font-semibold">{t('orders.status')}</th>
-              <th className="px-4 py-3 text-start font-semibold">{t('orders.cashier')}</th>
-              <th className="px-4 py-3"><span className="sr-only">{t('common.actions')}</span></th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-start font-semibold">{t('orders.receiptNo')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-start font-semibold">{t('orders.dateTime')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-start font-semibold max-sm:hidden">{t('orders.customer')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-end font-semibold">{t('orders.total')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-start font-semibold max-lg:hidden">{t('orders.paidBy')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-start font-semibold max-sm:hidden">{t('orders.status')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-start font-semibold max-xl:hidden">{t('orders.cashier')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 max-xl:hidden"><span className="sr-only">{t('common.actions')}</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
             {loading && orders.length === 0 ? (
               <tr><td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">{t('orders.loadingSales')}</td></tr>
-            ) : orders.length === 0 ? (
+            ) : orders.length === 0 && loadError == null ? (
               <tr><td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">{t('orders.none')}</td></tr>
             ) : (
               orders.map((order) => {
@@ -252,23 +257,27 @@ export default function OrderHistoryPage() {
                 ]
                 return (
                   <tr key={order.id} className="hover:bg-accent/30 cursor-pointer" onClick={() => openOrder(order.id)}>
-                    <td className="px-4 py-3 font-semibold whitespace-nowrap">{i18n.code(order.invoiceNo)}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 max-sm:px-2.5 font-semibold whitespace-nowrap">
+                      {i18n.code(order.invoiceNo)}
+                      {/* On phones the customer goes under the receipt number instead of its own column. */}
+                      <span className="sm:hidden block text-xs font-normal text-muted-foreground max-w-[8rem] truncate"><bdi>{order.customerName || t('common.walkIn')}</bdi></span>
+                    </td>
+                    <td className="px-4 py-3 max-sm:px-2.5 whitespace-nowrap">
                       <span className="block">{i18n.date(order.date, 'medium')}</span>
                       <span className="block text-xs text-muted-foreground">{i18n.time(order.date)}</span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 max-sm:hidden">
                       <span className="block font-medium">{order.customerName || t('common.walkIn')}</span>
-                      {order.customerMobile && <span className="block text-xs text-muted-foreground">{i18n.phone(order.customerMobile)}</span>}
+                      {order.customerMobile && <span className="block text-xs text-muted-foreground whitespace-nowrap">{i18n.phone(order.customerMobile)}</span>}
                     </td>
-                    <td className="px-4 py-3 text-end font-semibold tabular-nums whitespace-nowrap">{money(order.totalAmount)}</td>
-                    <td className="px-4 py-3"><MethodList methods={methodsUsed.length ? methodsUsed : [order.paymentMethod]} /></td>
-                    <td className="px-4 py-3"><StatusBadge status={order.status} /></td>
-                    <td className="px-4 py-3 text-xs">
+                    <td className="px-4 py-3 max-sm:px-2.5 text-end font-semibold tabular-nums whitespace-nowrap">{money(order.totalAmount)}</td>
+                    <td className="px-4 py-3 max-sm:px-2.5 max-lg:hidden"><MethodList methods={methodsUsed.length ? methodsUsed : [order.paymentMethod]} /></td>
+                    <td className="px-4 py-3 max-sm:px-2.5 max-sm:hidden"><StatusBadge status={order.status} /></td>
+                    <td className="px-4 py-3 max-sm:px-2.5 text-xs max-xl:hidden">
                       {order.processedBy?.name ?? t('common.unknown')}
                       {order.processedBy && !order.processedBy.isActive && <span className="ms-1 text-muted-foreground">({t('orders.exStaff')})</span>}
                     </td>
-                    <td className="px-4 py-3 text-end">
+                    <td className="px-4 py-3 max-sm:px-2.5 text-end max-xl:hidden">
                       <Button
                         variant="ghost"
                         size="sm"

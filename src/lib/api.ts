@@ -32,10 +32,14 @@ export interface ApiOptions {
   /** Admin password typed by a cashier to authorise one inventory change. */
   adminKey?: string
   signal?: AbortSignal
+  /** Give up after this many milliseconds (default 20 s) instead of waiting forever. */
+  timeoutMs?: number
 }
 
+const DEFAULT_TIMEOUT_MS = 20_000
+
 export async function api<T = unknown>(path: string, options: ApiOptions = {}): Promise<T> {
-  const { method = 'GET', body, query, adminKey, signal } = options
+  const { method = 'GET', body, query, adminKey, signal, timeoutMs = DEFAULT_TIMEOUT_MS } = options
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(query ?? {})) {
     if (value === undefined || value === null || value === '') continue
@@ -50,12 +54,32 @@ export async function api<T = unknown>(path: string, options: ApiOptions = {}): 
   if (adminKey) headers['x-admin-verification-key'] = adminKey
   if (body !== undefined) headers['Content-Type'] = 'application/json'
 
+  // A dropped connection can leave a request hanging with no answer. Stop waiting after
+  // timeoutMs so the screen can say so; writes carry a requestId, so retrying is safe.
+  const controller = new AbortController()
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, timeoutMs)
+  const onCallerAbort = () => controller.abort()
+  signal?.addEventListener('abort', onCallerAbort)
+
   let response: Response
   try {
-    response = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal })
+    response = await fetch(url, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
+    })
   } catch (error) {
+    if (timedOut) throw new ApiRequestError(0, 'TIMEOUT', 'Server took too long to answer')
     if ((error as Error).name === 'AbortError') throw error
     throw new ApiRequestError(0, 'NETWORK', 'Server unreachable')
+  } finally {
+    clearTimeout(timer)
+    signal?.removeEventListener('abort', onCallerAbort)
   }
 
   if (response.status === 204) return undefined as T

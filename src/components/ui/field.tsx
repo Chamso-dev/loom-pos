@@ -63,6 +63,21 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
 ))
 TextArea.displayName = 'TextArea'
 
+/**
+ * A list that could not be loaded. Shown instead of the empty state, so a lost connection is
+ * never mistaken for "no products" or "no sales".
+ */
+export function LoadError({ message, retryLabel, onRetry }: { message: ReactNode; retryLabel: ReactNode; onRetry: () => void }) {
+  return (
+    <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">
+      <span>{message}</span>
+      <button type="button" onClick={onRetry} className="rounded-md border border-destructive/30 px-3 py-1 text-sm font-semibold hover:bg-destructive/10">
+        {retryLabel}
+      </button>
+    </div>
+  )
+}
+
 export function ErrorNote({ children }: { children: ReactNode }) {
   if (!children) return null
   return (

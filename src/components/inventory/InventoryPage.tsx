@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus, Package, Search, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ErrorNote } from '@/components/ui/field'
+import { ErrorNote, LoadError } from '@/components/ui/field'
 import ConfirmDialog from '@/components/ui/confirm'
 import InventoryTable from './InventoryTable'
 import ProductModal from './ProductModal'
@@ -16,7 +16,7 @@ type Pending = { type: 'add' } | { type: 'edit'; product: Product } | { type: 'd
 
 export default function InventoryPage() {
   const [searchParams] = useSearchParams()
-  const { fetchProducts, products, hasMoreProducts, totalProducts, isLoadingProducts, user, deleteProduct } = useStore()
+  const { fetchProducts, products, hasMoreProducts, totalProducts, isLoadingProducts, productsError, user, deleteProduct } = useStore()
   const i18n = useI18n()
   const { t } = i18n
 
@@ -110,8 +110,11 @@ export default function InventoryPage() {
       </div>
 
       {error != null && <ErrorNote>{i18n.error(error)}</ErrorNote>}
+      {productsError != null && (
+        <LoadError message={i18n.error(productsError)} retryLabel={t('common.retry')} onRetry={() => fetchProducts({ page: 1, search: searchQuery, expiring: expiringOnly })} />
+      )}
 
-      <InventoryTable
+      {productsError == null && <InventoryTable
         products={products}
         loading={isLoadingProducts}
         searching={Boolean(searchQuery) || expiringOnly}
@@ -120,7 +123,7 @@ export default function InventoryPage() {
         selectedIds={selectedIds}
         onSelectionToggle={(id, selected) => setSelectedIds((prev) => (selected ? [...prev, id] : prev.filter((x) => x !== id)))}
         onSelectAll={(selected) => setSelectedIds(selected ? products.map((p) => p.id) : [])}
-      />
+      />}
 
       <div className="flex flex-col items-center gap-2 py-4">
         {products.length > 0 && <p className="text-xs text-muted-foreground">{t('common.showingOf', { shown: products.length, total: totalProducts })}</p>}

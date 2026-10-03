@@ -50,7 +50,7 @@ function cashSuggestions(need: number) {
 
 export default function PaymentModal({ total, onClose }: { total: number; onClose: () => void }) {
   const store = useStore()
-  const { cart, discount, cartCustomer, setCartCustomer, settings, clearCart, fetchProducts, fetchLowStockAlerts } = store
+  const { cart, discount, cartCustomer, setCartCustomer, settings, clearCart, fetchProducts, fetchLowStockAlerts, checkoutRequestId } = store
   const i18n = useI18n()
   const { t, money, method: methodLabel } = i18n
   const nextKey = useRef(1)
@@ -95,6 +95,7 @@ export default function PaymentModal({ total, onClose }: { total: number; onClos
           discount,
           payments: payments.filter((p) => p.amount > 0),
           customerId: cartCustomer?.id ?? null,
+          requestId: checkoutRequestId,
         },
       })
       setOrder(created)
@@ -301,7 +302,12 @@ export default function PaymentModal({ total, onClose }: { total: number; onClos
         </dl>
 
         {settlement.errors.includes('OVERPAID_NON_CASH') && <ErrorNote>{t('errors.OVERPAID_NON_CASH')}</ErrorNote>}
-        {error != null && <ErrorNote>{i18n.error(error)}</ErrorNote>}
+        {error != null && (
+          <ErrorNote>
+            {i18n.error(error)}
+            {['NETWORK', 'TIMEOUT'].includes((error as { code?: string })?.code ?? '') && <span className="block mt-1 font-normal">{t('billing.retrySafe')}</span>}
+          </ErrorNote>
+        )}
         <button type="submit" hidden />
       </form>
     </Modal>

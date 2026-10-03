@@ -89,7 +89,13 @@ export default function ProductModal({ product, isOpen, onClose, adminKey }: Pro
       expiryDate: form.expiry || null,
     }
     setSaving(true)
-    const result = product ? await updateProduct(product.id, data, adminKey) : await addProduct(data, adminKey)
+    // When editing, send the stock only if it was changed here. Otherwise a price edit made
+    // while the till kept selling would put back the stock count from when the form opened.
+    const { stock: _stock, ...withoutStock } = data
+    const stockEdited = product && formatNumber(product.stock, 3) !== form.stock
+    const result = product
+      ? await updateProduct(product.id, stockEdited ? data : withoutStock, adminKey)
+      : await addProduct(data, adminKey)
     setSaving(false)
     if (result.ok) onClose()
     else setError(result.error)

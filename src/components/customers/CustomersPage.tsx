@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { useI18n } from '@/i18n'
 import { api } from '@/lib/api'
 import CustomerForm, { type Customer } from './CustomerForm'
+import { LoadError } from '@/components/ui/field'
 import CustomerAccount from './CustomerAccount'
 
 export default function CustomersPage() {
@@ -15,16 +16,20 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('')
   const [owing, setOwing] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<unknown>(null)
   const [editing, setEditing] = useState<Customer | null | undefined>(undefined)
   const [openId, setOpenId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const data = await api<{ customers: Customer[]; totalOwed: number; owingCount: number }>('/customers', { query: { search, owing: owing ? '1' : '', limit: 200 } })
       setCustomers(data.customers)
       setTotalOwed(data.totalOwed)
       setOwingCount(data.owingCount)
+    } catch (error) {
+      setLoadError(error)
     } finally {
       setLoading(false)
     }
@@ -75,32 +80,33 @@ export default function CustomersPage() {
         </Button>
       </div>
 
+      {loadError != null && <LoadError message={i18n.error(loadError)} retryLabel={t('common.retry')} onRetry={load} />}
       <div className="relative bg-card rounded-lg border border-border overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-secondary/40 text-xs text-muted-foreground border-b border-border">
             <tr>
-              <th className="px-4 py-3 text-start font-semibold">{t('customers.name')}</th>
-              <th className="px-4 py-3 text-start font-semibold">{t('customers.phone')}</th>
-              <th className="px-4 py-3 text-end font-semibold">{t('customers.balance')}</th>
-              <th className="px-4 py-3 text-end font-semibold">{t('customers.creditLimit')}</th>
-              <th className="px-4 py-3"><span className="sr-only">{t('common.actions')}</span></th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-start font-semibold">{t('customers.name')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-start font-semibold">{t('customers.phone')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-end font-semibold">{t('customers.balance')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-end font-semibold max-md:hidden">{t('customers.creditLimit')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 max-lg:hidden"><span className="sr-only">{t('common.actions')}</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
-            {!loading && customers.length === 0 && (
+            {!loading && loadError == null && customers.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">{search || owing ? t('customers.noMatch') : t('customers.none')}</td>
               </tr>
             )}
             {customers.map((c) => (
               <tr key={c.id} className="hover:bg-accent/30 cursor-pointer" onClick={() => setOpenId(c.id)}>
-                <td className="px-4 py-3 font-semibold"><bdi>{c.name}</bdi></td>
-                <td className="px-4 py-3 text-muted-foreground">{c.phone ? i18n.phone(c.phone) : '–'}</td>
-                <td className={`px-4 py-3 text-end tabular-nums font-semibold ${c.balance > 0 ? 'text-amber-800 dark:text-amber-300' : 'text-muted-foreground'}`}>
+                <td className="px-4 py-3 max-sm:px-2.5 font-semibold"><bdi>{c.name}</bdi></td>
+                <td className="px-4 py-3 max-sm:px-2.5 text-muted-foreground whitespace-nowrap">{c.phone ? i18n.phone(c.phone) : '–'}</td>
+                <td className={`px-4 py-3 max-sm:px-2.5 text-end tabular-nums font-semibold whitespace-nowrap ${c.balance > 0 ? 'text-amber-800 dark:text-amber-300' : 'text-muted-foreground'}`}>
                   {c.balance > 0 ? money(c.balance) : t('customers.settled')}
                 </td>
-                <td className="px-4 py-3 text-end tabular-nums text-muted-foreground">{c.creditLimit != null ? money(c.creditLimit) : t('customers.noLimit')}</td>
-                <td className="px-4 py-3 text-end">
+                <td className="px-4 py-3 max-sm:px-2.5 text-end tabular-nums text-muted-foreground whitespace-nowrap max-md:hidden">{c.creditLimit != null ? money(c.creditLimit) : t('customers.noLimit')}</td>
+                <td className="px-4 py-3 max-sm:px-2.5 text-end max-lg:hidden">
                   <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setOpenId(c.id) }}>
                     {t('customers.open')}
                   </Button>

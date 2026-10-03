@@ -48,7 +48,7 @@ export default function ExpiryBadge({
     <span
       title={i18n.date(dayAsDate(status.day))}
       className={cn(
-        'inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-semibold',
+        'inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap',
         expired ? 'border-loss/30 bg-loss/10 text-loss' : 'border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300',
         className
       )}

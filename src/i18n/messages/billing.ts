@@ -47,6 +47,7 @@ export const billing = defineMessages({
     taxIncluded: 'Includes TVA {rate}%',
     noTax: 'No TVA on these items',
     takePayment: 'Take payment',
+    retrySafe: 'The sale may already be saved. Press “Complete sale” again: it will not be recorded twice.',
 
     payment: 'Payment',
     amountDue: 'Amount due',
@@ -124,6 +125,7 @@ export const billing = defineMessages({
     taxIncluded: 'يشمل الرسم على القيمة المضافة {rate}%',
     noTax: 'لا رسم على القيمة المضافة لهذه المنتجات',
     takePayment: 'الدفع',
+    retrySafe: 'قد تكون عملية البيع محفوظة. اضغط «إتمام البيع» مرة أخرى: لن تُسجَّل مرتين.',
 
     payment: 'الدفع',
     amountDue: 'المبلغ المستحق',

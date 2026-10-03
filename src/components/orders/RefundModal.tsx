@@ -5,6 +5,7 @@ import { DecimalInput, ErrorNote, Field, SelectInput, TextInput } from '@/compon
 import { useI18n } from '@/i18n'
 import { api } from '@/lib/api'
 import { formatNumber, parseDecimal, refundValue, roundQuantity, SETTLING_METHOD_CODES, splitRefund, unitRule } from '@/lib/domain'
+import { useRequestId } from '@/hooks/useRequestId'
 import { useStore } from '@/store/useStore'
 
 interface Props {
@@ -28,7 +29,11 @@ export default function RefundModal({ order, onClose, onDone }: Props) {
     .map(([orderItemId, text]) => ({ orderItemId, quantity: parseDecimal(text) || 0 }))
     .filter((r) => r.quantity > 0)
 
-  const preview = useMemo(() => refundValue(order, order.items, request), [order, JSON.stringify(request)])
+  const requestKey = JSON.stringify(request)
+  // `request` is rebuilt on every render; recompute only when its content changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const preview = useMemo(() => refundValue(order, order.items, request), [order, requestKey])
+  const requestId = useRequestId('refund', [order.id, request, refundMethod, restock, reason])
   const split = splitRefund(preview.amount, order.balanceDue)
 
   const submit = async () => {
@@ -37,7 +42,7 @@ export default function RefundModal({ order, onClose, onDone }: Props) {
     try {
       const result = await api<{ order: any; refund: any }>(`/orders/${order.id}/refunds`, {
         method: 'POST',
-        body: { items: request, method: refundMethod, reason: reason || null, restock },
+        body: { items: request, method: refundMethod, reason: reason || null, restock, requestId },
       })
       fetchLowStockAlerts()
       onDone(result.order, result.refund)

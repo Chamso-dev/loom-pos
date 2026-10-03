@@ -43,13 +43,13 @@ export default function InventoryTable({ products, loading, searching, onEdit, o
       <table className="w-full text-start text-sm">
         <thead className="bg-secondary/40 text-muted-foreground border-b border-border text-xs">
           <tr>
-            <th className="px-4 py-3 w-4">
+            <th className="px-4 py-3 w-4 max-sm:hidden">
               <Checkbox checked={allSelected} aria-label={t('inventory.selectAll')} onChange={(e) => onSelectAll((e.target as HTMLInputElement).checked)} />
             </th>
-            <th className="px-4 py-3 text-start font-semibold">{t('inventory.product')}</th>
-            <th className="px-4 py-3 text-start font-semibold">{t('inventory.identifiers')}</th>
-            <th className="px-4 py-3 text-start font-semibold">{t('inventory.pricing')}</th>
-            <th className="px-4 py-3 text-start font-semibold">{t('inventory.stock')}</th>
+            <th className="px-4 py-3 max-sm:px-2.5 text-start font-semibold">{t('inventory.product')}</th>
+            <th className="px-4 py-3 max-sm:px-2.5 text-start font-semibold max-lg:hidden">{t('inventory.identifiers')}</th>
+            <th className="px-4 py-3 max-sm:px-2.5 text-start font-semibold">{t('inventory.pricing')}</th>
+            <th className="px-4 py-3 max-sm:px-2.5 text-start font-semibold max-sm:hidden">{t('inventory.stock')}</th>
             <th className="px-4 py-3"><span className="sr-only">{t('common.actions')}</span></th>
           </tr>
         </thead>
@@ -58,29 +58,51 @@ export default function InventoryTable({ products, loading, searching, onEdit, o
             const low = product.stock <= unitRule(product.unit).lowStockAt
             const out = product.stock <= 0
             const isSelected = selectedIds.includes(product.id)
+            const stockBadge = (
+              <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-semibold whitespace-nowrap',
+                    out
+                      ? 'bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/20'
+                      : low
+                        ? 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/30'
+                        : 'bg-secondary text-foreground border-border'
+                  )}
+                >
+                  {out ? t('inventory.out') : qty(product.stock, product.unit, true)}
+                </span>
+                {low && !out && <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">{t('inventory.low')}</span>}
+              </span>
+            )
             return (
               <tr key={product.id} className={cn('transition-colors', isSelected ? 'bg-accent/40' : 'hover:bg-accent/15')}>
-                <td className="px-4 py-3">
+                {/* Label printing (the checkboxes) is a desk task; phones keep the room for stock. */}
+                <td className="px-4 py-3 max-sm:hidden">
                   <Checkbox
                     checked={isSelected}
                     aria-label={t('inventory.selectProduct', { name: product.name })}
                     onChange={(e) => onSelectionToggle(product.id, (e.target as HTMLInputElement).checked)}
                   />
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 max-sm:px-2.5">
                   <p className="font-semibold text-foreground"><bdi>{product.name}</bdi></p>
-                  <p className="text-xs text-muted-foreground">
+                  {/* A flex gap, not a margin: inside <bdi> a margin follows the text's own direction and
+                      ended up on the wrong side in Arabic, joining "5 kg" and "Épicerie". */}
+                  <p className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">
                     <bdi>{product.category}</bdi>
-                    {product.size && <bdi className="ms-2">{product.size}</bdi>}
+                    {product.size && <bdi>{product.size}</bdi>}
                   </p>
                   <ExpiryBadge value={product.expiryDate} className="mt-1" />
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 max-lg:hidden">
                   <BarcodeView value={product.barcode} width={80} height={10} className="bg-white border border-zinc-200 rounded p-1 max-w-[110px] h-7" />
                   <p className="text-[11px] text-muted-foreground mt-0.5">{code(product.barcode)}</p>
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap">
+                <td className="px-4 py-3 max-sm:px-2.5 whitespace-nowrap">
                   <p className="font-semibold text-foreground">{unitPrice(product.sellingPrice, product.unit)}</p>
+                  {/* Phones show the stock here instead of in its own column. */}
+                  <div className="sm:hidden mt-1">{stockBadge}</div>
                   <p className="text-xs text-muted-foreground">{t('inventory.cost', { amount: money(product.costPrice) })}</p>
                   {product.taxRate > 0 && <p className="text-xs text-muted-foreground">{t('inventory.taxRate', { rate: product.taxRate })}</p>}
                   {product.sellingPrice > 0 && product.taxRate === 0 && (
@@ -89,23 +111,9 @@ export default function InventoryTable({ products, loading, searching, onEdit, o
                     </p>
                   )}
                 </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={cn(
-                      'inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-semibold',
-                      out
-                        ? 'bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/20'
-                        : low
-                          ? 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/30'
-                          : 'bg-secondary text-foreground border-border'
-                    )}
-                  >
-                    {out ? t('inventory.out') : qty(product.stock, product.unit, true)}
-                  </span>
-                  {low && !out && <span className="ms-2 text-xs font-semibold text-amber-700 dark:text-amber-400">{t('inventory.low')}</span>}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-1.5">
+                <td className="px-4 py-3 max-sm:hidden">{stockBadge}</td>
+                <td className="px-4 py-3 max-sm:px-2.5">
+                  <div className="flex items-center justify-end gap-1.5 max-sm:flex-col">
                     <Button variant="ghost" size="icon" onClick={() => onEdit(product)} aria-label={t('inventory.editProduct', { name: product.name })} className="h-8 w-8">
                       <Edit2 size={14} />
                     </Button>

@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import Sidebar from './Sidebar'
 import Header from './Header'
 import { useStore } from '@/store/useStore'
-import { useIsPhone } from '@/hooks/useMediaQuery'
+import { useIsPhone, useMediaQuery } from '@/hooks/useMediaQuery'
 
 interface ShellProps {
   children: React.ReactNode
@@ -20,6 +20,13 @@ export default function Shell({ children }: ShellProps) {
   useEffect(() => {
     if (isBillingScreen && !isPhone) setSidebarOpen(false)
   }, [isBillingScreen, isPhone, setSidebarOpen])
+
+  // On a tablet the sidebar starts as the narrow icon rail, so lists and tables have room.
+  // It can still be opened with its button.
+  const isTablet = useMediaQuery('(min-width: 768px) and (max-width: 1023px)')
+  useEffect(() => {
+    if (isTablet) setSidebarOpen(false)
+  }, [isTablet, setSidebarOpen])
 
   // On a phone the menu closes after choosing a page.
   useEffect(() => {

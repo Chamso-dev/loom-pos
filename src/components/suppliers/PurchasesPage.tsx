@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { PackagePlus, Plus, Search, Trash2 } from 'lucide-react'
 import Modal from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
-import { DecimalInput, ErrorNote, Field, SelectInput, TextInput } from '@/components/ui/field'
+import { DecimalInput, ErrorNote, Field, SelectInput, TextInput, LoadError } from '@/components/ui/field'
 import { useI18n } from '@/i18n'
 import { api } from '@/lib/api'
 import { formatNumber, isUnitCode, parseDecimal, roundMoney, SETTLING_METHOD_CODES, sumMoney } from '@/lib/domain'
+import { useRequestId } from '@/hooks/useRequestId'
 import { useStore, type Product } from '@/store/useStore'
 
 interface Line {
@@ -61,20 +62,23 @@ function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: (p: 
     setResults([])
   }
 
+  const purchaseBody = {
+    supplierId: supplierId || null,
+    reference: reference || null,
+    items: lines.map((l) => ({ productId: l.product.id, quantity: parseDecimal(l.qty), unitCost: parseDecimal(l.cost) })),
+    amountPaid: paidValue,
+    paymentMethod: payMethod,
+    updateCostPrice: updateCost,
+  }
+  const requestId = useRequestId('purchase', purchaseBody)
+
   const submit = async () => {
     setSaving(true)
     setError(null)
     try {
       const purchase = await api<any>('/purchases', {
         method: 'POST',
-        body: {
-          supplierId: supplierId || null,
-          reference: reference || null,
-          items: lines.map((l) => ({ productId: l.product.id, quantity: parseDecimal(l.qty), unitCost: parseDecimal(l.cost) })),
-          amountPaid: paidValue,
-          paymentMethod: payMethod,
-          updateCostPrice: updateCost,
-        },
+        body: { ...purchaseBody, requestId },
       })
       fetchLowStockAlerts()
       onSaved(purchase)
@@ -216,14 +220,18 @@ export default function PurchasesPage() {
   const { t, money } = i18n
   const [purchases, setPurchases] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<unknown>(null)
   const [creating, setCreating] = useState(false)
   const [notice, setNotice] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const data = await api<{ purchases: any[] }>('/purchases')
       setPurchases(data.purchases)
+    } catch (error) {
+      setLoadError(error)
     } finally {
       setLoading(false)
     }
@@ -246,30 +254,34 @@ export default function PurchasesPage() {
         <Button className="gap-1.5" onClick={() => setCreating(true)}><Plus size={16} /> {t('purchases.newPurchase')}</Button>
       </div>
       {notice && <p className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-800 dark:text-emerald-300">{notice}</p>}
+      {loadError != null && <LoadError message={i18n.error(loadError)} retryLabel={t('common.retry')} onRetry={load} />}
       <div className="relative bg-card rounded-lg border border-border overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-secondary/40 text-xs text-muted-foreground border-b border-border">
             <tr>
-              <th className="px-4 py-3 text-start font-semibold">{t('purchases.number')}</th>
-              <th className="px-4 py-3 text-start font-semibold">{t('purchases.date')}</th>
-              <th className="px-4 py-3 text-start font-semibold">{t('purchases.supplier')}</th>
-              <th className="px-4 py-3 text-start font-semibold">{t('purchases.reference')}</th>
-              <th className="px-4 py-3 text-end font-semibold">{t('purchases.total')}</th>
-              <th className="px-4 py-3 text-end font-semibold">{t('purchases.paid')}</th>
-              <th className="px-4 py-3 text-end font-semibold">{t('purchases.due')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-start font-semibold">{t('purchases.number')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-start font-semibold max-sm:hidden">{t('purchases.date')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-start font-semibold">{t('purchases.supplier')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-start font-semibold max-lg:hidden">{t('purchases.reference')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-end font-semibold">{t('purchases.total')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-end font-semibold max-md:hidden">{t('purchases.paid')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-end font-semibold">{t('purchases.due')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
-            {!loading && purchases.length === 0 && <tr><td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">{t('purchases.none')}</td></tr>}
+            {!loading && loadError == null && purchases.length === 0 && <tr><td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">{t('purchases.none')}</td></tr>}
             {purchases.map((p) => (
               <tr key={p.id}>
-                <td className="px-4 py-3 font-semibold">{i18n.code(p.purchaseNo)}</td>
-                <td className="px-4 py-3">{i18n.date(p.date, 'medium')}</td>
+                <td className="px-4 py-3 max-sm:px-2.5 font-semibold whitespace-nowrap">
+                  {i18n.code(p.purchaseNo)}
+                  <span className="sm:hidden block text-xs font-normal text-muted-foreground">{i18n.date(p.date, 'medium')}</span>
+                </td>
+                <td className="px-4 py-3 max-sm:px-2.5 whitespace-nowrap max-sm:hidden">{i18n.date(p.date, 'medium')}</td>
                 <td className="px-4 py-3">{p.supplier?.name ?? <span className="text-muted-foreground">{t('purchases.noSupplier')}</span>}</td>
-                <td className="px-4 py-3 text-muted-foreground">{p.reference ? i18n.code(p.reference) : '–'}</td>
-                <td className="px-4 py-3 text-end tabular-nums font-semibold">{money(p.totalAmount)}</td>
-                <td className="px-4 py-3 text-end tabular-nums">{money(p.amountPaid)}</td>
-                <td className={`px-4 py-3 text-end tabular-nums ${p.balanceDue > 0 ? 'font-semibold text-amber-800 dark:text-amber-300' : 'text-muted-foreground'}`}>{money(p.balanceDue)}</td>
+                <td className="px-4 py-3 max-sm:px-2.5 text-muted-foreground max-lg:hidden">{p.reference ? i18n.code(p.reference) : '–'}</td>
+                <td className="px-4 py-3 max-sm:px-2.5 text-end tabular-nums font-semibold whitespace-nowrap">{money(p.totalAmount)}</td>
+                <td className="px-4 py-3 max-sm:px-2.5 text-end tabular-nums whitespace-nowrap max-md:hidden">{money(p.amountPaid)}</td>
+                <td className={`px-4 py-3 max-sm:px-2.5 text-end tabular-nums whitespace-nowrap ${p.balanceDue > 0 ? 'font-semibold text-amber-800 dark:text-amber-300' : 'text-muted-foreground'}`}>{money(p.balanceDue)}</td>
               </tr>
             ))}
           </tbody>

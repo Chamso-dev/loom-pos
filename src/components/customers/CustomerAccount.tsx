@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/ui/badges'
 import { useI18n } from '@/i18n'
 import { api } from '@/lib/api'
 import { formatNumber, parseDecimal, SETTLING_METHOD_CODES } from '@/lib/domain'
+import { useRequestId } from '@/hooks/useRequestId'
 import type { Customer } from './CustomerForm'
 
 interface Account {
@@ -25,6 +26,9 @@ export default function CustomerAccount({ customerId, onClose, onChanged, onEdit
   const [error, setError] = useState<unknown>(null)
   const [notice, setNotice] = useState('')
   const [saving, setSaving] = useState(false)
+  const [paymentsSaved, setPaymentsSaved] = useState(0)
+  // Same form sent again (e.g. after a lost connection) is recorded once; a new repayment after a success gets a new id.
+  const requestId = useRequestId('repay', [customerId, payMethod, amount, reference], paymentsSaved)
 
   const load = useCallback(() => api<Account>(`/customers/${customerId}`).then(setAccount).catch(setError), [customerId])
   useEffect(() => {
@@ -40,8 +44,9 @@ export default function CustomerAccount({ customerId, onClose, onChanged, onEdit
     try {
       const result = await api<{ customer: Customer }>(`/customers/${customerId}/payments`, {
         method: 'POST',
-        body: { method: payMethod, amount: value, reference: reference || null },
+        body: { method: payMethod, amount: value, reference: reference || null, requestId },
       })
+      setPaymentsSaved((n) => n + 1)
       setNotice(t('customers.paymentSaved', { amount: money(value), balance: money(result.customer.balance) }))
       setAmount('')
       setReference('')

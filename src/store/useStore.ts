@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { api, configureApi } from '@/lib/api'
+import { newRequestId } from '@/lib/requestId'
 import { roundQuantity, unitRule, type Discount, type PaymentMethodCode } from '@/lib/domain'
 import type { Lang } from '@/i18n/define'
 
@@ -110,6 +111,12 @@ interface AppState {
   cart: CartItem[]
   discount: Discount | null
   cartCustomer: CustomerRef | null
+  /**
+   * Sent with the sale. It stays the same while the cart is unchanged, so pressing
+   * "Complete sale" again after a lost connection cannot record the sale twice; any change
+   * to the cart, discount or customer starts a new one.
+   */
+  checkoutRequestId: string
   addToCart: (product: Product, quantity?: number) => void
   addByBarcode: (barcode: string) => Promise<boolean>
   removeFromCart: (productId: string) => void
@@ -125,6 +132,8 @@ interface AppState {
   // Inventory
   products: Product[]
   isLoadingProducts: boolean
+  /** Why the last product list request failed, or null. */
+  productsError: unknown
   hasMoreProducts: boolean
   totalProducts: number
   fetchProducts: (params?: { page?: number; search?: string; expiring?: boolean }) => Promise<void>
@@ -195,6 +204,7 @@ export const useStore = create<AppState>()(
       cart: [],
       discount: null,
       cartCustomer: null,
+      checkoutRequestId: newRequestId('sale'),
       addToCart: (product, quantity) =>
         set((state) => {
           // Weighed goods start at 1 kg or 1 L; the cashier then types the scale reading.
@@ -202,6 +212,7 @@ export const useStore = create<AppState>()(
           const existing = state.cart.find((i) => i.productId === product.id)
           if (existing) {
             return {
+              checkoutRequestId: newRequestId('sale'),
               cart: state.cart.map((i) =>
                 i.productId === product.id
                   ? { ...i, quantity: Math.min(i.stock, roundQuantity(i.quantity + step, i.unit)) }
@@ -224,7 +235,7 @@ export const useStore = create<AppState>()(
             stock: product.stock,
             expiryDate: product.expiryDate ?? null,
           }
-          return { cart: [...state.cart, item] }
+          return { cart: [...state.cart, item], checkoutRequestId: newRequestId('sale') }
         }),
       addByBarcode: async (barcode) => {
         const local = get().products.find((p) => p.barcode === barcode || p.sku === barcode)
@@ -244,9 +255,11 @@ export const useStore = create<AppState>()(
         }
         return false
       },
-      removeFromCart: (productId) => set((state) => ({ cart: state.cart.filter((i) => i.productId !== productId) })),
+      removeFromCart: (productId) =>
+        set((state) => ({ cart: state.cart.filter((i) => i.productId !== productId), checkoutRequestId: newRequestId('sale') })),
       updateQuantity: (productId, quantity) =>
         set((state) => ({
+          checkoutRequestId: newRequestId('sale'),
           cart: state.cart.map((i) => {
             if (i.productId !== productId) return i
             const smallest = unitRule(i.unit).decimals > 0 ? 10 ** -unitRule(i.unit).decimals : 1
@@ -254,9 +267,9 @@ export const useStore = create<AppState>()(
             return { ...i, quantity: next }
           }),
         })),
-      setDiscount: (discount) => set({ discount }),
-      setCartCustomer: (cartCustomer) => set({ cartCustomer }),
-      clearCart: () => set({ cart: [], discount: null, cartCustomer: null }),
+      setDiscount: (discount) => set({ discount, checkoutRequestId: newRequestId('sale') }),
+      setCartCustomer: (cartCustomer) => set({ cartCustomer, checkoutRequestId: newRequestId('sale') }),
+      clearCart: () => set({ cart: [], discount: null, cartCustomer: null, checkoutRequestId: newRequestId('sale') }),
 
       // Appearance
       theme: 'system',
@@ -265,11 +278,12 @@ export const useStore = create<AppState>()(
       // Inventory
       products: [],
       isLoadingProducts: false,
+      productsError: null,
       hasMoreProducts: false,
       totalProducts: 0,
       fetchProducts: async (params = {}) => {
         const { page = 1, search = '', expiring = false } = params
-        set({ isLoadingProducts: true })
+        set({ isLoadingProducts: true, productsError: null })
         try {
           const data = await api<{ products: Product[]; total: number; hasMore: boolean }>('/products', {
             query: { page, limit: 50, search, ...(expiring ? { expiring: '1' } : {}) },
@@ -281,6 +295,7 @@ export const useStore = create<AppState>()(
           }))
         } catch (error) {
           console.error('Failed to fetch products', error)
+          set({ productsError: error })
         } finally {
           set({ isLoadingProducts: false })
         }
@@ -387,6 +402,8 @@ export const useStore = create<AppState>()(
         user: state.user,
         cart: state.cart,
         discount: state.discount,
+        cartCustomer: state.cartCustomer,
+        checkoutRequestId: state.checkoutRequestId,
         theme: state.theme,
         language: state.language,
         languageChosen: state.languageChosen,

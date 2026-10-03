@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { DecimalInput, ErrorNote, Field, SelectInput, TextArea, TextInput } from '@/components/ui/field'
 import { useI18n } from '@/i18n'
 import { api } from '@/lib/api'
+import { useRequestId } from '@/hooks/useRequestId'
 import { formatNumber, parseDecimal, SETTLING_METHOD_CODES } from '@/lib/domain'
 
 interface Supplier {
@@ -84,6 +85,8 @@ function SupplierAccount({ id, onClose, onChanged, onEdit }: { id: string; onClo
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(() => api<any>(`/suppliers/${id}`).then(setData).catch(setError), [id])
+  const [paymentsSaved, setPaymentsSaved] = useState(0)
+  const requestId = useRequestId('supplier-pay', [id, payMethod, amount, reference], paymentsSaved)
   useEffect(() => {
     load()
   }, [load])
@@ -98,7 +101,8 @@ function SupplierAccount({ id, onClose, onChanged, onEdit }: { id: string; onClo
     setSaving(true)
     setError(null)
     try {
-      const result = await api<{ supplier: Supplier }>(`/suppliers/${id}/payments`, { method: 'POST', body: { method: payMethod, amount: value, reference: reference || null } })
+      const result = await api<{ supplier: Supplier }>(`/suppliers/${id}/payments`, { method: 'POST', body: { method: payMethod, amount: value, reference: reference || null, requestId } })
+      setPaymentsSaved((n) => n + 1)
       setNotice(t('suppliers.paymentSaved', { amount: money(value), balance: money(result.supplier.balance) }))
       setAmount('')
       setReference('')
@@ -236,20 +240,20 @@ export default function SuppliersPage() {
         <table className="w-full text-sm">
           <thead className="bg-secondary/40 text-xs text-muted-foreground border-b border-border">
             <tr>
-              <th className="px-4 py-3 text-start font-semibold">{t('suppliers.name')}</th>
-              <th className="px-4 py-3 text-start font-semibold">{t('suppliers.phone')}</th>
-              <th className="px-4 py-3 text-end font-semibold">{t('suppliers.owed')}</th>
-              <th className="px-4 py-3"><span className="sr-only">{t('common.actions')}</span></th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-start font-semibold">{t('suppliers.name')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-start font-semibold">{t('suppliers.phone')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 text-end font-semibold">{t('suppliers.owed')}</th>
+              <th className="px-4 py-3 max-sm:px-2.5 max-md:hidden"><span className="sr-only">{t('common.actions')}</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
             {!loading && suppliers.length === 0 && <tr><td colSpan={4} className="px-4 py-12 text-center text-muted-foreground">{t('suppliers.none')}</td></tr>}
             {suppliers.map((s) => (
               <tr key={s.id} className="hover:bg-accent/30 cursor-pointer" onClick={() => setOpenId(s.id)}>
-                <td className="px-4 py-3 font-semibold"><bdi>{s.name}</bdi></td>
-                <td className="px-4 py-3 text-muted-foreground">{s.phone ? i18n.phone(s.phone) : '–'}</td>
-                <td className={`px-4 py-3 text-end tabular-nums font-semibold ${s.balance > 0 ? '' : 'text-muted-foreground'}`}>{s.balance > 0 ? money(s.balance) : t('suppliers.settled')}</td>
-                <td className="px-4 py-3 text-end"><Button variant="ghost" size="sm">{t('suppliers.open')}</Button></td>
+                <td className="px-4 py-3 max-sm:px-2.5 font-semibold"><bdi>{s.name}</bdi></td>
+                <td className="px-4 py-3 max-sm:px-2.5 text-muted-foreground whitespace-nowrap">{s.phone ? i18n.phone(s.phone) : '–'}</td>
+                <td className={`px-4 py-3 max-sm:px-2.5 text-end tabular-nums font-semibold whitespace-nowrap ${s.balance > 0 ? '' : 'text-muted-foreground'}`}>{s.balance > 0 ? money(s.balance) : t('suppliers.settled')}</td>
+                <td className="px-4 py-3 max-sm:px-2.5 text-end max-md:hidden"><Button variant="ghost" size="sm">{t('suppliers.open')}</Button></td>
               </tr>
             ))}
           </tbody>
