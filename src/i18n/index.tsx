@@ -76,6 +76,7 @@ export function makeFormatters(lang: Lang) {
     long: dateFormatter(lang, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
     dayMonth: dateFormatter(lang, { weekday: 'long', day: 'numeric', month: 'long' }),
     weekday: dateFormatter(lang, { weekday: 'short' }),
+    dayShort: dateFormatter(lang, { day: 'numeric', month: 'short' }),
     month: dateFormatter(lang, { month: 'long', year: 'numeric' }),
     time: dateFormatter(lang, { hour: '2-digit', minute: '2-digit' }),
   }

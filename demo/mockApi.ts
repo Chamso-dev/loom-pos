@@ -7,6 +7,10 @@
 import {
   addDays,
   allocateRepayment,
+  buildOverview,
+  isRangeKey,
+  resolveRange,
+  type RangeKey,
   dayKeyOf,
   EXPIRY_SOON_DAYS,
   includedTax,
@@ -100,11 +104,16 @@ function seedData() {
     for (const [h, w] of weights) if ((r -= w) < 0) return Number(h)
     return 18
   }
+  // Two months of sales, so every dashboard period has an earlier one to compare with. Trade grows
+  // a little over the weeks and is quieter on Fridays.
+  const HISTORY_DAYS = 62
   const dates: Date[] = []
-  for (let back = 7; back >= 0; back--) {
+  for (let back = HISTORY_DAYS; back >= 0; back--) {
     const day = new Date(now)
     day.setDate(day.getDate() - back)
-    const n = 26 + Math.floor(rand() * 16)
+    const trend = 0.85 + 0.15 * (1 - back / HISTORY_DAYS)
+    const friday = day.getDay() === 5 ? 0.6 : 1
+    const n = Math.round((26 + Math.floor(rand() * 16)) * trend * friday)
     for (let i = 0; i < n; i++) {
       const d = new Date(day)
       d.setHours(pickHour(), Math.floor(rand() * 60), Math.floor(rand() * 60), 0)
@@ -135,6 +144,8 @@ function seedData() {
     else if (roll < 0.78) payments = [{ method: 'EDAHABIA', amount: totals.total }]
     else if (roll < 0.88) payments = [{ method: 'BARIDIMOB', amount: totals.total, reference: `BM-${7000 + db.orders.length}` }]
     else if (roll < 0.92) payments = [{ method: 'TRANSFER', amount: totals.total }]
+    // Credit only in the past week, as older credit would have been repaid by now.
+    else if (now.getTime() - date.getTime() > 7 * 864e5) payments = [{ method: 'CASH', amount: totals.total }]
     else {
       customerId = pick(db.customers.slice(0, 4)).id
       const cash = roundMoney(Math.floor((totals.total * rand() * 0.5) / 100) * 100)
@@ -743,6 +754,35 @@ async function route(method: string, path: string, query: URLSearchParams, body:
     return [200, { revenue: t.sales, net: t.net, tax: t.tax, orders: t.orders, discounts: t.discounts, refunds: t.refunds, profit: t.profit, creditGiven: t.creditGiven, repayments: r.repayments, payments: r.moneyIn, refundsOut: r.refundsOut, cash: r.cash, outstanding: r.outstanding }]
   }
   if (is('GET', 'analytics/today')) return [200, today()]
+  if (is('GET', 'analytics/overview')) {
+    // Same rows as the server sends to buildOverview.
+    const range = resolveRange(isRangeKey(query.get('range')) ? (query.get('range') as RangeKey) : 'today')
+    const inWindow = (s: string) => new Date(s) >= range.previousFrom && new Date(s) < range.to
+    const product = (id: string) => db.products.find((p) => p.id === id)
+    const orders = db.orders.filter((o) => inWindow(o.date)).map((o) => ({
+      date: new Date(o.date),
+      subtotal: o.subtotal as number,
+      discountAmount: o.discountAmount as number,
+      totalAmount: o.totalAmount as number,
+      taxAmount: o.taxAmount as number,
+      amountPaid: o.amountPaid as number,
+      items: o.items.map((i: Row) => ({ productId: i.productId, quantity: i.quantity, price: i.price, costPrice: i.costPrice, unit: i.unit, name: product(i.productId)?.name ?? '', category: product(i.productId)?.category ?? null })),
+    }))
+    const refunds = db.refunds.filter((r) => inWindow(r.createdAt)).map((r) => {
+      const order = db.orders.find((o) => o.id === r.orderId)!
+      return {
+        createdAt: new Date(r.createdAt),
+        amount: r.amount,
+        restock: r.restock,
+        items: r.items.map((i: Row) => {
+          const oi = order.items.find((x: Row) => x.id === i.orderItemId)
+          return { quantity: i.quantity, amount: i.amount, taxRate: oi.taxRate, costPrice: oi.costPrice }
+        }),
+      }
+    })
+    const payments = db.payments.filter((p) => inWindow(p.createdAt)).map((p) => ({ createdAt: new Date(p.createdAt), method: p.method, amount: p.amount, kind: p.kind }))
+    return [200, buildOverview(range, { orders, refunds, payments }, { owedByCustomers: db.customers.reduce((s, c) => s + c.balance, 0) })]
+  }
 
   throw new HttpError(404, 'NOT_FOUND')
 }

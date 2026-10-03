@@ -59,18 +59,6 @@
   --ld-slate: #6b778b;
 }
 
-/* Hero: the day's figure and how it compares */
-
-.ld-hero {
-  position: relative;
-  isolation: isolate;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px 32px;
-}
-
 .ld-date {
   font-size: 1.125rem;
   font-weight: 500;
@@ -78,109 +66,12 @@
   margin: 0 0 4px;
 }
 
-.ld-takings {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 16px;
-  margin: 0;
-}
-
-/* A soft pool of blue light behind the day's takings, on the reading side of the page. */
-.ld-hero::before {
-  content: '';
-  position: absolute;
-  inset: -48px 0 -24px 0;
-  z-index: -1;
-  pointer-events: none;
-  /* Sized in percent of this box so the light fades out fully before any edge. */
-  background: radial-gradient(32% 50% at var(--ld-glow-x, 32%) 50%, var(--ld-glow-soft), transparent);
-}
-
-[dir='rtl'] .ld-hero::before {
-  --ld-glow-x: 68%;
-}
-
-.ld-figure {
-  font-family: var(--font-display);
-  font-size: clamp(2.75rem, 9vw, 5.75rem);
-  line-height: 0.95;
-  font-weight: 800;
-  letter-spacing: -0.035em;
-}
-
-.ld-figure-currency {
-  font-size: 0.42em;
-  font-weight: 600;
-  letter-spacing: 0;
-  margin-inline-start: 0.2em;
-  color: var(--ld-ink-soft);
-}
-
-.ld-figure-note {
-  font-size: 1.25rem;
-  font-weight: 500;
-  color: var(--ld-ink-soft);
-}
-
-.ld-compare {
-  margin: 12px 0 0;
-  font-size: 1.125rem;
-  line-height: 1.4;
-  max-width: 60ch;
-}
-
-.ld-compare-gap {
-  font-weight: 650;
-  color: var(--ld-gain);
-}
-
-.ld-compare-gap.is-behind {
-  color: var(--ld-madder);
-}
-
-.ld-facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 48px;
-  margin: 20px 0 0;
-}
-
-.ld-fact {
-  display: flex;
-  flex-direction: column;
-}
-
-/* Value first, then its label, then the visual that gives it context. */
-.ld-fact dd { order: 1; }
-.ld-fact dt { order: 2; }
-.ld-fact .ld-fact-extra { order: 3; }
-
-.ld-fact dt {
-  font-size: 0.875rem;
-  color: var(--ld-ink-soft);
-}
-
-.ld-fact-credit dd {
-  color: var(--ld-turmeric-ink);
-}
-
-.ld-fact-gain dd,
 .ld-gain {
   color: var(--ld-gain);
 }
 
-.ld-fact-loss dd,
 .ld-loss {
   color: var(--ld-madder);
-}
-
-.ld-fact dd {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
 }
 
 /* Buttons and links */
@@ -230,75 +121,11 @@
   border-radius: 4px;
 }
 
-/* The day's thread chart */
-
-.ld-thread {
-  position: relative;
-}
-
-.ld-thread svg {
-  display: block;
-  overflow: visible;
-}
-
-.ld-thread-glow {
-  flood-color: var(--ld-glow);
-}
-
-.ld-thread-fill-top {
-  stop-color: var(--ld-fill-top);
-}
-
-.ld-thread-fill-bottom {
-  stop-color: var(--ld-fill-top);
-  stop-opacity: 0;
-}
-
-.ld-thread-area {
-  stroke: none;
-}
-
-.ld-thread-halo {
-  fill: var(--ld-blue);
-  opacity: 0.18;
-  transform-box: fill-box;
-  transform-origin: center;
-  transform: scale(1.9);
-}
-
-.ld-thread-today {
-  fill: none;
-  stroke: var(--ld-blue);
-  stroke-width: 4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.ld-thread-average {
-  fill: none;
-  stroke: var(--ld-ink-soft);
-  stroke-width: 1.5;
-  stroke-dasharray: 2 5;
-  stroke-linecap: round;
-  opacity: 0.8;
-}
+/* Chart parts shared by the hour columns */
 
 .ld-thread-axis {
   stroke: var(--ld-thread);
   stroke-width: 1;
-}
-
-.ld-thread-now {
-  stroke: var(--ld-thread);
-  stroke-width: 1;
-  stroke-dasharray: 3 3;
-}
-
-.ld-thread-knot {
-  fill: var(--ld-blue);
-  stroke: var(--color-background);
-  stroke-width: 3;
-  paint-order: stroke;
 }
 
 .ld-thread-label {
@@ -342,65 +169,8 @@
   border-top: 2px dotted var(--ld-ink-soft);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .ld-thread-today {
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-    animation: ld-draw 1100ms cubic-bezier(0.33, 0, 0.2, 1) 150ms forwards;
-  }
-  .ld-thread-knot,
-  .ld-thread-label-strong {
-    opacity: 0;
-    animation: ld-appear 300ms ease-out 1150ms forwards;
-  }
-  .ld-thread-area {
-    opacity: 0;
-    animation: ld-appear 700ms ease-out 900ms forwards;
-  }
-  /* The one repeating motion on the page: a slow breath around "now". */
-  .ld-thread-halo {
-    opacity: 0;
-    animation: ld-breathe 2.8s ease-out 1.4s infinite;
-  }
-}
-
-@keyframes ld-breathe {
-  0% { opacity: 0.45; transform: scale(1); }
-  100% { opacity: 0; transform: scale(3.2); }
-}
-
-@keyframes ld-draw {
-  to { stroke-dashoffset: 0; }
-}
-
-@keyframes ld-appear {
-  to { opacity: 1; }
-}
 
 /* Panels */
-
-.ld-row {
-  display: grid;
-  gap: 24px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.ld-row-wide {
-  display: grid;
-  gap: 24px;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  align-items: start;
-}
-
-@media (max-width: 1100px) {
-  .ld-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ld-row > :last-child:nth-child(odd) { grid-column: 1 / -1; }
-  .ld-row-wide { grid-template-columns: minmax(0, 1fr); }
-}
-
-@media (max-width: 700px) {
-  .ld-row { grid-template-columns: minmax(0, 1fr); }
-}
 
 .ld-panel {
   background: var(--ld-panel);
@@ -410,12 +180,6 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-}
-
-.ld-panel-open {
-  padding: 0;
-  background: transparent;
-  box-shadow: none;
 }
 
 .ld-heading {
@@ -484,24 +248,11 @@ a.ld-item-name:hover {
   text-underline-offset: 3px;
 }
 
-.ld-item-detail {
-  grid-column: 1;
-  font-size: 0.875rem;
-  color: var(--ld-ink-soft);
-}
-
 .ld-item-value {
   grid-column: 2;
   grid-row: 1;
   text-align: right;
   font-weight: 600;
-}
-
-.ld-item-sub {
-  grid-column: 2;
-  text-align: right;
-  font-size: 0.875rem;
-  color: var(--ld-ink-soft);
 }
 
 .ld-stock-low {
@@ -517,7 +268,7 @@ a.ld-item-name:hover {
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  margin-right: 8px;
+  margin-inline-end: 8px;
   vertical-align: 1px;
   background: var(--ld-turmeric);
 }
@@ -526,28 +277,14 @@ a.ld-item-name:hover {
   background: var(--ld-madder);
 }
 
-/* Payment split */
-
-.ld-split {
-  display: flex;
-  height: 14px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: var(--ld-thread);
-  margin-bottom: 20px;
-  gap: 2px;
-}
-
-.ld-split-part {
-  height: 100%;
-}
+/* Payment method colors */
 
 .ld-dip {
   display: inline-block;
   width: 10px;
   height: 10px;
   border-radius: 3px;
-  margin-right: 10px;
+  margin-inline-end: 8px;
   vertical-align: 0;
 }
 
@@ -556,7 +293,6 @@ a.ld-item-name:hover {
 .ld-dip-edahabia { background: var(--ld-blue-pale); }
 .ld-dip-baridimob { background: var(--ld-teal); }
 .ld-dip-transfer { background: var(--ld-slate); }
-.ld-dip-credit { background: var(--ld-turmeric); }
 
 /* Latest bills table */
 
@@ -571,28 +307,30 @@ a.ld-item-name:hover {
 }
 
 .ld-table th {
-  text-align: left;
+  text-align: start;
   font-weight: 500;
   font-size: 0.875rem;
   color: var(--ld-ink-soft);
-  padding: 0 12px 8px 0;
+  padding: 0 0 8px;
+  padding-inline-end: 16px;
   border-bottom: 1px solid var(--ld-thread);
   white-space: nowrap;
 }
 
 .ld-table td {
-  padding: 12px 12px 12px 0;
+  padding: 12px 0;
+  padding-inline-end: 16px;
   border-bottom: 1px solid var(--ld-thread);
   white-space: nowrap;
 }
 
 .ld-table .ld-num {
-  text-align: right;
-  padding-right: 32px;
+  text-align: end;
+  padding-inline-end: 32px;
 }
 
 .ld-table .ld-num:last-child {
-  padding-right: 0;
+  padding-inline-end: 0;
 }
 
 .ld-table tbody tr {
@@ -600,7 +338,7 @@ a.ld-item-name:hover {
 }
 
 .ld-table tbody tr:hover td {
-  background: var(--ld-panel);
+  background: color-mix(in srgb, var(--ld-ink) 5%, transparent);
 }
 
 .ld-table .ld-link {
@@ -613,58 +351,6 @@ a.ld-item-name:hover {
 }
 
 .ld-table-muted {
-  color: var(--ld-ink-soft);
-}
-
-/* Past 7 days */
-
-.ld-week {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  align-items: end;
-  gap: 8px;
-  height: 180px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.ld-week-day {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  height: 100%;
-  gap: 6px;
-  min-width: 0;
-}
-
-.ld-week-amount {
-  font-size: 0.8125rem;
-  color: var(--ld-ink-soft);
-  white-space: nowrap;
-}
-
-.ld-week-bar {
-  width: 100%;
-  max-width: 36px;
-  min-height: 3px;
-  border-radius: 6px 6px 2px 2px;
-  background: var(--ld-blue-pale);
-}
-
-.ld-week-day.is-today .ld-week-bar {
-  background: var(--ld-blue);
-}
-
-.ld-week-day.is-today .ld-week-amount,
-.ld-week-day.is-today .ld-week-label {
-  color: var(--ld-ink);
-  font-weight: 600;
-}
-
-.ld-week-label {
-  font-size: 0.875rem;
   color: var(--ld-ink-soft);
 }
 
@@ -707,10 +393,6 @@ a.ld-item-name:hover {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-
-.ld-indent {
-  padding-left: 20px;
 }
 
 .ld-panel-foot strong {
@@ -816,36 +498,6 @@ a.ld-item-name:hover {
   gap: 12px;
 }
 
-/* Dark mode: the day's figure gives off a little light of its own. */
-.dark .ld-figure {
-  text-shadow: 0 0 36px rgba(94, 161, 255, 0.35);
-}
-
-/* Today's bar in the week glows like the thread. */
-.ld-week-day.is-today .ld-week-bar {
-  box-shadow: 0 0 16px -2px var(--ld-glow);
-}
-
-/* Context under each figure: a 7-day sparkline, a change against the week, or a meter. */
-.ld-fact .ld-fact-extra {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 22px;
-  margin-top: 8px;
-  font-family: var(--font-sans);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  color: var(--ld-ink-soft);
-}
-
-.ld-fact .ld-fact-extra.ld-gain { color: var(--ld-gain); }
-.ld-fact .ld-fact-extra.ld-loss { color: var(--ld-madder); }
-
-.ld-spark rect { fill: var(--ld-thread); }
-.ld-spark rect.is-now { fill: var(--ld-blue); }
-
 /* Meters: the fill carries the meaning, the track is a light step of the same color. */
 .ld-meter {
   --meter: var(--ld-blue);
@@ -878,35 +530,7 @@ a.ld-item-name:hover {
 
 .ld-row-meter .ld-meter { width: 100%; height: 4px; }
 
-/* Best sellers: takings against the day's top product. */
-.ld-rank {
-  grid-column: 1 / -1;
-  display: block;
-  height: 4px;
-  margin-top: 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--ld-blue) 12%, transparent);
-  overflow: hidden;
-}
-
-.ld-rank > span {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--ld-blue);
-}
-
-/* Busiest hours and sales by category sit side by side under the day chart. */
-.ld-row-pair {
-  display: grid;
-  gap: 24px;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  align-items: start;
-}
-
-@media (max-width: 1100px) {
-  .ld-row-pair { grid-template-columns: minmax(0, 1fr); }
-}
+/* Sales by hour of day: this period's columns with the previous period's mark across each. */
 
 .ld-hours-insight {
   margin: 0 0 12px;
@@ -914,11 +538,23 @@ a.ld-item-name:hover {
   font-weight: 600;
 }
 
+/* The plot takes the panel's spare height; the drawing is sized from it, not the other way round. */
+.ld-hours {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .ld-hours-plot {
   position: relative;
+  flex: 1;
+  min-height: 204px;
+  max-height: 340px;
 }
 
 .ld-hours-plot svg {
+  position: absolute;
+  inset: 0;
   display: block;
   overflow: visible;
 }
@@ -943,7 +579,7 @@ a.ld-item-name:hover {
   fill: color-mix(in srgb, var(--ld-blue) 80%, white);
 }
 
-/* An average day's takings for the hour: a short dark mark across the column. */
+/* The previous period's takings for the hour: a short dark mark across the column. */
 .ld-hours-avg {
   stroke: var(--ld-ink-soft);
   stroke-width: 2;
@@ -993,7 +629,7 @@ a.ld-item-name:hover {
 .ld-tip-key.is-today { border-color: var(--ld-blue); }
 .ld-tip-key.is-avg { border-color: var(--ld-ink-soft); }
 
-/* Sales by category: horizontal bars, largest first, labeled with amount and share. */
+/* Rankings (payment methods, categories, products): horizontal bars, largest first, labeled with amount and share. */
 .ld-cats {
   list-style: none;
   margin: 0;
@@ -1041,4 +677,391 @@ a.ld-item-name:hover {
 
 .ld-cat-bar.is-other {
   background: var(--ld-slate);
+}
+
+/* Overview: header, period picker, metric cards, grid of panels */
+
+.loom-dash {
+  gap: 20px;
+}
+
+.ld-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+
+.ld-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.ld-subtitle {
+  margin: 6px 0 0;
+  font-size: 0.9375rem;
+  color: var(--ld-ink-soft);
+}
+
+.ld-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Period picker: one row of pills above everything it filters; scrolls sideways on a phone. */
+.ld-ranges {
+  display: flex;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-radius: 14px;
+  background: var(--ld-panel);
+  box-shadow: var(--ld-panel-shadow);
+}
+
+.ld-range {
+  flex: none;
+  height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ld-ink-soft);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ld-range:hover {
+  color: var(--ld-ink);
+  background: color-mix(in srgb, var(--ld-ink) 6%, transparent);
+}
+
+.ld-range[aria-pressed='true'] {
+  background: var(--ld-blue-fill);
+  color: var(--ld-on-blue);
+  box-shadow: 0 6px 16px -8px var(--ld-glow);
+}
+
+/* While another period loads, the last one stays, dimmed. */
+.ld-body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  transition: opacity 150ms ease-out;
+}
+
+.ld-body.is-stale {
+  opacity: 0.5;
+}
+
+/* Metric cards: title, value, change, previous value and a two-period sparkline. Click one to chart it. */
+.ld-kpis {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.ld-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 16px 18px 10px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--ld-panel);
+  box-shadow: var(--ld-panel-shadow);
+  color: var(--ld-ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: box-shadow 150ms ease-out;
+}
+
+.ld-kpi:hover {
+  box-shadow: inset 0 0 0 1px var(--ld-thread), var(--ld-panel-shadow);
+}
+
+.ld-kpi[aria-pressed='true'] {
+  box-shadow: inset 0 0 0 2px var(--ld-blue), 0 12px 30px -18px var(--ld-glow);
+}
+
+.ld-kpi-title {
+  width: fit-content;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ld-ink-soft);
+  text-decoration: underline dotted;
+  text-decoration-color: var(--ld-slate);
+  text-underline-offset: 4px;
+}
+
+.ld-kpi-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.ld-kpi-value {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.ld-kpi-previous {
+  font-size: 0.8125rem;
+  color: var(--ld-ink-soft);
+}
+
+.ld-kpi .ld-line {
+  margin-top: 6px;
+}
+
+/* Change against the previous period: an arrow and a percent, green up and red down. */
+.ld-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 7px 2px 5px;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ld-ink-soft);
+}
+
+.ld-change.is-good {
+  color: var(--ld-gain);
+  background: color-mix(in srgb, var(--ld-gain) 13%, transparent);
+}
+
+.ld-change.is-bad {
+  color: var(--ld-madder);
+  background: color-mix(in srgb, var(--ld-madder) 13%, transparent);
+}
+
+.ld-change.is-none,
+.ld-change.is-flat {
+  padding-inline: 6px;
+}
+
+.ld-grid {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.ld-span-2 {
+  grid-column: span 2;
+}
+
+@media (max-width: 1100px) {
+  .ld-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ld-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .ld-grid { grid-template-columns: minmax(0, 1fr); }
+  .ld-span-2 { grid-column: auto; }
+  .ld-panel { padding: 16px 16px 20px; }
+}
+
+/* Phones: two small cards a row, so all four figures fit on the first screen. */
+@media (max-width: 520px) {
+  .ld-kpis { gap: 10px; }
+  .ld-kpi { padding: 12px 12px 6px; border-radius: 14px; }
+  .ld-kpi-title { font-size: 0.8125rem; }
+  .ld-kpi-value { font-size: 1.0625rem; }
+  .ld-kpi-previous { font-size: 0.75rem; }
+  .ld-line.is-compact { height: 40px; margin-top: 2px; }
+}
+
+@media (max-width: 340px) {
+  .ld-kpis { grid-template-columns: minmax(0, 1fr); }
+}
+
+.ld-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+
+.ld-panel-head .ld-heading {
+  margin-bottom: 4px;
+}
+
+.ld-chart-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 0 0 12px;
+}
+
+.ld-chart-total > span:first-child {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Line chart: this period solid blue over a light wash, the previous period dotted gray. */
+.ld-line {
+  position: relative;
+}
+
+.ld-line svg {
+  display: block;
+  overflow: visible;
+  touch-action: pan-y;
+}
+
+.ld-gridline {
+  stroke: var(--ld-thread);
+  stroke-width: 1;
+}
+
+.ld-axis-label {
+  fill: var(--ld-ink-soft);
+  font-size: 12px;
+}
+
+.ld-line-wash-top {
+  stop-color: var(--ld-fill-top);
+}
+
+.ld-line-wash-bottom {
+  stop-color: var(--ld-fill-top);
+  stop-opacity: 0;
+}
+
+.ld-line-current {
+  fill: none;
+  stroke: var(--ld-blue);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 5px var(--ld-glow-soft));
+}
+
+.ld-line-previous {
+  fill: none;
+  stroke: var(--ld-ink-soft);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 4;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+
+.ld-line.is-compact { height: 56px; }
+.ld-line.is-compact .ld-line-current { stroke-width: 2; }
+.ld-line.is-compact .ld-line-previous { stroke-width: 1.25; }
+
+.ld-line-dot {
+  fill: var(--ld-blue);
+}
+
+.ld-crosshair line {
+  stroke: var(--ld-ink-soft);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.ld-crosshair-current {
+  fill: var(--ld-blue);
+  stroke: var(--ld-panel);
+  stroke-width: 2.5;
+  paint-order: stroke;
+}
+
+.ld-crosshair-previous {
+  fill: var(--ld-panel);
+  stroke: var(--ld-ink-soft);
+  stroke-width: 2;
+}
+
+.ld-tip.is-below {
+  transform: translate(-50%, 0);
+}
+
+.ld-tip-key.is-previous {
+  border-top-style: dotted;
+  border-color: var(--ld-ink-soft);
+}
+
+/* Breakdown: each line with its change; totals on a darker rule. */
+.ld-breakdown {
+  margin: 0;
+}
+
+.ld-breakdown-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 4.75rem;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-top: 1px solid var(--ld-thread);
+  font-size: 0.9375rem;
+}
+
+.ld-breakdown-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.ld-breakdown-row dt {
+  color: var(--ld-ink-soft);
+}
+
+.ld-breakdown-row dd {
+  margin: 0;
+}
+
+.ld-breakdown-value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ld-breakdown-change {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.ld-breakdown-row.is-total {
+  border-top-color: var(--ld-ink-soft);
+}
+
+.ld-breakdown-row.is-total dt,
+.ld-breakdown-row.is-total .ld-breakdown-value {
+  color: var(--ld-ink);
+  font-weight: 700;
+}
+
+.ld-breakdown-row.is-total .ld-breakdown-value.ld-gain { color: var(--ld-gain); }
+.ld-breakdown-row.is-total .ld-breakdown-value.ld-loss { color: var(--ld-madder); }
+
+.ld-cat-detail {
+  grid-column: 1 / -1;
+  margin-top: -4px;
+  font-size: 0.8125rem;
+  color: var(--ld-ink-soft);
 }

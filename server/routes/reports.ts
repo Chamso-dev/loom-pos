@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { dayKey, handle, monthKey, parseLocalDate, prisma, requireAdmin, startOfLocalDay } from '../context';
-import { includedTax, rankCategories, roundMoney, roundQuantity, sumMoney } from '../../src/lib/domain';
+import { buildOverview, includedTax, isRangeKey, rankCategories, resolveRange, roundMoney, roundQuantity, sumMoney } from '../../src/lib/domain';
 
 export const reportsRouter = Router();
 
@@ -180,6 +180,46 @@ reportsRouter.get('/analytics/summary', requireAdmin, handle(async (_req, res) =
     cash: report.cash,
     outstanding: report.outstanding,
   });
+}));
+
+// The dashboard: a period's totals against the previous period, a time series of both, and
+// breakdowns by payment method, category, product and hour. ?range=today|yesterday|7d|30d|month
+reportsRouter.get('/analytics/overview', requireAdmin, handle(async (req, res) => {
+  const range = resolveRange(isRangeKey(req.query.range) ? req.query.range : 'today');
+  // One read covers both periods; buildOverview splits them.
+  const window = { gte: range.previousFrom, lt: range.to };
+  const [orders, refunds, payments, owed] = await Promise.all([
+    prisma.order.findMany({
+      where: { date: window },
+      select: {
+        date: true, subtotal: true, discountAmount: true, totalAmount: true, taxAmount: true, amountPaid: true,
+        items: { select: { productId: true, quantity: true, price: true, costPrice: true, unit: true, product: { select: { name: true, category: true } } } },
+      },
+    }),
+    prisma.refund.findMany({
+      where: { createdAt: window },
+      select: { createdAt: true, amount: true, restock: true, items: { select: { quantity: true, amount: true, orderItem: { select: { taxRate: true, costPrice: true } } } } },
+    }),
+    prisma.payment.findMany({ where: { createdAt: window }, select: { createdAt: true, method: true, amount: true, kind: true } }),
+    prisma.customer.aggregate({ _sum: { balance: true } }),
+  ]);
+  res.json(
+    buildOverview(
+      range,
+      {
+        orders: orders.map(({ items, ...o }) => ({
+          ...o,
+          items: items.map(({ product, ...i }) => ({ ...i, name: product.name, category: product.category })),
+        })),
+        refunds: refunds.map(({ items, ...r }) => ({
+          ...r,
+          items: items.map((i) => ({ quantity: i.quantity, amount: i.amount, taxRate: i.orderItem.taxRate, costPrice: i.orderItem.costPrice })),
+        })),
+        payments,
+      },
+      { owedByCustomers: owed._sum.balance ?? 0 }
+    )
+  );
 }));
 
 // Last 7 days of sales, kept for older clients.
