@@ -148,8 +148,13 @@
 
 .ld-fact {
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
 }
+
+/* Value first, then its label, then the visual that gives it context. */
+.ld-fact dd { order: 1; }
+.ld-fact dt { order: 2; }
+.ld-fact .ld-fact-extra { order: 3; }
 
 .ld-fact dt {
   font-size: 0.875rem;
@@ -819,4 +824,221 @@ a.ld-item-name:hover {
 /* Today's bar in the week glows like the thread. */
 .ld-week-day.is-today .ld-week-bar {
   box-shadow: 0 0 16px -2px var(--ld-glow);
+}
+
+/* Context under each figure: a 7-day sparkline, a change against the week, or a meter. */
+.ld-fact .ld-fact-extra {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  margin-top: 8px;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--ld-ink-soft);
+}
+
+.ld-fact .ld-fact-extra.ld-gain { color: var(--ld-gain); }
+.ld-fact .ld-fact-extra.ld-loss { color: var(--ld-madder); }
+
+.ld-spark rect { fill: var(--ld-thread); }
+.ld-spark rect.is-now { fill: var(--ld-blue); }
+
+/* Meters: the fill carries the meaning, the track is a light step of the same color. */
+.ld-meter {
+  --meter: var(--ld-blue);
+  display: inline-block;
+  flex: none;
+  width: 72px;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--meter) 18%, transparent);
+}
+
+.ld-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--meter);
+}
+
+.ld-meter-gain { --meter: var(--ld-gain); }
+.ld-meter-credit,
+.ld-meter-low { --meter: var(--ld-turmeric); }
+.ld-meter-out { --meter: var(--ld-madder); }
+
+.ld-row-meter {
+  grid-column: 1 / -1;
+  display: block;
+  margin-top: 6px;
+}
+
+.ld-row-meter .ld-meter { width: 100%; height: 4px; }
+
+/* Best sellers: takings against the day's top product. */
+.ld-rank {
+  grid-column: 1 / -1;
+  display: block;
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ld-blue) 12%, transparent);
+  overflow: hidden;
+}
+
+.ld-rank > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ld-blue);
+}
+
+/* Busiest hours and sales by category sit side by side under the day chart. */
+.ld-row-pair {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .ld-row-pair { grid-template-columns: minmax(0, 1fr); }
+}
+
+.ld-hours-insight {
+  margin: 0 0 12px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.ld-hours-plot {
+  position: relative;
+}
+
+.ld-hours-plot svg {
+  display: block;
+  overflow: visible;
+}
+
+.ld-hours-hit {
+  fill: transparent;
+  outline: none;
+  cursor: default;
+}
+
+.ld-hours-col.is-active .ld-hours-hit,
+.ld-hours-hit:focus-visible {
+  fill: color-mix(in srgb, var(--ld-ink) 6%, transparent);
+}
+
+.ld-hours-bar {
+  fill: var(--ld-blue);
+  filter: drop-shadow(0 0 6px var(--ld-glow-soft));
+}
+
+.ld-hours-col.is-active .ld-hours-bar {
+  fill: color-mix(in srgb, var(--ld-blue) 80%, white);
+}
+
+/* An average day's takings for the hour: a short dark mark across the column. */
+.ld-hours-avg {
+  stroke: var(--ld-ink-soft);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.ld-hours-col.is-future .ld-hours-avg {
+  opacity: 0.55;
+}
+
+.ld-swatch-block {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--ld-blue);
+}
+
+.ld-swatch-tick {
+  width: 16px;
+  height: 0;
+  border-top: 2px solid var(--ld-ink-soft);
+  border-radius: 2px;
+}
+
+.ld-tip {
+  position: absolute;
+  z-index: 2;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--color-popover);
+  color: var(--color-popover-foreground);
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--ld-thread);
+  font-size: 0.8125rem;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.ld-tip strong { font-size: 0.8125rem; color: var(--ld-ink-soft); font-weight: 600; }
+.ld-tip span { display: flex; align-items: center; gap: 6px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ld-tip em { font-style: normal; font-weight: 500; color: var(--ld-ink-soft); }
+.ld-tip-key { display: inline-block; width: 12px; height: 0; border-top: 2px solid; border-radius: 2px; }
+.ld-tip-key.is-today { border-color: var(--ld-blue); }
+.ld-tip-key.is-avg { border-color: var(--ld-ink-soft); }
+
+/* Sales by category: horizontal bars, largest first, labeled with amount and share. */
+.ld-cats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ld-cat {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 6px 12px;
+}
+
+.ld-cat-name {
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ld-cat-value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ld-cat-share {
+  margin-inline-start: 8px;
+  font-weight: 500;
+  color: var(--ld-ink-soft);
+}
+
+/* Square at the baseline (the start side), rounded at the data end. */
+.ld-cat-bar {
+  grid-column: 1 / -1;
+  display: block;
+  height: 8px;
+  background: var(--ld-blue);
+  border-start-end-radius: 4px;
+  border-end-end-radius: 4px;
+}
+
+.ld-cat-bar.is-other {
+  background: var(--ld-slate);
 }

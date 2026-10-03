@@ -69,7 +69,8 @@ export function formatMoney(amount: number, lang: Lang, options: MoneyFormatOpti
   const fixed = decimals === 'fixed' || !Number.isInteger(rounded)
   const number = widenSpaces(numberFormat(fixed ? 2 : 0, fixed ? 2 : 0).format(rounded))
   const body = lang === 'ar' ? isolateLtr(number) : number
-  return symbol ? `${body} ${CURRENCY.symbol[lang]}` : body
+  // A no-break space keeps the amount and its currency on one line.
+  return symbol ? `${body}\u00A0${CURRENCY.symbol[lang]}` : body
 }
 
 /** Short form for tight spaces: 61 400 → "61,4 k DA" / "61,4 ألف دج". */
@@ -84,7 +85,7 @@ export function formatMoneyShort(amount: number, lang: Lang): string {
     if (abs >= size) {
       const number = formatNumber(amount / size, 1)
       const body = lang === 'ar' ? isolateLtr(number) : number
-      return `${body} ${label[lang]} ${CURRENCY.symbol[lang]}`
+      return `${body}\u00A0${label[lang]}\u00A0${CURRENCY.symbol[lang]}`
     }
   }
   return formatMoney(amount, lang)

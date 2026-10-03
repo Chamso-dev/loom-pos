@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { dayKey, handle, monthKey, parseLocalDate, prisma, requireAdmin, startOfLocalDay } from '../context';
-import { includedTax, roundMoney, roundQuantity, sumMoney } from '../../src/lib/domain';
+import { includedTax, rankCategories, roundMoney, roundQuantity, sumMoney } from '../../src/lib/domain';
 
 export const reportsRouter = Router();
 
@@ -223,7 +223,7 @@ reportsRouter.get('/analytics/today', requireAdmin, handle(async (_req, res) => 
 
   const items = await prisma.orderItem.findMany({
     where: { order: { date: { gte: today } } },
-    select: { productId: true, quantity: true, price: true, unit: true, product: { select: { name: true, size: true, color: true, barcode: true } } },
+    select: { productId: true, quantity: true, price: true, unit: true, product: { select: { name: true, size: true, color: true, barcode: true, category: true } } },
   });
 
   type TopItem = { productId: string; name: string; size: string | null; color: string | null; barcode: string; unit: string; quantity: number; revenue: number };
@@ -246,5 +246,6 @@ reportsRouter.get('/analytics/today', requireAdmin, handle(async (_req, res) => 
   // Rank by takings: quantities in kg and pieces cannot be compared.
   const topItems = [...byProduct.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 5);
 
-  res.json({ todayByHour, averageByHour, comparedDays, week, topItems, generatedAt: new Date().toISOString() });
+  const categories = rankCategories(items.map((i) => ({ category: i.product.category, revenue: i.price * i.quantity })));
+  res.json({ todayByHour, averageByHour, comparedDays, week, topItems, categories, generatedAt: new Date().toISOString() });
 }));

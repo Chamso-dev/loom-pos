@@ -14,6 +14,7 @@ import {
   isValidQuantity,
   normalizeAlgerianPhone,
   orderStatus,
+  rankCategories,
   PAYMENT_METHOD_CODES,
   priceSale,
   refundValue,
@@ -427,6 +428,7 @@ function today() {
   }
   const days = Object.values(pastDays)
   const byProduct = new Map<string, Row>()
+  const categoryLines: Array<{ category: string; revenue: number }> = []
   for (const o of db.orders.filter((o) => new Date(o.date) >= start)) {
     for (const i of o.items) {
       const p = db.products.find((x) => x.id === i.productId)!
@@ -434,6 +436,7 @@ function today() {
       e.quantity = roundQuantity(e.quantity + i.quantity, i.unit)
       e.revenue = roundMoney(e.revenue + i.price * i.quantity)
       byProduct.set(p.id, e)
+      categoryLines.push({ category: p.category, revenue: i.price * i.quantity })
     }
   }
   return {
@@ -445,6 +448,7 @@ function today() {
       return { date: key, amount: roundMoney(week[key]?.amount ?? 0), orders: week[key]?.orders ?? 0 }
     }),
     topItems: [...byProduct.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 5),
+    categories: rankCategories(categoryLines),
   }
 }
 

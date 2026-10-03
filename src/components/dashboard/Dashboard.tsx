@@ -5,7 +5,9 @@ import './dashboard.css'
 import { useStore } from '@/store/useStore'
 import { useI18n } from '@/i18n'
 import { api } from '@/lib/api'
-import { CURRENCY, formatNumber, PAYMENT_METHOD_CODES } from '@/lib/domain'
+import { CURRENCY, formatNumber, PAYMENT_METHOD_CODES, unitRule } from '@/lib/domain'
+import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
+import { CategoryBars, HourColumns, Meter, Spark } from './DashboardVisuals'
 import { MethodList } from '@/components/ui/badges'
 import EndOfDaySummary, { type DaySummary } from './EndOfDaySummary'
 import DayThread from './DayThread'
@@ -17,6 +19,8 @@ interface TodayAnalytics {
   comparedDays: number
   week: Array<{ date: string; amount: number; orders: number }>
   topItems: Array<{ productId: string; name: string; size: string | null; color: string | null; barcode: string; unit: string; quantity: number; revenue: number }>
+  /** Today's takings by category, largest first; null is the folded "other" row. Older servers omit it. */
+  categories?: Array<{ category: string | null; revenue: number }>
 }
 
 interface Bill {
@@ -111,6 +115,15 @@ export default function Dashboard() {
     .map((method) => ({ method, amount: summary.payments.find((p) => p.method === method)?.amount ?? 0 }))
     .filter((p) => p.amount > 0 || p.method === 'CASH')
   const weekMax = Math.max(...(today?.week.map((d) => d.amount) ?? [0]), 1)
+
+  // Context for the figures: how today compares with the past six days, and the shares.
+  const pastDays = today?.week.slice(0, -1).filter((d) => d.orders > 0) ?? []
+  const pastAverageBill = pastDays.length ? pastDays.reduce((s, d) => s + d.amount, 0) / pastDays.reduce((s, d) => s + d.orders, 0) : 0
+  const averageChange = pastAverageBill > 0 && orderCount > 0 ? (averageBill - pastAverageBill) / pastAverageBill : null
+  const netOfTax = revenue - (summary.tax || 0)
+  const margin = netOfTax > 0 ? summary.profit / netOfTax : null
+  const creditShare = revenue > 0 ? summary.creditGiven / revenue : 0
+  const topMax = Math.max(...(today?.topItems.map((i) => i.revenue) ?? [0]), 1)
   // Bars are narrow: thousands without decimals once past 10 000 (48k / 48 ألف), the unit is in the heading.
   const weekAmount = (amount: number) =>
     amount >= 1000 ? `${formatNumber(amount / 1000, amount >= 10000 ? 0 : 1)}${i18n.lang === 'ar' ? ' ألف' : 'k'}` : formatNumber(amount, 0)
@@ -132,14 +145,34 @@ export default function Dashboard() {
             <div className="ld-fact">
               <dt>{t('dashboard.bills', { count: orderCount })}</dt>
               <dd>{i18n.number(orderCount)}</dd>
+              {today && (
+                <dd className="ld-fact-extra">
+                  <Spark
+                    values={today.week.map((d) => d.orders)}
+                    label={t('dashboard.salesSpark', { values: today.week.map((d) => i18n.number(d.orders)).join(', ') })}
+                  />
+                </dd>
+              )}
             </div>
             <div className="ld-fact">
               <dt>{t('dashboard.averageBill')}</dt>
               <dd>{money(averageBill)}</dd>
+              {averageChange !== null && Math.abs(averageChange) >= 0.005 && (
+                <dd className={`ld-fact-extra ${averageChange > 0 ? 'ld-gain' : 'ld-loss'}`} title={t('dashboard.avgVsWeekLabel')}>
+                  {averageChange > 0 ? <ArrowUpRight size={14} aria-hidden="true" /> : <ArrowDownRight size={14} aria-hidden="true" />}
+                  {t('dashboard.avgVsWeek', { delta: i18n.percent(Math.round(Math.abs(averageChange) * 100)) })}
+                </dd>
+              )}
             </div>
             <div className={`ld-fact${summary.profit > 0 ? ' ld-fact-gain' : summary.profit < 0 ? ' ld-fact-loss' : ''}`}>
               <dt>{t('dashboard.profit')}</dt>
               <dd>{money(summary.profit)}</dd>
+              {margin !== null && (
+                <dd className="ld-fact-extra" title={t('dashboard.marginLabel')}>
+                  {margin > 0 && <Meter value={margin} tone="gain" />}
+                  {t('dashboard.margin', { percent: i18n.percent(Math.round(margin * 100)) })}
+                </dd>
+              )}
             </div>
             {summary.tax > 0 && (
               <div className="ld-fact">
@@ -151,6 +184,10 @@ export default function Dashboard() {
               <div className="ld-fact ld-fact-credit">
                 <dt>{t('dashboard.creditGiven')}</dt>
                 <dd>{money(summary.creditGiven)}</dd>
+                <dd className="ld-fact-extra">
+                  <Meter value={creditShare} tone="credit" />
+                  {t('dashboard.creditShare', { percent: i18n.percent(Math.round(creditShare * 100)) })}
+                </dd>
               </div>
             )}
           </dl>
@@ -164,6 +201,21 @@ export default function Dashboard() {
         <h2 id="ld-thread-heading" className="ld-sr-only">{t('dashboard.threadHeading')}</h2>
         {shape && today ? <DayThread shape={shape} comparedDays={today.comparedDays} now={now} /> : <p className="ld-empty">{t('dashboard.threadUnavailable')}</p>}
       </section>
+
+      {today && shape && (
+        <div className="ld-row-pair">
+          <section className="ld-panel" aria-labelledby="ld-hours-heading">
+            <h2 id="ld-hours-heading" className="ld-heading">{t('dashboard.busiestHours')}</h2>
+            <p className="ld-empty ld-heading-hint">{t('dashboard.busiestHint')}</p>
+            <HourColumns todayByHour={today.todayByHour} averageByHour={today.averageByHour} start={shape.start} end={shape.end} nowAt={shape.nowAt} />
+          </section>
+          <section className="ld-panel" aria-labelledby="ld-cats-heading">
+            <h2 id="ld-cats-heading" className="ld-heading">{t('dashboard.byCategory')}</h2>
+            <p className="ld-empty ld-heading-hint">{t('dashboard.byCategoryHint')}</p>
+            <CategoryBars categories={today.categories ?? []} />
+          </section>
+        </div>
+      )}
 
       <div className="ld-row">
         <section className="ld-panel" aria-labelledby="ld-paid-heading">
@@ -215,6 +267,9 @@ export default function Dashboard() {
                     {p.stock <= 0 ? t('dashboard.soldOut') : t('dashboard.left', { qty: qty(p.stock, p.unit, true) })}
                   </span>
                   <span className="ld-item-detail"><bdi>{[p.size, p.category].filter(Boolean).join(', ')}</bdi></span>
+                  <span className="ld-row-meter" title={t('dashboard.stockMeter', { qty: qty(p.stock, p.unit, true), threshold: qty(unitRule(p.unit).lowStockAt, p.unit, true) })}>
+                    <Meter value={p.stock / unitRule(p.unit).lowStockAt} tone={p.stock <= 0 ? 'out' : 'low'} />
+                  </span>
                 </li>
               ))}
             </ul>
@@ -235,6 +290,8 @@ export default function Dashboard() {
                   <Link className="ld-item-name" to={`/inventory?search=${encodeURIComponent(item.barcode)}`}><bdi>{item.name}</bdi></Link>
                   <span className="ld-item-value">{money(item.revenue)}</span>
                   <span className="ld-item-detail">{t('dashboard.sold', { qty: qty(item.quantity, item.unit, true) })}</span>
+                  {/* Takings against the day's best seller. */}
+                  <span className="ld-rank" aria-hidden="true"><span style={{ width: `${(item.revenue / topMax) * 100}%` }} /></span>
                 </li>
               ))}
             </ul>

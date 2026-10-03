@@ -38,3 +38,27 @@ describe('expiry', () => {
     expect(localDay(new Date(2026, 9, 2, 23, 30))).toBe('2026-10-02')
   })
 })
+
+import { rankCategories } from '..'
+
+describe('rankCategories', () => {
+  it('ranks categories by takings and folds the tail into one other row', () => {
+    const lines = [
+      { category: 'Épicerie', revenue: 500 }, { category: 'Crèmerie', revenue: 200 }, { category: 'Épicerie', revenue: 100.1 },
+      { category: 'Boissons', revenue: 50 }, { category: 'Légumes', revenue: 40 }, { category: 'Fruits', revenue: 30 },
+      { category: 'Entretien', revenue: 20 }, { category: 'Vrac', revenue: 10 },
+    ]
+    expect(rankCategories(lines)).toEqual([
+      { category: 'Épicerie', revenue: 600.1 },
+      { category: 'Crèmerie', revenue: 200 },
+      { category: 'Boissons', revenue: 50 },
+      { category: 'Légumes', revenue: 40 },
+      { category: 'Fruits', revenue: 30 },
+      { category: null, revenue: 30 },
+    ])
+  })
+  it('has no other row when everything fits', () => {
+    expect(rankCategories([{ category: 'A', revenue: 1 }], 5)).toEqual([{ category: 'A', revenue: 1 }])
+    expect(rankCategories([])).toEqual([])
+  })
+})
