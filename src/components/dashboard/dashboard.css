@@ -16,6 +16,11 @@
   --ld-turmeric-ink: #8a5d00;
   --ld-madder: #c0362c;
   --ld-gain: #15803d;
+  /* Glow: kept faint in light mode, stronger in dark where light reads as light. */
+  --ld-glow: rgba(26, 95, 208, 0.32);
+  --ld-glow-soft: rgba(26, 95, 208, 0.11);
+  --ld-fill-top: rgba(26, 95, 208, 0.16);
+  --ld-panel-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 14px 32px -22px rgba(21, 35, 58, 0.28);
   --ld-blue-fill: #1a5fd0;
   --ld-on-blue: #ffffff;
   --ld-teal: #2f8f8a;
@@ -43,6 +48,10 @@
   --ld-turmeric-ink: #f0c869;
   --ld-madder: #f0857a;
   --ld-gain: #4fd18b;
+  --ld-glow: rgba(94, 161, 255, 0.6);
+  --ld-glow-soft: rgba(70, 140, 255, 0.24);
+  --ld-fill-top: rgba(94, 161, 255, 0.24);
+  --ld-panel-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 0 0 1px rgba(94, 161, 255, 0.08), 0 20px 44px -26px rgba(94, 161, 255, 0.45);
   /* Filled buttons need a deeper blue than lines and links so white text stays readable. */
   --ld-blue-fill: #0f67e0;
   --ld-on-blue: #ffffff;
@@ -53,6 +62,8 @@
 /* Hero: the day's figure and how it compares */
 
 .ld-hero {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
@@ -73,6 +84,21 @@
   align-items: baseline;
   gap: 4px 16px;
   margin: 0;
+}
+
+/* A soft pool of blue light behind the day's takings, on the reading side of the page. */
+.ld-hero::before {
+  content: '';
+  position: absolute;
+  inset: -48px 0 -24px 0;
+  z-index: -1;
+  pointer-events: none;
+  /* Sized in percent of this box so the light fades out fully before any edge. */
+  background: radial-gradient(32% 50% at var(--ld-glow-x, 32%) 50%, var(--ld-glow-soft), transparent);
+}
+
+[dir='rtl'] .ld-hero::before {
+  --ld-glow-x: 68%;
 }
 
 .ld-figure {
@@ -164,6 +190,7 @@
   border: 0;
   background: var(--ld-blue-fill);
   color: var(--ld-on-blue);
+  box-shadow: 0 8px 22px -10px var(--ld-glow);
   font: inherit;
   font-size: 1rem;
   font-weight: 600;
@@ -207,6 +234,31 @@
 .ld-thread svg {
   display: block;
   overflow: visible;
+}
+
+.ld-thread-glow {
+  flood-color: var(--ld-glow);
+}
+
+.ld-thread-fill-top {
+  stop-color: var(--ld-fill-top);
+}
+
+.ld-thread-fill-bottom {
+  stop-color: var(--ld-fill-top);
+  stop-opacity: 0;
+}
+
+.ld-thread-area {
+  stroke: none;
+}
+
+.ld-thread-halo {
+  fill: var(--ld-blue);
+  opacity: 0.18;
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(1.9);
 }
 
 .ld-thread-today {
@@ -296,6 +348,20 @@
     opacity: 0;
     animation: ld-appear 300ms ease-out 1150ms forwards;
   }
+  .ld-thread-area {
+    opacity: 0;
+    animation: ld-appear 700ms ease-out 900ms forwards;
+  }
+  /* The one repeating motion on the page: a slow breath around "now". */
+  .ld-thread-halo {
+    opacity: 0;
+    animation: ld-breathe 2.8s ease-out 1.4s infinite;
+  }
+}
+
+@keyframes ld-breathe {
+  0% { opacity: 0.45; transform: scale(1); }
+  100% { opacity: 0; transform: scale(3.2); }
 }
 
 @keyframes ld-draw {
@@ -333,6 +399,7 @@
 
 .ld-panel {
   background: var(--ld-panel);
+  box-shadow: var(--ld-panel-shadow);
   border-radius: 16px;
   padding: 20px 24px 24px;
   display: flex;
@@ -343,6 +410,7 @@
 .ld-panel-open {
   padding: 0;
   background: transparent;
+  box-shadow: none;
 }
 
 .ld-heading {
@@ -741,4 +809,14 @@ a.ld-item-name:hover {
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+/* Dark mode: the day's figure gives off a little light of its own. */
+.dark .ld-figure {
+  text-shadow: 0 0 36px rgba(94, 161, 255, 0.35);
+}
+
+/* Today's bar in the week glows like the thread. */
+.ld-week-day.is-today .ld-week-bar {
+  box-shadow: 0 0 16px -2px var(--ld-glow);
 }

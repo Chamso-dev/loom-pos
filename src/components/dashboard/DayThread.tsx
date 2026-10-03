@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useI18n } from '@/i18n'
 import { hourLabel, type DayShape } from './dayMath'
 
@@ -34,6 +34,10 @@ const toPath = (points: Array<[number, number]>) => points.map(([x, y], i) => `$
 export default function DayThread({ shape, comparedDays, now }: DayThreadProps) {
   const [ref, width] = useWidth<HTMLDivElement>()
   const { t, money, time, dir } = useI18n()
+  // SVG ids must be unique on the page and usable inside url(#…).
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '')
+  const glowId = `ld-glow-${uid}`
+  const fillId = `ld-fill-${uid}`
   // SVG text anchors follow the text direction, so start and end swap for Arabic labels.
   const anchor = (a: 'start' | 'middle' | 'end') => (dir === 'rtl' && a !== 'middle' ? (a === 'start' ? 'end' : 'start') : a)
   const { start, end, nowAt, todayPoints, averagePoints, todayTotal, averageByNow, averageTotal } = shape
@@ -81,6 +85,16 @@ export default function DayThread({ shape, comparedDays, now }: DayThreadProps) 
       <div ref={ref} dir="ltr">
         {width > 0 && (
           <svg width={width} height={HEIGHT} role="img" aria-label={description}>
+            <defs>
+              {/* A soft light around today's thread, and a wash of the same blue fading down beneath it. */}
+              <filter id={glowId} filterUnits="userSpaceOnUse" x={-24} y={-24} width={width + 48} height={HEIGHT + 48}>
+                <feDropShadow className="ld-thread-glow" dx={0} dy={0} stdDeviation={5} />
+              </filter>
+              <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" className="ld-thread-fill-top" />
+                <stop offset="100%" className="ld-thread-fill-bottom" />
+              </linearGradient>
+            </defs>
             <line className="ld-thread-axis" x1={0} x2={width} y1={y(0)} y2={y(0)} />
             {ticks.map((h) => (
               <text key={h} className="ld-thread-label" x={x(h)} y={HEIGHT - 8} textAnchor={h === start ? 'start' : h === end ? 'end' : 'middle'}>
@@ -96,9 +110,18 @@ export default function DayThread({ shape, comparedDays, now }: DayThreadProps) 
               </>
             )}
             {!isClosed && knot && <line className="ld-thread-now" x1={knot[0]} x2={knot[0]} y1={y(0)} y2={knot[1]} />}
-            {today.length > 1 && <path className="ld-thread-today" pathLength={1} d={toPath(today)} />}
+            {today.length > 1 && (
+              <path
+                className="ld-thread-area"
+                fill={`url(#${fillId})`}
+                d={`${toPath(today)} L${today[today.length - 1][0].toFixed(1)},${y(0).toFixed(1)} L${today[0][0].toFixed(1)},${y(0).toFixed(1)} Z`}
+              />
+            )}
+            {today.length > 1 && <path className="ld-thread-today" filter={`url(#${glowId})`} pathLength={1} d={toPath(today)} />}
             {knot && (
               <>
+                {/* While the shop is open, a slow pulse marks "now" on the thread. */}
+                {!isClosed && <circle className="ld-thread-halo" cx={knot[0]} cy={knot[1]} r={7} />}
                 <circle className="ld-thread-knot" cx={knot[0]} cy={knot[1]} r={7} />
                 <text className="ld-thread-label-strong" x={knot[0]} y={knot[1] - 16} direction={dir} textAnchor={anchor(knotAnchor)}>
                   {knotLabel}
