@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import { z } from 'zod';
-import { ApiError, handle, nextNumber, prisma, requireAuth, type Tx } from '../context';
+import { ApiError, handle, isRequestIdClash, lockRows, nextNumber, prisma, requestIdSchema, requireAuth, type Tx } from '../context';
 import {
   isValidQuantity,
   normalizeAlgerianPhone,
@@ -31,6 +31,7 @@ const orderSchema = z.object({
   newCustomer: z.object({ name: z.string().trim().min(1), phone: z.string().nullish() }).nullish(),
   customerName: z.string().trim().max(120).nullish(),
   customerMobile: z.string().trim().max(30).nullish(),
+  requestId: requestIdSchema,
 });
 
 export const orderInclude = {
@@ -41,9 +42,10 @@ export const orderInclude = {
   refunds: { include: { items: true }, orderBy: { createdAt: 'asc' } },
 } as const;
 
-/** Finds or creates the customer a sale is for. */
+/** Finds or creates the customer a sale is for. An existing customer is locked until the sale commits. */
 async function resolveCustomer(tx: Tx, input: z.infer<typeof orderSchema>) {
   if (input.customerId) {
+    await lockRows(tx, 'customer', [input.customerId]);
     const customer = await tx.customer.findUnique({ where: { id: input.customerId } });
     if (!customer) throw new ApiError(404, 'CUSTOMER_NOT_FOUND');
     return customer;
@@ -64,8 +66,20 @@ async function resolveCustomer(tx: Tx, input: z.infer<typeof orderSchema>) {
 salesRouter.post('/orders', requireAuth, handle(async (req, res) => {
   const input = orderSchema.parse(req.body);
 
+  // The same requestId again means the till retried after losing the answer: return the
+  // sale that was already recorded instead of selling twice.
+  const already = () => prisma.order.findUnique({ where: { requestId: input.requestId! }, include: orderInclude });
+  if (input.requestId) {
+    const existing = await already();
+    if (existing) return res.status(200).json(existing);
+  }
+
   const order = await prisma.$transaction(async (tx) => {
+    // Lock order: customer, then products. Reading after the lock gives current stock and
+    // balance that no other till can change until this sale commits.
+    const customer = await resolveCustomer(tx, input);
     const ids = [...new Set(input.items.map((i) => i.productId))];
+    await lockRows(tx, 'product', ids);
     const products = await tx.product.findMany({ where: { id: { in: ids } } });
     const byId = new Map(products.map((p) => [p.id, p]));
 
@@ -102,7 +116,6 @@ salesRouter.post('/orders', requireAuth, handle(async (req, res) => {
       input.discount ?? null
     );
 
-    const customer = await resolveCustomer(tx, input);
     const settlement = settlePayments(totals.total, input.payments, Boolean(customer));
     if (settlement.errors.length) {
       throw new ApiError(400, settlement.errors[0], 'Payments do not settle the sale', {
@@ -142,6 +155,7 @@ salesRouter.post('/orders', requireAuth, handle(async (req, res) => {
         customerName: customer?.name ?? input.customerName ?? null,
         customerMobile: customer?.phone ?? (input.customerMobile ? normalizeAlgerianPhone(input.customerMobile) ?? input.customerMobile : null),
         userId: req.user!.id,
+        requestId: input.requestId ?? null,
       },
     });
 
@@ -187,13 +201,18 @@ salesRouter.post('/orders', requireAuth, handle(async (req, res) => {
     }
 
     return tx.order.findUnique({ where: { id: created.id }, include: orderInclude });
+  }).catch(async (error) => {
+    // Two copies of the same retry arrived together; the other one recorded the sale.
+    if (input.requestId && isRequestIdClash(error)) return { replayed: await already() };
+    throw error;
   });
 
+  if (order && 'replayed' in order) return res.status(200).json(order.replayed);
   res.status(201).json(order);
 }));
 
 // List sales with search, date range and payment method filters.
-salesRouter.get('/orders', handle(async (req, res) => {
+salesRouter.get('/orders', requireAuth, handle(async (req, res) => {
   const { search, startDate, endDate, methods, status, customerId, page = '1', limit = '50' } = req.query;
   const p = Math.max(1, parseInt(String(page)) || 1);
   const l = Math.min(200, Math.max(1, parseInt(String(limit)) || 50));
@@ -241,7 +260,7 @@ salesRouter.get('/orders', handle(async (req, res) => {
   res.json({ orders, total, page: p, limit: l, hasMore: (p - 1) * l + orders.length < total });
 }));
 
-salesRouter.get('/orders/:id', handle(async (req, res) => {
+salesRouter.get('/orders/:id', requireAuth, handle(async (req, res) => {
   const order = await prisma.order.findUnique({ where: { id: req.params.id }, include: orderInclude });
   if (!order) throw new ApiError(404, 'ORDER_NOT_FOUND');
   res.json(order);
@@ -252,6 +271,7 @@ const refundSchema = z.object({
   method: settlingEnum.default('CASH'),
   reason: z.string().trim().max(200).nullish(),
   restock: z.boolean().default(true),
+  requestId: requestIdSchema,
 });
 
 // Refund part or all of a sale. Unpaid credit on the sale is cancelled first;
@@ -259,9 +279,30 @@ const refundSchema = z.object({
 salesRouter.post('/orders/:id/refunds', requireAuth, handle(async (req, res) => {
   const input = refundSchema.parse(req.body);
 
+  const already = async () => {
+    const refund = await prisma.refund.findUnique({ where: { requestId: input.requestId! }, include: { items: true } });
+    return refund && { refund, order: await prisma.order.findUnique({ where: { id: refund.orderId }, include: orderInclude }) };
+  };
+  if (input.requestId) {
+    const existing = await already();
+    if (existing) return res.status(200).json(existing);
+  }
+
   const result = await prisma.$transaction(async (tx) => {
+    // Lock order: customer, then the sale, then its products. Two refunds of the same sale
+    // then run one after the other, and the second sees what the first already returned.
+    const owner = await tx.order.findUnique({ where: { id: req.params.id }, select: { customerId: true } });
+    if (!owner) throw new ApiError(404, 'ORDER_NOT_FOUND');
+    if (owner.customerId) await lockRows(tx, 'customer', [owner.customerId]);
+    await lockRows(tx, 'order', [req.params.id]);
     const order = await tx.order.findUnique({ where: { id: req.params.id }, include: { items: { include: { product: true } } } });
     if (!order) throw new ApiError(404, 'ORDER_NOT_FOUND');
+    if (input.restock) await lockRows(tx, 'product', order.items.map((i) => i.productId));
+    if (input.restock) {
+      // Re-read the products now that they are locked: a sale may have changed their stock.
+      const fresh = await tx.product.findMany({ where: { id: { in: order.items.map((i) => i.productId) } } });
+      for (const item of order.items) item.product = fresh.find((p) => p.id === item.productId) ?? item.product;
+    }
 
     const value = refundValue(order, order.items, input.items);
     if (value.error) throw new ApiError(400, value.error);
@@ -280,6 +321,7 @@ salesRouter.post('/orders/:id/refunds', requireAuth, handle(async (req, res) => 
         reason: input.reason ?? null,
         restock: input.restock,
         userId: req.user!.id,
+        requestId: input.requestId ?? null,
         items: { create: value.lines.map((l) => ({ orderItemId: l.orderItemId, quantity: l.quantity, amount: l.amount })) },
       },
       include: { items: true },
@@ -315,7 +357,11 @@ salesRouter.post('/orders/:id/refunds', requireAuth, handle(async (req, res) => 
     }
 
     return { refund, order: await tx.order.findUnique({ where: { id: order.id }, include: orderInclude }) };
+  }).catch(async (error) => {
+    if (input.requestId && isRequestIdClash(error)) return { replayed: await already() };
+    throw error;
   });
 
+  if ('replayed' in result) return res.status(200).json(result.replayed);
   res.status(201).json(result);
 }));

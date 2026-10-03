@@ -162,7 +162,7 @@ reportsRouter.get('/reports', requireAdmin, handle(async (req, res) => {
 }));
 
 // Today so far, for the dashboard and closing the day.
-reportsRouter.get('/analytics/summary', handle(async (_req, res) => {
+reportsRouter.get('/analytics/summary', requireAdmin, handle(async (_req, res) => {
   const report = await computeReport(startOfLocalDay(), new Date(Date.now() + 60_000), 'day');
   const t = report.totals;
   res.json({
@@ -183,13 +183,13 @@ reportsRouter.get('/analytics/summary', handle(async (_req, res) => {
 }));
 
 // Last 7 days of sales, kept for older clients.
-reportsRouter.get('/analytics/sales', handle(async (_req, res) => {
+reportsRouter.get('/analytics/sales', requireAdmin, handle(async (_req, res) => {
   const report = await computeReport(startOfLocalDay(7), new Date(Date.now() + 60_000), 'day');
   res.json(report.rows.map((r) => ({ date: r.period, amount: r.sales })));
 }));
 
 // Today's pace against the past week, the week by day, and today's best sellers.
-reportsRouter.get('/analytics/today', handle(async (_req, res) => {
+reportsRouter.get('/analytics/today', requireAdmin, handle(async (_req, res) => {
   const today = startOfLocalDay();
   const since = startOfLocalDay(7);
 

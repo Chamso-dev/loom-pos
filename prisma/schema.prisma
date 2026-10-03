@@ -13,6 +13,8 @@ datasource db {
 model Order {
   id             String      @id @default(cuid())
   invoiceNo      String      @unique
+  /// Chosen by the till for this request; a retried request with the same id returns the first result.
+  requestId      String?     @unique
   date           DateTime    @default(now())
   /// Sum of line totals before discount.
   subtotal       Float       @default(0)
@@ -44,6 +46,7 @@ model Order {
 
   @@index([date])
   @@index([customerId])
+  @@index([userId])
 }
 
 model OrderItem {
@@ -62,6 +65,9 @@ model OrderItem {
   product          Product      @relation(fields: [productId], references: [id])
   order            Order        @relation(fields: [orderId], references: [id])
   refundItems      RefundItem[]
+
+  @@index([orderId])
+  @@index([productId])
 }
 
 model Payment {
@@ -78,10 +84,13 @@ model Payment {
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id])
   userId     String?
+  /// Chosen by the till for this request; a retried repayment with the same id returns the first result.
+  requestId  String?   @unique
   createdAt  DateTime  @default(now())
 
   @@index([createdAt])
   @@index([orderId])
+  @@index([customerId])
 }
 
 model Customer {
@@ -103,6 +112,8 @@ model Customer {
 model Refund {
   id        String       @id @default(cuid())
   refundNo  String       @unique
+  /// Chosen by the till for this request; a retried refund with the same id returns the first result.
+  requestId String?      @unique
   orderId   String
   order     Order        @relation(fields: [orderId], references: [id])
   amount    Float
@@ -118,6 +129,7 @@ model Refund {
   items     RefundItem[]
 
   @@index([createdAt])
+  @@index([orderId])
 }
 
 model RefundItem {
@@ -128,6 +140,9 @@ model RefundItem {
   orderItem   OrderItem @relation(fields: [orderItemId], references: [id])
   quantity    Float
   amount      Float
+
+  @@index([refundId])
+  @@index([orderItemId])
 }
 
 model Product {
@@ -177,6 +192,8 @@ model Supplier {
 model Purchase {
   id          String            @id @default(cuid())
   purchaseNo  String            @unique
+  /// Chosen by the app for this request; a retried purchase with the same id returns the first result.
+  requestId   String?           @unique
   supplierId  String?
   supplier    Supplier?         @relation(fields: [supplierId], references: [id])
   /// Supplier's own invoice or delivery note number.
@@ -190,6 +207,7 @@ model Purchase {
   payments    SupplierPayment[]
 
   @@index([date])
+  @@index([supplierId])
 }
 
 model PurchaseItem {
@@ -200,6 +218,9 @@ model PurchaseItem {
   product    Product  @relation(fields: [productId], references: [id])
   quantity   Float
   unitCost   Float
+
+  @@index([purchaseId])
+  @@index([productId])
 }
 
 model SupplierPayment {
@@ -213,7 +234,12 @@ model SupplierPayment {
   amount     Float
   reference  String?
   userId     String?
+  /// Chosen by the app for this request; a retried payment with the same id returns the first result.
+  requestId  String?   @unique
   createdAt  DateTime  @default(now())
+
+  @@index([supplierId])
+  @@index([createdAt])
 }
 
 model StoreSettings {

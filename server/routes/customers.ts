@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { ApiError, handle, prisma, requireAuth } from '../context';
+import { ApiError, handle, isRequestIdClash, lockRows, prisma, requestIdSchema, requireAuth } from '../context';
 import {
   allocateRepayment,
   normalizeAlgerianPhone,
@@ -107,14 +107,31 @@ const repaymentSchema = z.object({
   method: z.enum(SETTLING_METHOD_CODES as [string, ...string[]]),
   amount: z.number().positive(),
   reference: z.string().trim().max(80).nullish(),
+  requestId: requestIdSchema,
 });
 
 // Record money a customer pays back. It settles their oldest unpaid sales first.
 customersRouter.post('/customers/:id/payments', requireAuth, handle(async (req, res) => {
   const input = repaymentSchema.parse(req.body);
+
+  // A retried repayment (same requestId) returns the one already recorded.
+  const already = async () => {
+    const payment = await prisma.payment.findUnique({ where: { requestId: input.requestId! } });
+    return payment && { payment, customer: await prisma.customer.findUnique({ where: { id: payment.customerId! } }), allocations: [] };
+  };
+  if (input.requestId) {
+    const existing = await already();
+    if (existing) return res.status(200).json(existing);
+  }
+
   const result = await prisma.$transaction(async (tx) => {
+    // Lock the customer, then their unpaid sales, and read both after locking: two quick
+    // repayments then run one after the other, and the second sees the lower balance.
+    await lockRows(tx, 'customer', [req.params.id]);
     const customer = await tx.customer.findUnique({ where: { id: req.params.id } });
     if (!customer) throw new ApiError(404, 'CUSTOMER_NOT_FOUND');
+    const unpaidIds = await tx.order.findMany({ where: { customerId: customer.id, balanceDue: { gt: 0 } }, select: { id: true } });
+    await lockRows(tx, 'order', unpaidIds.map((o) => o.id));
     const amount = roundMoney(input.amount);
     if (amount - customer.balance > 0.004) {
       throw new ApiError(400, 'AMOUNT_EXCEEDS_BALANCE', 'Repayment is larger than the balance', { balance: customer.balance });
@@ -145,6 +162,7 @@ customersRouter.post('/customers/:id/payments', requireAuth, handle(async (req, 
         // A repayment that settles exactly one sale is linked to it for the receipt.
         orderId: allocations.length === 1 ? allocations[0].id : null,
         userId: req.user!.id,
+        requestId: input.requestId ?? null,
       },
     });
     const updated = await tx.customer.update({
@@ -152,6 +170,10 @@ customersRouter.post('/customers/:id/payments', requireAuth, handle(async (req, 
       data: { balance: Math.max(0, roundMoney(customer.balance - amount)) },
     });
     return { payment, customer: updated, allocations };
+  }).catch(async (error) => {
+    if (input.requestId && isRequestIdClash(error)) return { replayed: await already() };
+    throw error;
   });
+  if ('replayed' in result) return res.status(200).json(result.replayed);
   res.status(201).json(result);
 }));

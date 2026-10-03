@@ -4,7 +4,7 @@ import { z } from 'zod';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { ApiError, handle, JWT_SECRET, prisma, requireAdmin, requireAdminOrKey, sendError } from './context';
+import { ApiError, handle, JWT_SECRET, optionalUser, passwordAttempts, prisma, requireAdmin, requireAdminOrKey, requireAuth, sendError } from './context';
 import { salesRouter } from './routes/sales';
 import { customersRouter } from './routes/customers';
 import { suppliersRouter } from './routes/suppliers';
@@ -31,8 +31,19 @@ const expiringBefore = () => dayToDate(addDays(localDay(), EXPIRY_SOON_DAYS));
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+// Behind a reverse proxy (Render, Nginx), set TRUST_PROXY=1 so rate limits see the real caller.
+if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY);
+app.disable('x-powered-by');
+// CORS_ORIGIN limits which web addresses may call the API (comma separated). Unset: any.
+app.use(cors(process.env.CORS_ORIGIN ? { origin: process.env.CORS_ORIGIN.split(',').map((o) => o.trim()) } : undefined));
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
+app.use(express.json({ limit: '1mb' }));
 
 const optionalPhone = z
   .string()
@@ -117,6 +128,8 @@ const publicSettings = (s: any) => {
 
 app.post('/api/auth/login', handle(async (req, res) => {
   const { employeeId, password } = loginSchema.parse(req.body);
+  const limitKey = `login:${employeeId.toLowerCase()}`;
+  passwordAttempts.check(limitKey, req);
 
   // 1. Try the staff member's own password
   let user = await prisma.user.findFirst({ where: { employeeId, isActive: true } });
@@ -131,7 +144,11 @@ app.post('/api/auth/login', handle(async (req, res) => {
     }
   }
 
-  if (!user || !isValid) throw new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid credentials or account deactivated');
+  if (!user || !isValid) {
+    passwordAttempts.failed(limitKey, req);
+    throw new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid credentials or account deactivated');
+  }
+  passwordAttempts.succeeded(limitKey, req);
 
   const token = jwt.sign({ id: user.id, employeeId: user.employeeId, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
   const { password: _, ...safeUser } = user;
@@ -143,10 +160,14 @@ app.post('/api/auth/change-password', handle(async (req, res) => {
     .object({ employeeId: z.string(), currentPassword: z.string(), newPassword: z.string().min(6) })
     .parse(req.body);
 
+  const limitKey = `login:${employeeId.toLowerCase()}`;
+  passwordAttempts.check(limitKey, req);
   const user = await prisma.user.findFirst({ where: { employeeId } });
   if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
+    passwordAttempts.failed(limitKey, req);
     throw new ApiError(401, 'WRONG_CURRENT_PASSWORD', 'Current password verification failed');
   }
+  passwordAttempts.succeeded(limitKey, req);
   await prisma.user.update({ where: { id: user.id }, data: { password: await bcrypt.hash(newPassword, 10) } });
   res.json({ message: 'Password changed successfully' });
 }));
@@ -170,12 +191,28 @@ app.post('/api/users', requireAdmin, handle(async (req, res) => {
 app.put('/api/users/:id', requireAdmin, handle(async (req, res) => {
   const data = userSchema.partial().parse(req.body);
   if (data.password) data.password = await bcrypt.hash(data.password, 10);
-  const user = await prisma.user.update({ where: { id: req.params.id }, data });
+  const user = await prisma.$transaction(async (tx) => {
+    const current = await tx.user.findUnique({ where: { id: req.params.id } });
+    if (!current) throw new ApiError(404, 'NOT_FOUND');
+    // Demoting or deactivating the last active manager would lock everyone out of
+    // settings, staff and reports, with no way back from inside the app.
+    const losesAdmin = current.role === 'ADMIN' && current.isActive && (data.role === 'CASHIER' || data.isActive === false);
+    if (losesAdmin) {
+      await tx.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(hashtext('loompos:admins'))`);
+      const others = await tx.user.count({ where: { role: 'ADMIN', isActive: true, id: { not: current.id } } });
+      if (others === 0) throw new ApiError(409, 'LAST_ADMIN', 'At least one active manager is required');
+    }
+    return tx.user.update({ where: { id: current.id }, data });
+  });
   const { password, ...safeUser } = user;
   res.json(safeUser);
 }));
 
 const resetTokens = new Map<string, { expiresAt: number }>();
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of resetTokens) if (value.expiresAt < now) resetTokens.delete(key);
+}, 60_000).unref();
 
 app.post('/api/users/:id/reset-token', requireAdmin, handle(async (req, res) => {
   const token = crypto.randomUUID();
@@ -185,36 +222,50 @@ app.post('/api/users/:id/reset-token', requireAdmin, handle(async (req, res) => 
 
 app.post('/api/users/:id/reset-password', handle(async (req, res) => {
   const { token, newPassword } = z.object({ token: z.string(), newPassword: z.string().min(6) }).parse(req.body);
+  const limitKey = `reset:${req.params.id}`;
+  passwordAttempts.check(limitKey, req);
   const tokenKey = `${req.params.id}-${token}`;
   const tokenData = resetTokens.get(tokenKey);
-  if (!tokenData || tokenData.expiresAt < Date.now()) throw new ApiError(401, 'RESET_TOKEN_EXPIRED');
+  if (!tokenData || tokenData.expiresAt < Date.now()) {
+    passwordAttempts.failed(limitKey, req);
+    throw new ApiError(401, 'RESET_TOKEN_EXPIRED');
+  }
   await prisma.user.update({ where: { id: req.params.id }, data: { password: await bcrypt.hash(newPassword, 10) } });
   resetTokens.delete(tokenKey);
   res.json({ message: 'Password reset successfully' });
 }));
 
+// First start only: an empty database gets one manager account so the shop can log in.
+// It used to be recreated whenever no user was called "admin", which brought back
+// admin/admin123 after the owner renamed or removed that account.
 const initializeAdmin = async () => {
-  const admin = await prisma.user.findUnique({ where: { employeeId: 'admin' } });
-  if (!admin) {
-    await prisma.user.create({
-      data: {
-        id: crypto.randomUUID(),
-        employeeId: 'admin',
-        name: 'Admin',
-        role: 'ADMIN',
-        password: await bcrypt.hash('admin123', 10),
-        isActive: true,
-        updatedAt: new Date(),
-      },
-    });
-    console.log('Default admin created: admin / admin123');
+  if ((await prisma.user.count()) > 0) {
+    const admins = await prisma.user.findMany({ where: { role: 'ADMIN', isActive: true } });
+    for (const a of admins) {
+      if (await bcrypt.compare('admin123', a.password)) {
+        console.warn(`[security] Manager "${a.employeeId}" still uses the default password admin123. Change it in the app.`);
+      }
+    }
+    return;
   }
+  await prisma.user.create({
+    data: {
+      id: crypto.randomUUID(),
+      employeeId: 'admin',
+      name: 'Admin',
+      role: 'ADMIN',
+      password: await bcrypt.hash('admin123', 10),
+      isActive: true,
+      updatedAt: new Date(),
+    },
+  });
+  console.log('Default admin created: admin / admin123. Change this password after the first login.');
 };
 initializeAdmin().catch((error) => console.error('Admin setup failed', error));
 
 // Products
 
-app.get('/api/products', handle(async (req, res) => {
+app.get('/api/products', requireAuth, handle(async (req, res) => {
   const { page = '1', limit = '50', search = '', expiring } = req.query;
   const p = Math.max(1, parseInt(String(page)) || 1);
   const l = Math.min(200, Math.max(1, parseInt(String(limit)) || 50));
@@ -284,14 +335,18 @@ app.put('/api/products/:id', requireAdminOrKey, handle(async (req, res) => {
 }));
 
 app.delete('/api/products/:id', requireAdminOrKey, handle(async (req, res) => {
-  const used = await prisma.orderItem.count({ where: { productId: req.params.id } });
-  if (used) throw new ApiError(409, 'PRODUCT_HAS_SALES', 'Products with sales cannot be deleted');
+  const [sold, bought] = await Promise.all([
+    prisma.orderItem.count({ where: { productId: req.params.id } }),
+    prisma.purchaseItem.count({ where: { productId: req.params.id } }),
+  ]);
+  if (sold) throw new ApiError(409, 'PRODUCT_HAS_SALES', 'Products with sales cannot be deleted');
+  if (bought) throw new ApiError(409, 'PRODUCT_HAS_PURCHASES', 'Products with purchases cannot be deleted');
   await prisma.product.delete({ where: { id: req.params.id } });
   res.status(204).send();
 }));
 
 // Low stock: each unit has its own threshold (10 pieces, 5 kg, 1 000 g…).
-app.get('/api/inventory/low-stock', handle(async (_req, res) => {
+app.get('/api/inventory/low-stock', requireAuth, handle(async (_req, res) => {
   const products = await prisma.product.findMany({
     where: {
       OR: [
@@ -311,7 +366,7 @@ app.get('/api/inventory/low-stock', handle(async (_req, res) => {
 }));
 
 // Expiry: products in stock that are expired or expire within EXPIRY_SOON_DAYS, soonest first.
-app.get('/api/inventory/expiring', handle(async (_req, res) => {
+app.get('/api/inventory/expiring', requireAuth, handle(async (_req, res) => {
   res.json(
     await prisma.product.findMany({
       where: { stock: { gt: 0 }, expiryDate: { not: null, lte: expiringBefore() } },
@@ -327,8 +382,13 @@ async function currentSettings() {
   return (await prisma.storeSettings.findFirst()) ?? (await prisma.storeSettings.create({ data: { id: '1' } }));
 }
 
-app.get('/api/settings', handle(async (_req, res) => {
-  res.json(publicSettings(await currentSettings()));
+// Before login only what the sign-in page shows (shop name, address, language). Tax and bank
+// numbers and receipt options are for signed-in staff.
+app.get('/api/settings', handle(async (req, res) => {
+  const settings = publicSettings(await currentSettings());
+  if (await optionalUser(req)) return res.json(settings);
+  const { id, name, address, language, currency } = settings;
+  res.json({ id, name, address, language, currency });
 }));
 
 app.put('/api/settings', requireAdmin, handle(async (req, res) => {

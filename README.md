@@ -102,9 +102,10 @@ The `algeria_localization` migration keeps existing data: old card and UPI sales
 ## Running locally
 
 ```bash
-npx tsx watch server/index.ts   # API on http://localhost:3001
+npm run dev:api                 # API on http://localhost:3001, restarts on changes
 npm run dev                     # app on http://localhost:5173
 npm test                        # business rule tests
+npm run lint && npm run typecheck
 ```
 
 ---
@@ -114,8 +115,11 @@ npm test                        # business rule tests
 | Variable | Description |
 | :--- | :--- |
 | `DATABASE_URL` | PostgreSQL connection string |
-| `JWT_SECRET` | Secret used to sign login tokens |
+| `JWT_SECRET` | Secret that signs login sessions. **Required in production** (at least 16 random characters, e.g. `openssl rand -hex 32`); the server refuses to start without it. In development a random one is used per run. |
 | `PORT` | API port (default 3001) |
+| `TZ` | Time zone for "today", days and hours in reports (default `Africa/Algiers`, whatever the host's clock) |
+| `TRUST_PROXY` | Set to `1` behind a reverse proxy (Render, Nginx) so login rate limits see each caller's real address |
+| `CORS_ORIGIN` | Comma-separated web addresses allowed to call the API. Unset: any |
 
 ---
 
@@ -123,24 +127,32 @@ npm test                        # business rule tests
 
 | Method | Endpoint | Description | Auth |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/login` | Log in, returns a JWT | None |
-| `GET` | `/api/products` | Search the catalogue; `expiring=1` lists expired or soon-to-expire products | None |
-| `POST/PUT/DELETE` | `/api/products[/:id]` | Manage products | Manager, or cashier with manager key |
-| `GET` | `/api/inventory/low-stock` | Products below their unit's threshold | None |
-| `GET` | `/api/inventory/expiring` | In-stock products expired or expiring within 14 days | None |
+| `POST` | `/api/auth/login` | Log in, returns a JWT (rate limited) | None |
+| `GET` | `/api/products` | Search the catalogue; `expiring=1` lists expired or soon-to-expire products | Staff |
+| `POST/PUT/DELETE` | `/api/products[/:id]` | Manage products | Manager, or cashier with a manager's password |
+| `GET` | `/api/inventory/low-stock` | Products below their unit's threshold | Staff |
+| `GET` | `/api/inventory/expiring` | In-stock products expired or expiring within 14 days | Staff |
 | `POST` | `/api/orders` | Create a sale with split payments, change and credit | Staff |
-| `GET` | `/api/orders[/:id]` | Sales history and details | None |
+| `GET` | `/api/orders[/:id]` | Sales history and details | Staff |
 | `POST` | `/api/orders/:id/refunds` | Refund items from a sale | Staff |
 | `GET/POST/PUT` | `/api/customers[/:id]` | Customers and their accounts | Staff |
 | `POST` | `/api/customers/:id/payments` | Record a credit repayment | Staff |
-| `GET/POST/PUT` | `/api/suppliers[/:id]` | Suppliers and balances | Staff / Manager |
+| `GET/POST/PUT` | `/api/suppliers[/:id]` | Suppliers and balances | Manager |
 | `POST` | `/api/suppliers/:id/payments` | Pay a supplier | Manager |
-| `GET/POST` | `/api/purchases` | Record goods received | Staff / Manager |
+| `GET/POST` | `/api/purchases` | Record goods received | Manager |
 | `GET` | `/api/reports?from&to&groupBy` | Daily or monthly report | Manager |
-| `GET` | `/api/analytics/summary` | Today so far | None |
-| `GET/PUT` | `/api/settings` | Shop, language, payments and receipts | PUT: Manager |
+| `GET` | `/api/analytics/summary`, `/today` | Today so far, for the dashboard | Manager |
+| `GET/PUT` | `/api/settings` | Shop, language, payments and receipts | GET before login: name and address only. PUT: Manager |
 
 Errors return a stable `code` (for example `INSUFFICIENT_STOCK` or `CREDIT_LIMIT_EXCEEDED`) that the app translates.
+
+### Safe retries
+
+Sales, refunds, repayments, purchases and supplier payments accept a `requestId` (8–64 letters, digits, `-` or `_`). Sending the same request again with the same id, for example after a lost connection, returns the first result with status 200 instead of recording it twice. The app does this automatically.
+
+### Concurrency
+
+Writes lock the rows they change (customer or supplier, then the sale or purchase, then products) and take document numbers one at a time, so several tills can sell the last units of a product, refund the same sale or record repayments at the same moment without overselling, double refunds or lost balance updates. The database also refuses negative stock.
 
 ---
 
@@ -148,7 +160,7 @@ Errors return a stable `code` (for example `INSUFFICIENT_STOCK` or `CREDIT_LIMIT
 
 ```bash
 npm run build                                     # static app in dist/
-pm2 start npx --name loompos-api -- tsx server/index.ts
+NODE_ENV=production pm2 start npm --name loompos-api -- run start:api
 ```
 
 ---
@@ -156,8 +168,11 @@ pm2 start npx --name loompos-api -- tsx server/index.ts
 ## Security
 
 * Passwords are hashed with bcrypt; the shared cashier password is never sent to browsers.
-* Sessions use JWTs that expire after 12 hours.
-* Sales, refunds, credit and purchases require a signed-in user; settings, suppliers payments and reports require a manager.
+* Sessions use JWTs that expire after 12 hours. The session lives in memory: reloading the page asks for the password again (the cart is kept).
+* Every endpoint except login and the shop name requires a signed-in user; suppliers, purchases, reports, staff and settings require a manager.
+* Wrong passwords are rate limited (10 per account and address, 30 per account, per 15 minutes) on login, password change, password reset and the manager password a cashier types.
+* The default `admin`/`admin123` account is created only on an empty database. The server logs a warning while any manager still uses it: change it after the first login.
+* The last active manager cannot be deactivated or demoted.
 
 ---
 

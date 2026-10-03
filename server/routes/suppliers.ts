@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { ApiError, handle, nextNumber, prisma, requireAdmin, requireAuth } from '../context';
+import { ApiError, handle, isRequestIdClash, lockRows, nextNumber, prisma, requestIdSchema, requireAdmin } from '../context';
 import {
   allocateRepayment,
   isValidQuantity,
@@ -29,7 +29,7 @@ const cleanPhone = (phone: string | null | undefined) => {
 
 const settlingEnum = z.enum(SETTLING_METHOD_CODES as [string, ...string[]]);
 
-suppliersRouter.get('/suppliers', requireAuth, handle(async (req, res) => {
+suppliersRouter.get('/suppliers', requireAdmin, handle(async (req, res) => {
   const { search } = req.query;
   const where: any = search ? { name: { contains: String(search), mode: 'insensitive' } } : {};
   const [suppliers, owed] = await Promise.all([
@@ -50,7 +50,7 @@ suppliersRouter.put('/suppliers/:id', requireAdmin, handle(async (req, res) => {
   res.json(await prisma.supplier.update({ where: { id: req.params.id }, data: update }));
 }));
 
-suppliersRouter.get('/suppliers/:id', requireAuth, handle(async (req, res) => {
+suppliersRouter.get('/suppliers/:id', requireAdmin, handle(async (req, res) => {
   const supplier = await prisma.supplier.findUnique({ where: { id: req.params.id } });
   if (!supplier) throw new ApiError(404, 'SUPPLIER_NOT_FOUND');
   const [purchases, payments] = await Promise.all([
@@ -64,12 +64,25 @@ const supplierPaymentSchema = z.object({
   method: settlingEnum,
   amount: z.number().positive(),
   reference: z.string().trim().max(80).nullish(),
+  requestId: requestIdSchema,
 });
 
 // Pay a supplier. Settles their oldest unpaid purchases first.
 suppliersRouter.post('/suppliers/:id/payments', requireAdmin, handle(async (req, res) => {
   const input = supplierPaymentSchema.parse(req.body);
+  const already = async () => {
+    const payment = await prisma.supplierPayment.findUnique({ where: { requestId: input.requestId! } });
+    return payment && { payment, supplier: payment.supplierId ? await prisma.supplier.findUnique({ where: { id: payment.supplierId } }) : null };
+  };
+  if (input.requestId) {
+    const existing = await already();
+    if (existing) return res.status(200).json(existing);
+  }
   const result = await prisma.$transaction(async (tx) => {
+    // Lock the supplier, then their unpaid purchases, and read after locking.
+    await lockRows(tx, 'supplier', [req.params.id]);
+    const unpaidIds = await tx.purchase.findMany({ where: { supplierId: req.params.id, balanceDue: { gt: 0 } }, select: { id: true } });
+    await lockRows(tx, 'purchase', unpaidIds.map((p) => p.id));
     const supplier = await tx.supplier.findUnique({ where: { id: req.params.id } });
     if (!supplier) throw new ApiError(404, 'SUPPLIER_NOT_FOUND');
     const amount = roundMoney(input.amount);
@@ -97,15 +110,20 @@ suppliersRouter.post('/suppliers/:id/payments', requireAdmin, handle(async (req,
         amount,
         reference: input.reference ?? null,
         userId: req.user!.id,
+        requestId: input.requestId ?? null,
       },
     });
     const updated = await tx.supplier.update({ where: { id: supplier.id }, data: { balance: Math.max(0, roundMoney(supplier.balance - amount)) } });
     return { payment, supplier: updated };
+  }).catch(async (error) => {
+    if (input.requestId && isRequestIdClash(error)) return { replayed: await already() };
+    throw error;
   });
+  if ('replayed' in result) return res.status(200).json(result.replayed);
   res.status(201).json(result);
 }));
 
-suppliersRouter.get('/purchases', requireAuth, handle(async (req, res) => {
+suppliersRouter.get('/purchases', requireAdmin, handle(async (req, res) => {
   const { page = '1', supplierId } = req.query;
   const p = Math.max(1, parseInt(String(page)) || 1);
   const where: any = supplierId ? { supplierId: String(supplierId) } : {};
@@ -122,7 +140,7 @@ suppliersRouter.get('/purchases', requireAuth, handle(async (req, res) => {
   res.json({ purchases, total, hasMore: p * 50 < total });
 }));
 
-suppliersRouter.get('/purchases/:id', requireAuth, handle(async (req, res) => {
+suppliersRouter.get('/purchases/:id', requireAdmin, handle(async (req, res) => {
   const purchase = await prisma.purchase.findUnique({
     where: { id: req.params.id },
     include: { supplier: true, items: { include: { product: true } }, payments: true },
@@ -139,16 +157,27 @@ const purchaseSchema = z.object({
   paymentMethod: settlingEnum.default('CASH'),
   /** Use this delivery's unit cost as the product's cost price. */
   updateCostPrice: z.boolean().default(true),
+  requestId: requestIdSchema,
 });
 
 // Receive goods: stock goes up, cost prices follow the latest delivery,
 // and any unpaid amount is added to what the shop owes the supplier.
 suppliersRouter.post('/purchases', requireAdmin, handle(async (req, res) => {
   const input = purchaseSchema.parse(req.body);
+  const include = { supplier: true, items: { include: { product: true } } } as const;
+  const already = () => prisma.purchase.findUnique({ where: { requestId: input.requestId! }, include });
+  if (input.requestId) {
+    const existing = await already();
+    if (existing) return res.status(200).json(existing);
+  }
   const purchase = await prisma.$transaction(async (tx) => {
+    // Lock order: supplier, then products; read after locking so a sale at the same moment
+    // is not overwritten by this delivery's stock update.
+    if (input.supplierId) await lockRows(tx, 'supplier', [input.supplierId]);
     const supplier = input.supplierId ? await tx.supplier.findUnique({ where: { id: input.supplierId } }) : null;
     if (input.supplierId && !supplier) throw new ApiError(404, 'SUPPLIER_NOT_FOUND');
 
+    await lockRows(tx, 'product', input.items.map((i) => i.productId));
     const products = await tx.product.findMany({ where: { id: { in: input.items.map((i) => i.productId) } } });
     const lines = input.items.map((item) => {
       const product = products.find((p) => p.id === item.productId);
@@ -172,6 +201,7 @@ suppliersRouter.post('/purchases', requireAdmin, handle(async (req, res) => {
         amountPaid,
         balanceDue,
         userId: req.user!.id,
+        requestId: input.requestId ?? null,
         items: { create: lines.map((l) => ({ productId: l.product.id, quantity: l.quantity, unitCost: l.unitCost })) },
       },
     });
@@ -199,7 +229,11 @@ suppliersRouter.post('/purchases', requireAdmin, handle(async (req, res) => {
       }
     }
 
-    return tx.purchase.findUnique({ where: { id: created.id }, include: { supplier: true, items: { include: { product: true } } } });
+    return tx.purchase.findUnique({ where: { id: created.id }, include });
+  }).catch(async (error) => {
+    if (input.requestId && isRequestIdClash(error)) return { replayed: await already() };
+    throw error;
   });
+  if (purchase && 'replayed' in purchase) return res.status(200).json(purchase.replayed);
   res.status(201).json(purchase);
 }));
