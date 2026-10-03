@@ -23,7 +23,8 @@ export default function ScannerInput() {
 
   useEffect(() => {
     if (activeIndex >= 0 && dropdownRef.current) {
-      ;(dropdownRef.current.children[activeIndex] as HTMLElement | undefined)?.scrollIntoView({ block: 'nearest' })
+      const row = dropdownRef.current.children[activeIndex] as HTMLElement | undefined
+      row?.scrollIntoView({ block: 'nearest' })
     }
   }, [activeIndex])
 

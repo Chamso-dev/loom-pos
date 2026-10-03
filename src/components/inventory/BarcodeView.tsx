@@ -9,7 +9,8 @@ interface BarcodeViewProps {
   className?: string
 }
 
-export default function BarcodeView({ value, width = 100, height = 10, className }: BarcodeViewProps) {
+// width is accepted for older callers; the barcode now scales to its container.
+export default function BarcodeView({ value, width: _width = 100, height = 10, className }: BarcodeViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {

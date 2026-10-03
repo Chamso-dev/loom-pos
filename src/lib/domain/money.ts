@@ -100,9 +100,9 @@ export function parseDecimal(input: string | number | null | undefined): number 
   let text = String(input).trim()
   if (!text) return NaN
   text = text
-    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
-    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
-    .replace(/[\s  ⁦-⁩]/g, '')
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660)) // Arabic-Indic digits
+    .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06f0)) // Persian digits
+    .replace(/[\s\u00A0\u202F\u2066-\u2069]/g, '') // spaces, no-break spaces and direction marks
     .replace(/٫/g, '.') // Arabic decimal separator
     .replace(/−/g, '-')
   // With both separators, the last one is the decimal mark (1.250,50 or 1,250.50).
