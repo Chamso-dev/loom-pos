@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import { BrowserRouter, MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import Shell from './components/layout/Shell'
@@ -6,7 +6,6 @@ import PageWrapper from './components/layout/PageWrapper'
 
 import InventoryPage from './components/inventory/InventoryPage'
 import BillingPage from './components/billing/BillingPage'
-import Dashboard from './components/dashboard/Dashboard'
 import OrderHistoryPage from './components/orders/OrderHistoryPage'
 import SettingsPage from './components/settings/SettingsPage'
 import StaffPage from './components/settings/StaffPage'
@@ -19,6 +18,7 @@ import AuthGuard from './components/auth/AuthGuard'
 import ErrorBoundary from './components/ErrorBoundary'
 import { useStore } from './store/useStore'
 import { applyDocumentLanguage } from './i18n'
+import { Dashboard } from './components/dashboard/lazyDashboard'
 
 /** Keeps <html lang dir> and the dark class in step with the store. */
 function useDocumentPreferences() {
@@ -61,7 +61,15 @@ function AppContent() {
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/" element={page(<Dashboard />, 'ADMIN')} />
+        <Route
+          path="/"
+          element={page(
+            <Suspense fallback={<div className="min-h-[60vh]" aria-busy="true" />}>
+              <Dashboard />
+            </Suspense>,
+            'ADMIN'
+          )}
+        />
         <Route path="/billing" element={page(<BillingPage />)} />
         <Route path="/orders" element={page(<OrderHistoryPage />)} />
         <Route path="/customers" element={page(<CustomersPage />)} />

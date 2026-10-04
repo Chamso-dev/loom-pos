@@ -15,7 +15,7 @@ export default function Shell({ children }: ShellProps) {
   const { isSidebarOpen, setSidebarOpen, setMobileNavOpen } = useStore()
   const isPhone = useIsPhone()
   const isBillingScreen = location.pathname === '/billing'
-  // The dashboard sits on a gray canvas so its white cards stand out.
+  // The dashboard sits on a tinted canvas so its cells stand out.
   const isDashboard = location.pathname === '/'
 
   // On a desktop the till gets the full width.
@@ -40,7 +40,7 @@ export default function Shell({ children }: ShellProps) {
       <Sidebar />
       <div className={cn('transition-all duration-300 min-h-screen print:ps-0', isSidebarOpen ? 'md:ps-64' : 'md:ps-20')}>
         <Header />
-        <main className={cn('relative z-10', isDashboard && 'sp-canvas')}>
+        <main className={cn('relative z-10', isDashboard && 'dx-canvas')}>
           <div className="max-w-[1600px] mx-auto px-3 py-4 sm:p-6 lg:p-8">{children}</div>
         </main>
       </div>

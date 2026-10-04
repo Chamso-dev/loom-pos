@@ -6,9 +6,10 @@ interface DayThreadProps {
   shape: DayShape
   comparedDays: number
   now: Date
+  /** Drawing height in pixels. */
+  height?: number
 }
 
-const HEIGHT = 240
 const PAD_TOP = 36
 const PAD_BOTTOM = 32
 
@@ -31,12 +32,11 @@ const toPath = (points: Array<[number, number]>) => points.map(([x, y], i) => `$
  * over a dotted line for an average day this past week. Time runs left to right in
  * both languages, as on most Arabic dashboards.
  */
-export default function DayThread({ shape, comparedDays, now }: DayThreadProps) {
+export default function DayThread({ shape, comparedDays, now, height: HEIGHT = 240 }: DayThreadProps) {
   const [ref, width] = useWidth<HTMLDivElement>()
   const { t, money, time, dir } = useI18n()
   // SVG ids must be unique on the page and usable inside url(#…).
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '')
-  const glowId = `ld-glow-${uid}`
   const fillId = `ld-fill-${uid}`
   // SVG text anchors follow the text direction, so start and end swap for Arabic labels.
   const anchor = (a: 'start' | 'middle' | 'end') => (dir === 'rtl' && a !== 'middle' ? (a === 'start' ? 'end' : 'start') : a)
@@ -52,7 +52,8 @@ export default function DayThread({ shape, comparedDays, now }: DayThreadProps) 
   const average = averagePoints.map(([h, v]) => [x(h), y(v)] as [number, number])
   const knot = today[today.length - 1]
 
-  const step = width / Math.max(end - start, 1) >= 64 ? 1 : 2
+  // An hour label is about 40px wide: show every hour, or every second or third, so they never touch.
+  const step = Math.max(1, Math.ceil(56 / (width / Math.max(end - start, 1))))
   const ticks: number[] = []
   for (let h = start; h <= end; h += step) ticks.push(h)
 
@@ -86,10 +87,7 @@ export default function DayThread({ shape, comparedDays, now }: DayThreadProps) 
         {width > 0 && (
           <svg width={width} height={HEIGHT} role="img" aria-label={description}>
             <defs>
-              {/* A soft light around today's thread, and a wash of the same blue fading down beneath it. */}
-              <filter id={glowId} filterUnits="userSpaceOnUse" x={-24} y={-24} width={width + 48} height={HEIGHT + 48}>
-                <feDropShadow className="ld-thread-glow" dx={0} dy={0} stdDeviation={5} />
-              </filter>
+              {/* A wash of the line's color fading down beneath today's thread. */}
               <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" className="ld-thread-fill-top" />
                 <stop offset="100%" className="ld-thread-fill-bottom" />
@@ -117,7 +115,7 @@ export default function DayThread({ shape, comparedDays, now }: DayThreadProps) 
                 d={`${toPath(today)} L${today[today.length - 1][0].toFixed(1)},${y(0).toFixed(1)} L${today[0][0].toFixed(1)},${y(0).toFixed(1)} Z`}
               />
             )}
-            {today.length > 1 && <path className="ld-thread-today" filter={`url(#${glowId})`} pathLength={1} d={toPath(today)} />}
+            {today.length > 1 && <path className="ld-thread-today" pathLength={1} d={toPath(today)} />}
             {knot && (
               <>
                 {/* While the shop is open, a slow pulse marks "now" on the thread. */}

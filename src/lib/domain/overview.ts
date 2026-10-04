@@ -190,20 +190,35 @@ export function buildOverview(
   const totals = periodTotals(current.orders, current.refunds, current.payments)
   const previousTotals = periodTotals(compared.orders, compared.refunds, compared.payments)
 
+  // Each row is placed in its bucket once, so the series costs one pass over the rows rather
+  // than one pass per bucket. The previous period's buckets stop where this period starts.
+  type Bucket = { orders: OverviewOrder[]; refunds: OverviewRefund[]; payments: OverviewPayment[] }
+  const buckets = (): Bucket[] => Array.from({ length: range.buckets }, () => ({ orders: [], refunds: [], payments: [] }))
+  const now = buckets()
+  const before = buckets()
+  const previousSeriesEnd = new Date(Math.min(bucketStart(range, range.previousFrom, range.buckets).getTime(), range.from.getTime()))
+  const place = <T>(at: Date, row: T, add: (bucket: Bucket, row: T) => void) => {
+    if (at >= range.from && at < range.to) {
+      const i = bucketIndex(range, range.from, at)
+      if (i >= 0 && i < range.buckets) add(now[i], row)
+    } else if (at >= range.previousFrom && at < previousSeriesEnd) {
+      const i = bucketIndex(range, range.previousFrom, at)
+      if (i >= 0 && i < range.buckets) add(before[i], row)
+    }
+  }
+  for (const o of rows.orders) place(o.date, o, (b, r) => b.orders.push(r))
+  for (const r of rows.refunds) place(r.createdAt, r, (b, x) => b.refunds.push(x))
+  for (const p of rows.payments) place(p.createdAt, p, (b, x) => b.payments.push(x))
+
   const series: OverviewPoint[] = []
   for (let i = 0; i < range.buckets; i++) {
     const start = bucketStart(range, range.from, i)
-    const end = bucketStart(range, range.from, i + 1)
-    const pStart = bucketStart(range, range.previousFrom, i)
-    const pEnd = bucketStart(range, range.previousFrom, i + 1)
-    const c = pick(start, end < range.to ? end : range.to)
-    const p = pick(pStart, pEnd)
-    const ct = periodTotals(c.orders, c.refunds, c.payments)
-    const pt = periodTotals(p.orders, p.refunds, p.payments)
+    const ct = periodTotals(now[i].orders, now[i].refunds, now[i].payments)
+    const pt = periodTotals(before[i].orders, before[i].refunds, before[i].payments)
     const future = start >= range.to
     series.push({
       at: start.toISOString(),
-      previousAt: pStart.toISOString(),
+      previousAt: bucketStart(range, range.previousFrom, i).toISOString(),
       sales: future ? null : ct.netSales,
       orders: future ? null : ct.orders,
       averageSale: future || !ct.orders ? null : ct.averageSale,

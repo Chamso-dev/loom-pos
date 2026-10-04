@@ -107,7 +107,7 @@ export function ComparisonLine({
   const tipAt = tip ? Math.min(y(tip.value ?? bottom), y(tip.previous ?? bottom)) : null
 
   return (
-    <div ref={ref} dir="ltr" className={`sp-line${compact ? ' is-compact' : ''}`} style={compact ? undefined : { height }} onMouseLeave={() => setActive(null)}>
+    <div ref={ref} dir="ltr" className={`dx-line${compact ? ' is-compact' : ''}`} style={compact ? undefined : { height }} onMouseLeave={() => setActive(null)}>
       {width > 0 && (
         <svg
           width={width}
@@ -124,45 +124,45 @@ export function ComparisonLine({
         >
           <defs>
             <linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" className="sp-wash-top" />
-              <stop offset="100%" className="sp-wash-bottom" />
+              <stop offset="0%" className="dx-wash-top" />
+              <stop offset="100%" className="dx-wash-bottom" />
             </linearGradient>
           </defs>
           {ticks.map((v) => (
             <g key={v}>
-              <line className="sp-gridline" x1={GUTTER} x2={GUTTER + plotW} y1={y(v)} y2={y(v)} />
-              <text className="sp-axis" x={GUTTER - 10} y={y(v) + 4} textAnchor="end">{(formatAxis ?? format)(v)}</text>
+              <line className="dx-gridline" x1={GUTTER} x2={GUTTER + plotW} y1={y(v)} y2={y(v)} />
+              <text className="dx-axis" x={GUTTER - 10} y={y(v) + 4} textAnchor="end">{(formatAxis ?? format)(v)}</text>
             </g>
           ))}
           {!compact && points.map((p, i) => (i % labelEvery === 0 ? (
-            <text key={p.at} className="sp-axis" x={x(i)} y={height - 8} textAnchor={i === 0 && n > 1 ? 'start' : 'middle'}>{xLabel(p.at)}</text>
+            <text key={p.at} className="dx-axis" x={x(i)} y={height - 8} textAnchor={i === 0 && n > 1 ? 'start' : 'middle'}>{xLabel(p.at)}</text>
           ) : null))}
-          {area && <path className="sp-line-area" d={area} fill={`url(#${gradient})`} />}
-          {previous.length > 1 && <path className="sp-line-previous" d={pathOf(previous)} />}
-          {current.length > 1 && <path className="sp-line-current" d={pathOf(current)} />}
-          {current.length === 1 && <circle className="sp-line-dot" cx={current[0][0]} cy={current[0][1]} r={compact ? 2.5 : 4} />}
+          {area && <path className="dx-line-area" d={area} fill={`url(#${gradient})`} />}
+          {previous.length > 1 && <path className="dx-line-previous" d={pathOf(previous)} />}
+          {current.length > 1 && <path className="dx-line-current" d={pathOf(current)} />}
+          {current.length === 1 && <circle className="dx-line-dot" cx={current[0][0]} cy={current[0][1]} r={compact ? 2.5 : 4} />}
           {tip && (
-            <g className="sp-crosshair">
+            <g className="dx-crosshair">
               <line x1={x(active!)} x2={x(active!)} y1={PAD_TOP} y2={PAD_TOP + plotH} />
-              {tip.previous !== null && <circle className="sp-crosshair-previous" cx={x(active!)} cy={y(tip.previous)} r={4} />}
-              {tip.value !== null && <circle className="sp-crosshair-current" cx={x(active!)} cy={y(tip.value)} r={5} />}
+              {tip.previous !== null && <circle className="dx-crosshair-previous" cx={x(active!)} cy={y(tip.previous)} r={4} />}
+              {tip.value !== null && <circle className="dx-crosshair-current" cx={x(active!)} cy={y(tip.value)} r={5} />}
             </g>
           )}
         </svg>
       )}
       {tip && tipAt !== null && width > 0 && (
         <div
-          className={`sp-tip${tipAt < 72 ? ' is-below' : ''}`}
+          className={`dx-tip${tipAt < 72 ? ' is-below' : ''}`}
           role="presentation"
           style={{ left: Math.min(Math.max(x(active!), 110), width - 110), top: tipAt < 72 ? tipAt + 14 : tipAt - 12 }}
         >
-          <span className="sp-tip-row">
-            <i className="sp-key is-current" />
+          <span className="dx-tip-row">
+            <i className="dx-key is-current" />
             <em>{bucketLabel(tip.at)}</em>
             <strong>{tip.value === null ? '–' : format(tip.value)}</strong>
           </span>
-          <span className="sp-tip-row">
-            <i className="sp-key is-previous" />
+          <span className="dx-tip-row">
+            <i className="dx-key is-previous" />
             <em>{bucketLabel(tip.previousAt)}</em>
             <strong>{tip.previous === null ? '–' : format(tip.previous)}</strong>
           </span>
@@ -188,9 +188,9 @@ export function ComparisonLine({
 /** The key under a comparison chart: the two periods, named by their dates. */
 export function ChartLegend({ current, previous }: { current: string; previous: string }) {
   return (
-    <ul className="sp-legend">
-      <li><span className="sp-key is-current" aria-hidden="true" />{current}</li>
-      <li><span className="sp-key is-previous" aria-hidden="true" />{previous}</li>
+    <ul className="dx-legend">
+      <li><span className="dx-key is-current" aria-hidden="true" />{current}</li>
+      <li><span className="dx-key is-previous" aria-hidden="true" />{previous}</li>
     </ul>
   )
 }
@@ -213,19 +213,19 @@ export function RankBars({ rows, empty }: { rows: RankRow[]; empty: string }) {
   const { money, percent } = useI18n()
   const total = rows.reduce((sum, r) => sum + Math.max(r.value, 0), 0)
   const max = Math.max(...rows.map((r) => r.value), 1)
-  if (!rows.length || total <= 0) return <p className="sp-empty">{empty}</p>
+  if (!rows.length || total <= 0) return <p className="dx-empty">{empty}</p>
   return (
-    <ul className="sp-bars">
+    <ul className="dx-bars">
       {rows.map((r) => (
-        <li key={r.key} className="sp-bar-row">
-          <span className="sp-bar-name">{r.name}</span>
-          <span className="sp-bar-value">
+        <li key={r.key} className="dx-bar-row">
+          <span className="dx-bar-name">{r.name}</span>
+          <span className="dx-bar-value">
             {money(r.value)}
-            <span className="sp-bar-share">{percent(Math.round((Math.max(r.value, 0) / total) * 100))}</span>
+            <span className="dx-bar-share">{percent(Math.round((Math.max(r.value, 0) / total) * 100))}</span>
           </span>
-          {r.detail && <span className="sp-bar-detail">{r.detail}</span>}
-          <span className="sp-bar-track" aria-hidden="true">
-            <span className={`sp-bar${r.other ? ' is-other' : ''}`} style={{ width: `${Math.max(1.5, (Math.max(r.value, 0) / max) * 100)}%` }} />
+          {r.detail && <span className="dx-bar-detail">{r.detail}</span>}
+          <span className="dx-bar-track" aria-hidden="true">
+            <span className={`dx-bar${r.other ? ' is-other' : ''}`} style={{ width: `${Math.max(1.5, (Math.max(r.value, 0) / max) * 100)}%` }} />
           </span>
         </li>
       ))}
@@ -259,22 +259,22 @@ export function HourBars({ values, nowHour }: { values: number[]; nowHour: numbe
   const range = (h: number) => t('dashboard.hourRange', { from: hourLabel(h), to: hourLabel(h + 1) })
 
   return (
-    <div ref={ref} dir="ltr" className="sp-hours" onMouseLeave={() => setActive(null)}>
+    <div ref={ref} dir="ltr" className="dx-hours" onMouseLeave={() => setActive(null)}>
       {width > 0 && (
         <svg width={width} height={TOP + PLOT + AXIS} role="group" aria-label={t('dashboard.ov.hours')}>
           {[0, 0.5, 1].map((f) => (
             <g key={f}>
-              <line className="sp-gridline" x1={GUTTER} x2={width} y1={y(top * f)} y2={y(top * f)} />
-              <text className="sp-axis" x={GUTTER - 10} y={y(top * f) + 4} textAnchor="end">{moneyShort(top * f)}</text>
+              <line className="dx-gridline" x1={GUTTER} x2={width} y1={y(top * f)} y2={y(top * f)} />
+              <text className="dx-axis" x={GUTTER - 10} y={y(top * f) + 4} textAnchor="end">{moneyShort(top * f)}</text>
             </g>
           ))}
           {shown.map((h, i) => {
             const cx = GUTTER + i * slot + slot / 2
             const v = values[h]
             return (
-              <g key={h} className={`sp-col${active === h ? ' is-active' : ''}${nowHour !== null && h > nowHour ? ' is-future' : ''}`}>
+              <g key={h} className={`dx-col${active === h ? ' is-active' : ''}${nowHour !== null && h > nowHour ? ' is-future' : ''}`}>
                 <rect
-                  className="sp-col-hit"
+                  className="dx-col-hit"
                   x={GUTTER + i * slot}
                   y={TOP}
                   width={slot}
@@ -286,9 +286,9 @@ export function HourBars({ values, nowHour }: { values: number[]; nowHour: numbe
                   onFocus={() => setActive(h)}
                   onBlur={() => setActive(null)}
                 />
-                {v > 0 && <path className="sp-col-bar" d={roundedTop(cx - barW / 2, y(v), barW, TOP + PLOT - y(v), Math.min(3, barW / 2))} />}
+                {v > 0 && <path className="dx-col-bar" d={roundedTop(cx - barW / 2, y(v), barW, TOP + PLOT - y(v), Math.min(3, barW / 2))} />}
                 {i % labelEvery === 0 && (
-                  <text className="sp-axis" x={cx} y={TOP + PLOT + 18} textAnchor="middle">{hourLabel(h)}</text>
+                  <text className="dx-axis" x={cx} y={TOP + PLOT + 18} textAnchor="middle">{hourLabel(h)}</text>
                 )}
               </g>
             )
@@ -296,9 +296,9 @@ export function HourBars({ values, nowHour }: { values: number[]; nowHour: numbe
         </svg>
       )}
       {active !== null && width > 0 && (
-        <div className="sp-tip" role="presentation" style={{ left: Math.min(Math.max(GUTTER + (shown.indexOf(active) + 0.5) * slot, 90), width - 90), top: y(values[active]) - 10 }}>
-          <span className="sp-tip-row">
-            <i className="sp-key is-current" />
+        <div className="dx-tip" role="presentation" style={{ left: Math.min(Math.max(GUTTER + (shown.indexOf(active) + 0.5) * slot, 90), width - 90), top: y(values[active]) - 10 }}>
+          <span className="dx-tip-row">
+            <i className="dx-key is-current" />
             <em>{range(active)}</em>
             <strong>{money(values[active])}</strong>
           </span>
@@ -312,4 +312,33 @@ export function HourBars({ values, nowHour }: { values: number[]; nowHour: numbe
 function roundedTop(x: number, y: number, w: number, h: number, r: number) {
   const rr = Math.min(r, h)
   return `M${x},${y + h} V${y + rr} Q${x},${y} ${x + rr},${y} H${x + w - rr} Q${x + w},${y} ${x + w},${y + rr} V${y + h} Z`
+}
+
+/**
+ * Parts of a whole as one bar split into segments, largest first, with a legend that names
+ * each part and gives its amount and share. Colors follow the entity (payment method).
+ */
+export function ShareBar({ parts, empty, colorOf }: { parts: Array<{ key: string; name: ReactNode; value: number }>; empty: string; colorOf: (key: string) => string }) {
+  const { money, percent } = useI18n()
+  const total = parts.reduce((sum, p) => sum + Math.max(p.value, 0), 0)
+  if (!parts.length || total <= 0) return <p className="dx-empty">{empty}</p>
+  return (
+    <div className="dx-share">
+      <div className="dx-share-bar" aria-hidden="true">
+        {parts.map((p) => (
+          <span key={p.key} className={colorOf(p.key)} style={{ flexGrow: Math.max(p.value, 0) }} />
+        ))}
+      </div>
+      <ul className="dx-share-legend">
+        {parts.map((p) => (
+          <li key={p.key}>
+            <span className={`dx-swatch ${colorOf(p.key)}`} aria-hidden="true" />
+            <span className="dx-share-name">{p.name}</span>
+            <span className="dx-share-value">{money(p.value)}</span>
+            <span className="dx-share-pct">{percent(Math.round((Math.max(p.value, 0) / total) * 100))}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
 }

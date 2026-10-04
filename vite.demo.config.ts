@@ -17,7 +17,11 @@ export default defineConfig({
     'import.meta.env.VITE_DEMO': JSON.stringify('true'),
   },
   resolve: {
-    alias: { '@': path.resolve(__dirname, './src') },
+    alias: [
+      // The app loads the dashboard as a separate chunk; one HTML file cannot, so bundle it in.
+      { find: /^.*\/dashboard\/lazyDashboard$/, replacement: path.resolve(__dirname, 'demo/eagerDashboard.ts') },
+      { find: '@', replacement: path.resolve(__dirname, './src') },
+    ],
   },
   build: {
     outDir: path.resolve(__dirname, 'dist-demo'),
