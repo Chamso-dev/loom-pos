@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { isToday } from 'date-fns'
 import './dashboard.css'
@@ -11,7 +11,8 @@ import { ArrowDownRight, ArrowUpRight, CalendarDays, Check, ChevronDown, Refresh
 import { ChartLegend, ComparisonLine, HourBars, RankBars } from './OverviewCharts'
 import { MethodList } from '@/components/ui/badges'
 import EndOfDaySummary, { type DaySummary } from './EndOfDaySummary'
-import { hourLabel } from './dayMath'
+import DayThread from './DayThread'
+import { hourLabel, shapeDay } from './dayMath'
 
 interface Bill {
   id: string
@@ -27,6 +28,13 @@ interface Bill {
 }
 
 type Metric = 'sales' | 'orders' | 'averageSale' | 'profit'
+
+/** Today's sales by hour against an average day of the past week, for the day thread chart. */
+interface TodayAnalytics {
+  todayByHour: number[]
+  averageByHour: number[]
+  comparedDays: number
+}
 
 const REFRESH_MS = 2 * 60 * 1000
 const RANGE_STORAGE = 'loompos.dashboard.range'
@@ -61,22 +69,25 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false)
   const [updatedAt, setUpdatedAt] = useState(() => new Date())
   const [showEOD, setShowEOD] = useState(false)
+  const [today, setToday] = useState<TodayAnalytics | null>(null)
   // Only the newest request may update the page: a slow answer for an old period is dropped.
   const latest = useRef(0)
 
   const load = useCallback(async (key: RangeKey) => {
     const ticket = ++latest.current
     setRefreshing(true)
-    const [o, s, b] = await Promise.allSettled([
+    const [o, s, b, td] = await Promise.allSettled([
       api<Overview>('/analytics/overview', { query: { range: key } }),
       api<DaySummary>('/analytics/summary'),
       api<{ orders: Bill[] }>('/orders', { query: { limit: 6 } }),
+      api<TodayAnalytics>('/analytics/today'),
       fetchLowStockAlerts(),
     ])
     if (ticket !== latest.current) return
     if (o.status === 'fulfilled') setOverview(o.value)
     if (s.status === 'fulfilled') setSummary(s.value)
     if (b.status === 'fulfilled') setBills(b.value.orders)
+    if (td.status === 'fulfilled') setToday(td.value)
     setUpdatedAt(new Date())
     setRefreshing(false)
     setStatus((prev) => (o.status === 'fulfilled' || prev === 'ready' ? 'ready' : 'failed'))
@@ -87,6 +98,8 @@ export default function Dashboard() {
     const timer = window.setInterval(() => load(range), REFRESH_MS)
     return () => window.clearInterval(timer)
   }, [load, range])
+
+  const shape = useMemo(() => (today ? shapeDay(today.todayByHour, today.averageByHour, updatedAt) : null), [today, updatedAt])
 
   const pickRange = (key: RangeKey) => {
     setRange(key)
@@ -209,15 +222,25 @@ export default function Dashboard() {
             ))}
           </div>
           <div id="sp-main-chart" role="tabpanel" aria-labelledby={`sp-tab-${shown.key}`} className="sp-main-chart">
-            <ComparisonLine
-              points={pointsOf(metric)}
-              granularity={o.granularity}
-              format={shown.format}
-              formatAxis={metric === 'orders' ? (v) => i18n.number(v, 1) : moneyShort}
-              labels={legend}
-              title={t('dashboard.ov.chartLabel', { title: shown.title, value: shown.format(shown.value), previous: shown.format(shown.previous) })}
-            />
-            <ChartLegend current={legend.current} previous={legend.previous} />
+            {/* Today's net sales: the running total through the day against an average day. */}
+            {o.range === 'today' && metric === 'sales' && shape && today ? (
+              <>
+                <Comparison shape={shape} comparedDays={today.comparedDays} orderCount={o.totals.orders} />
+                <DayThread shape={shape} comparedDays={today.comparedDays} now={updatedAt} />
+              </>
+            ) : (
+              <>
+                <ComparisonLine
+                  points={pointsOf(metric)}
+                  granularity={o.granularity}
+                  format={shown.format}
+                  formatAxis={metric === 'orders' ? (v) => i18n.number(v, 1) : moneyShort}
+                  labels={legend}
+                  title={t('dashboard.ov.chartLabel', { title: shown.title, value: shown.format(shown.value), previous: shown.format(shown.previous) })}
+                />
+                <ChartLegend current={legend.current} previous={legend.previous} />
+              </>
+            )}
           </div>
         </section>
 
@@ -479,4 +502,23 @@ function ExpiryText({ value }: { value?: string | null }) {
   const label =
     status.state === 'expired' ? t('inventory.expiry.expired', { count: -status.days }) : status.state === 'today' ? t('inventory.expiry.today') : t('inventory.expiry.soon', { count: status.days })
   return <span className={`sp-badge ${status.state === 'expired' ? 'is-critical' : 'is-warning'}`}>{label}</span>
+}
+
+/** One line comparing today so far with an average day by this time. */
+function Comparison({ shape, comparedDays, orderCount }: { shape: ReturnType<typeof shapeDay>; comparedDays: number; orderCount: number }) {
+  const { t, money, tx } = useI18n()
+  if (orderCount === 0) return <p className="sp-compare">{t('dashboard.noBillsYet')}</p>
+  if (comparedDays === 0) return <p className="sp-compare">{t('dashboard.notEnoughHistory')}</p>
+  const gap = shape.todayTotal - shape.averageByNow
+  const closeEnough = Math.abs(gap) < Math.max(shape.averageByNow * 0.02, 50)
+  const when = shape.nowAt >= shape.end ? t('dashboard.forWholeDay') : t('dashboard.byThisTime')
+  if (closeEnough) return <p className="sp-compare">{t('dashboard.level', { when })}</p>
+  return (
+    <p className="sp-compare">
+      {tx(gap > 0 ? 'dashboard.ahead' : 'dashboard.behind', {
+        amount: <strong className={gap < 0 ? 'sp-loss' : 'sp-gain'}>{money(Math.abs(gap))}</strong>,
+        when,
+      })}
+    </p>
+  )
 }

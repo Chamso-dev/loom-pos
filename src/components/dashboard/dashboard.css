@@ -301,3 +301,150 @@ a.ld-item-name:hover {
   flex-wrap: wrap;
   gap: 12px;
 }
+
+/* The day's thread chart */
+
+.ld-thread {
+  position: relative;
+}
+
+.ld-thread svg {
+  display: block;
+  overflow: visible;
+}
+
+.ld-thread-glow {
+  flood-color: var(--ld-glow);
+}
+
+.ld-thread-fill-top {
+  stop-color: var(--ld-fill-top);
+}
+
+.ld-thread-fill-bottom {
+  stop-color: var(--ld-fill-top);
+  stop-opacity: 0;
+}
+
+.ld-thread-area {
+  stroke: none;
+}
+
+.ld-thread-halo {
+  fill: var(--ld-blue);
+  opacity: 0.18;
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(1.9);
+}
+
+.ld-thread-today {
+  fill: none;
+  stroke: var(--ld-blue);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ld-thread-average {
+  fill: none;
+  stroke: var(--ld-ink-soft);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 5;
+  stroke-linecap: round;
+  opacity: 0.8;
+}
+
+.ld-thread-axis {
+  stroke: var(--ld-thread);
+  stroke-width: 1;
+}
+
+.ld-thread-now {
+  stroke: var(--ld-thread);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.ld-thread-knot {
+  fill: var(--ld-blue);
+  stroke: var(--color-background);
+  stroke-width: 3;
+  paint-order: stroke;
+}
+
+.ld-thread-label {
+  fill: var(--ld-ink-soft);
+  font-size: 13px;
+}
+
+.ld-thread-label-strong {
+  fill: var(--ld-ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ld-thread-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9375rem;
+  color: var(--ld-ink-soft);
+}
+
+.ld-thread-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ld-swatch-line {
+  width: 24px;
+  height: 0;
+  border-top: 4px solid var(--ld-blue);
+  border-radius: 2px;
+}
+
+.ld-swatch-dash {
+  width: 24px;
+  height: 0;
+  border-top: 2px dotted var(--ld-ink-soft);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ld-thread-today {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: ld-draw 1100ms cubic-bezier(0.33, 0, 0.2, 1) 150ms forwards;
+  }
+  .ld-thread-knot,
+  .ld-thread-label-strong {
+    opacity: 0;
+    animation: ld-appear 300ms ease-out 1150ms forwards;
+  }
+  .ld-thread-area {
+    opacity: 0;
+    animation: ld-appear 700ms ease-out 900ms forwards;
+  }
+  /* The one repeating motion on the page: a slow breath around "now". */
+  .ld-thread-halo {
+    opacity: 0;
+    animation: ld-breathe 2.8s ease-out 1.4s infinite;
+  }
+}
+
+@keyframes ld-breathe {
+  0% { opacity: 0.45; transform: scale(1); }
+  100% { opacity: 0; transform: scale(3.2); }
+}
+
+@keyframes ld-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes ld-appear {
+  to { opacity: 1; }
+}

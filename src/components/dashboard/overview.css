@@ -372,6 +372,11 @@
 
 .sp-main-chart { padding: 16px 8px 4px; }
 
+.sp-compare {
+  margin: 0 0 12px;
+  font-size: 0.9375rem;
+}
+
 @media (max-width: 900px) {
   /* Phones and small tablets: the tabs scroll sideways, like the admin app. */
   .sp-tabs {
@@ -485,7 +490,10 @@
 .sp-col.is-active .sp-col-hit,
 .sp-col-hit:focus-visible { fill: var(--sp-hover); }
 
-.sp-col-bar { fill: var(--sp-series); }
+.sp-col-bar {
+  fill: var(--sp-series);
+  pointer-events: none; /* the slot under it takes the pointer */
+}
 .sp-col.is-active .sp-col-bar { filter: brightness(1.12); }
 
 /* Tooltip */
